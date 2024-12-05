@@ -42,7 +42,7 @@ spec:
           valueFrom:
             secretKeyRef:
               key: {{ .Values.benchmarking.mysqlUsername }}
-              name: {{ include "rondb.mysql.usersSecretName" . }}
+              name: {{ $.Values.mysql.credentialsSecretName }}
       volumeMounts:
       - name: mysql-client-configs
         mountPath: {{ $utilsDir }}

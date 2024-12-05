@@ -42,7 +42,7 @@ spec:
           - name: MYSQL_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: {{ include "rondb.mysql.usersSecretName" . }}
+                name: {{ $.Values.mysql.credentialsSecretName }}
                 key: {{ .Values.mysql.exporter.username }}
           - name: MYSQL_HOST
             value: {{ include "rondb.mysqldServiceHostname" . }}

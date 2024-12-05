@@ -134,14 +134,14 @@ spec:
           - name: MYSQL_ROOT_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: {{ include "rondb.mysql.usersSecretName" . }}
+                name: {{ $.Values.mysql.credentialsSecretName }}
                 key: root
           - name: MYSQL_BENCH_USER
             value: {{ .Values.benchmarking.mysqlUsername }}
           - name: MYSQL_BENCH_PASSWORD
             valueFrom:
               secretKeyRef:
-                name: {{ include "rondb.mysql.usersSecretName" . }}
+                name: {{ $.Values.mysql.credentialsSecretName }}
                 key: {{ .Values.benchmarking.mysqlUsername }}
           - name: CONNECTIONS_PER_MYSQLD
             value: {{ .Values.rondbConfig.MySQLdSlotsPerNode | quote}}

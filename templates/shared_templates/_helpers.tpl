@@ -117,7 +117,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
     valueFrom:
       secretKeyRef:
         key: {{ .Values.benchmarking.mysqlUsername }}
-        name: {{ include "rondb.mysql.usersSecretName" . }}
+        name: {{ $.Values.mysql.credentialsSecretName }}
 {{- end }}
 
 {{- define "rondb.arrayToCsv" -}}
