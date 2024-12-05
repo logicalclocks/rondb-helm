@@ -10,14 +10,6 @@
 {{ .image.registry }}/{{ include "image_repository" (dict "image" .image ) }}{{ .image.name }}:{{ .image.tag }}
 {{- end -}}
 
-{{- define "rondb.toolboxImage" -}}
-{{- if and .Values.global .Values.global._hopsworks .Values.global._hopsworks.toolbox }}
-{{- include "hopsworkslib.toolboxImage" (dict "Values" .Values "default" .default) }}
-{{- else -}}
-{{ include "image_address" (dict "image" .Values.images.toolbox) }}
-{{- end -}}
-{{- end -}}
-
 {{- define "rondb.SecurityContext" }}
 {{- if $.Values.securityContext }}
 securityContext: {{ $.Values.securityContext | toYaml | nindent 2 }}

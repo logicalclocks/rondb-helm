@@ -54,7 +54,7 @@ spec:
 {{ include "rondb.waitDatanodes" . | indent 6 }}
 {{- if .Release.IsInstall }}
       - name: wait-single-setup-job
-        image: {{ include "rondb.toolboxImage" (dict "Values" .Values "default" .default "image" .Values.images.toolbox) }}
+        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
         {{ include "hopsworkslib.commonContainerSecurityContext" . | nindent 8 }}
         command:

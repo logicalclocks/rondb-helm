@@ -88,7 +88,7 @@ spec:
             cpu: {{ .Values.resources.requests.cpus.mysqlds }}
             memory: {{ .Values.resources.requests.memory.mysqldMiB }}Mi
       - name: restore-ndbmtd-metadata
-        image: {{ include "rondb.toolboxImage" (dict "Values" .Values "default" .default "image" .Values.images.toolbox) }}
+        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
         command:
         - /bin/bash
@@ -141,7 +141,7 @@ spec:
             cpu: 1
             memory: 200Mi
       - name: restore-ndbmtd-data
-        image: {{ include "rondb.toolboxImage" (dict "Values" .Values "default" .default "image" .Values.images.toolbox) }}
+        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
         command:
         - /bin/bash
@@ -222,7 +222,7 @@ spec:
         This is executed ONLY when setting up the Global replication.
 */}}
       - name: restore-backup-indexes
-        image: {{ include "rondb.toolboxImage" (dict "Values" .Values "default" .default "image" .Values.images.toolbox) }}
+        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
         command:
         - /bin/bash
@@ -258,7 +258,7 @@ spec:
             memory: 200Mi
       containers:
       - name: remove-native-backup
-        image: {{ include "rondb.toolboxImage" (dict "Values" .Values "default" .default "image" .Values.images.toolbox) }}
+        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
         command:
         - /bin/bash

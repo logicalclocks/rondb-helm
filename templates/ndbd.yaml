@@ -151,7 +151,7 @@ spec:
       initContainers:
 {{- if $.Values.restoreFromBackup.backupId }}
       - name: download-backup-to-restore
-        image: {{ include "rondb.toolboxImage" (dict "Values" $.Values "default" $.default "image" $.Values.images.toolbox) }}
+        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         # Setting resources in order to be in QoS class Guaranteed
         resources:
           limits:
@@ -357,7 +357,7 @@ spec:
 {{- if $.Values.backups.enabled -}}
 {{/* This container is used to receive calls to push backups to object storage */}}
       - name: rclone-listener
-        image: {{ include "rondb.toolboxImage" (dict "Values" $.Values "default" $.default "image" $.Values.images.toolbox) }}
+        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" $ | default "IfNotPresent" }}
         {{ include "hopsworkslib.commonContainerSecurityContext" $ | nindent 8 }}
         command:

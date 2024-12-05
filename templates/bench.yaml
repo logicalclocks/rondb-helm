@@ -136,7 +136,7 @@ spec:
         topologyKey: kubernetes.io/hostname
   containers:
   - name: idle-results-fetcher
-    image: {{ include "rondb.toolboxImage" (dict "Values" .Values "default" .default "image" .Values.images.toolbox) }}
+    image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
     imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
     command: ["/bin/sh", "-c", "while [ ! -f /var/run/done ]; do sleep 5; done"]
     resources:

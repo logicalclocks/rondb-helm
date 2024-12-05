@@ -23,7 +23,7 @@ spec:
           initContainers:
 {{ include "rondb.apiInitContainer" . | indent 10 }}
           - name: backup-metadata
-            image: {{ include "rondb.toolboxImage" (dict "Values" .Values "default" .default "image" .Values.images.toolbox) }}
+            image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
             imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
             command:
             - /bin/bash
@@ -84,7 +84,7 @@ spec:
               value: {{ include "rondb.mgmdHostname" . }}:1186
           containers:
           - name: upload-native-backups
-            image: {{ include "rondb.toolboxImage" (dict "Values" .Values "default" .default "image" .Values.images.toolbox) }}
+            image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
             imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
             workingDir: /home/hopsworks
             command:
