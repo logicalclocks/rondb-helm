@@ -41,7 +41,7 @@ spec:
       containers:
       - name: rdrs
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
-        imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
         {{ include "hopsworkslib.commonContainerSecurityContext" . | nindent 8 }}
         command:
           - /bin/bash

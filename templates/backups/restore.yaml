@@ -35,7 +35,7 @@ spec:
 {{ include "rondb.waitDatanodes" . | indent 6 }}
       - name: initialize-mysqld-once
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
-        imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
         {{ include "hopsworkslib.commonContainerSecurityContext" . | nindent 8 }}
         command:
         - /bin/bash
@@ -88,7 +88,7 @@ spec:
             memory: {{ .Values.resources.requests.memory.mysqldMiB }}Mi
       - name: restore-ndbmtd-metadata
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
-        imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
         command:
         - /bin/bash
         - -c
@@ -141,7 +141,7 @@ spec:
             memory: 200Mi
       - name: restore-ndbmtd-data
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
-        imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
         command:
         - /bin/bash
         - -c
@@ -222,7 +222,7 @@ spec:
 */}}
       - name: restore-backup-indexes
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
-        imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
         command:
         - /bin/bash
         - -c
@@ -258,7 +258,7 @@ spec:
       containers:
       - name: remove-native-backup
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
-        imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
         command:
         - /bin/bash
         - -c

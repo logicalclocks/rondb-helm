@@ -57,7 +57,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 - name: wait-datanodes-dependency
   image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
   {{ include "hopsworkslib.commonContainerSecurityContext" . | nindent 2 }}
-  imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
+  imagePullPolicy: {{ $.Values.imagePullPolicy }}
   command:
   - /bin/bash
   - -c
@@ -75,7 +75,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- define "rondb.apiInitContainer" -}}
 - name: cluster-dependency-check
   image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
-  imagePullPolicy: {{ include "hopsworkslib.imagePullPolicy" . | default "IfNotPresent" }}
+  imagePullPolicy: {{ $.Values.imagePullPolicy }}
   command:
   - /bin/bash
   - -c

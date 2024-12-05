@@ -65,6 +65,7 @@ networkPolicy:
     enabled: true
     ingressSelectors: []
 imagePullSecrets: []
+imagePullPolicy: IfNotPresent
 # TODO: Consider using Chart.appVersion for tag instead
 images:
   rondb:
