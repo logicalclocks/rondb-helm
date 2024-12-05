@@ -109,22 +109,22 @@ else
     echo_newline '[K8s Entrypoint MySQLd] Not creating benchmark user. MYSQL_BENCH_USER and MYSQL_BENCH_PASSWORD must be specified to do so.'
 fi
 
-{{- if and .Values.global .Values.global._hopsworks }}
-####################################
-### SETUP HOPSWORKS ROOT USER ###
-####################################
+#################################
+### SETUP USER-SUPPLIED USERS ###
+#################################
 
-GRANT_ON_HOST="%"
+{{- range $.Values.mysql.users }}
 mysql <<EOF
-CREATE USER IF NOT EXISTS '{{ include "hopsworkslib.mysql.hopsworksRootUser" . }}'@'${GRANT_ON_HOST}'
-    IDENTIFIED WITH mysql_native_password
-    BY '${MYSQL_HOPSWORKS_ROOT_PASSWORD}';
-GRANT ALL PRIVILEGES ON *.*
-    TO '{{ include "hopsworkslib.mysql.hopsworksRootUser" . }}'@'${GRANT_ON_HOST}'
-    WITH GRANT OPTION;
-GRANT NDB_STORED_USER ON *.*
-    TO '{{include "hopsworkslib.mysql.hopsworksRootUser" . }}'@'${GRANT_ON_HOST}';
+CREATE USER IF NOT EXISTS '{{ .username }}'@'{{ .host }}' IDENTIFIED BY '${ {{ include "rondb.mysql.getPasswordEnvVarName" .username }} }';
+{{- range .privileges }}
+{{- $database := .database }}
+{{- range .tables }}
+{{- $tableName, $privileges := . }}
+GRANT {{ join $privileges ", " }} ON {{ $database }}.{{ $tableName }} TO '{{ $.username }}'@'{{ $.host }}';
+GRANT NDB_STORED_USER ON {{ $database }}.{{ $tableName }} TO '{{ $.username }}'@'{{ $.host }}';
 FLUSH PRIVILEGES;
+{{- end }}
+{{- end }}
 EOF
 {{- end }}
 

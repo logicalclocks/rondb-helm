@@ -150,12 +150,12 @@ spec:
             secretKeyRef:
               name: {{ $.Values.mysql.credentialsSecretName }}
               key: root
-{{- if and .Values.global .Values.global._hopsworks }}
-        - name: MYSQL_HOPSWORKS_ROOT_PASSWORD
+{{- range $.Values.mysql.users }}
+        - name: {{ include "rondb.mysql.getPasswordEnvVarName" . }}
           valueFrom:
             secretKeyRef:
               name: {{ $.Values.mysql.credentialsSecretName }}
-              key: {{ include "hopsworkslib.mysql.hopsworksRootUser" . }}
+              key: {{ .username }}
 {{- end }}
         - name: MYSQL_BENCH_USER
           value: {{ .Values.benchmarking.mysqlUsername }}

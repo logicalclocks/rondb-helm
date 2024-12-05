@@ -6,3 +6,8 @@
 {{ $v | indent 4 }}
 {{- end }}
 {{- end -}}
+
+
+{{ define "rondb.mysql.getPasswordEnvVarName" -}}
+{{- printf "MYSQL_%s_PASSWORD" (required "Username is required" .username) | upper | replace "-" "_" -}}
+{{- end -}}

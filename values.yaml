@@ -106,6 +106,14 @@ mysql:
     enabled: false
     username: "exporter"
     maxUserConnections: 3
+  users:
+  - username: hopsworksroot
+    host: "%"
+    privileges:
+      - database: "*"
+        tables:
+          - "*": 
+            - "ALL"
 clusterSize:
   activeDataReplicas: 1
   numNodeGroups: 1
