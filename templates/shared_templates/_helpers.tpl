@@ -19,15 +19,11 @@
 {{- end -}}
 
 {{- define "rondb.SecurityContext" }}
-{{- if or (include "hopsworkslib.withoutHopsworks" .) (include "hopsworkslib.securityContextEnabled" .) }}
-# This corresponds to the MySQL user/group which is created in the Dockerfile
-# Beware that a lot of files & directories are created in the RonDB Dockerfile, which belong
-# to the MySQL user/group.
-securityContext:
-  runAsUser: 1000
-  runAsGroup: 1000
-  fsGroup: 1000
-{{- end -}}
+{{- if $.Values.securityContext }}
+securityContext: {{ $.Values.securityContext | toYaml | nindent 2 }}
+{{- else }}
+securityContext: {}
+{{- end }}
 {{- end }}
 
 {{ define "rondb.storageClass.default" -}}
