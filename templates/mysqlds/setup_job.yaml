@@ -23,7 +23,7 @@ spec:
       serviceAccountName: {{ include "rondb.mysqldSetupServiceAccountName" . }}
 {{- end }}
 {{- include "rondb.SecurityContext" $ | indent 6 }}
-{{- include "hopsworkslib.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
 {{- $global := .Values.global }}
 {{- include "hopsworkslib.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.mysqld "global" $global) | indent 6 }}
 {{- include "hopsworkslib.tolerations" (dict "tolerations" .Values.tolerations.mysqld "global" $global) | indent 6 }}

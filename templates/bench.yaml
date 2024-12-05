@@ -14,7 +14,7 @@ spec:
       labels:
         rondbService: {{ include "rondb.labels.rondbService.benchmark" $ }}
     spec:
-      {{- include "hopsworkslib.imagePullSecrets" . | indent 6 }}
+      {{- include "rondb.imagePullSecrets" . | indent 6 }}
       # So we collect errors in case of failures
       restartPolicy: Never
       initContainers:
@@ -122,7 +122,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
 {{- include "rondb.SecurityContext" . | indent 2 }}
-{{- include "hopsworkslib.imagePullSecrets" . | indent 2 }}
+{{- include "rondb.imagePullSecrets" . | indent 2 }}
   affinity:
     # We need to add this in the same node as benchs
     podAffinity:

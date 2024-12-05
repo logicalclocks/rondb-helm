@@ -15,7 +15,7 @@ spec:
       restartPolicy: Never
       serviceAccountName: rondb-backups-sa
 {{- include "rondb.SecurityContext" $ | indent 6 }}
-{{- include "hopsworkslib.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
 {{- $global := .Values.global }}
 {{- include "hopsworkslib.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.backup "global" $global) | indent 6 }}
 {{- include "hopsworkslib.tolerations" (dict "tolerations" .Values.tolerations.backup "global" $global) | indent 6 }}

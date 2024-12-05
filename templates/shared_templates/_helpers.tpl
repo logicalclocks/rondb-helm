@@ -1,3 +1,12 @@
+{{- define "rondb.imagePullSecrets" -}}
+{{- if $.Values.imagePullSecrets }}
+imagePullSecrets:
+{{- range $.Values.imagePullSecrets }}
+  - name: {{ .name }}
+{{- end }}
+{{- end }}
+{{- end }}
+
 # Could be that there is no repository (e.g. docker.io/alpine)
 {{- define "image_repository" -}}
 {{- if or (not .image.repository) (eq .image.repository "") -}}
