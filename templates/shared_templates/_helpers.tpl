@@ -19,9 +19,9 @@ imagePullSecrets:
 {{ .image.registry }}/{{ include "image_repository" (dict "image" .image ) }}{{ .image.name }}:{{ .image.tag }}
 {{- end -}}
 
-{{- define "rondb.SecurityContext" }}
-{{- if $.Values.securityContext }}
-securityContext: {{ $.Values.securityContext | toYaml | nindent 2 }}
+{{- define "rondb.PodSecurityContext" }}
+{{- if $.Values.podSecurityContext }}
+securityContext: {{ $.Values.podSecurityContext | toYaml | nindent 2 }}
 {{- end }}
 {{- end }}
 

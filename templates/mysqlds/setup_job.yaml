@@ -22,7 +22,7 @@ spec:
 {{- if .Values.restoreFromBackup.backupId }}
       serviceAccountName: {{ include "rondb.mysqldSetupServiceAccountName" . }}
 {{- end }}
-{{- include "rondb.SecurityContext" $ | indent 6 }}
+{{- include "rondb.PodSecurityContext" $ | indent 6 }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
 {{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.mysqld) | indent 6 }}
 {{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.mysqld) | indent 6 }}

@@ -14,7 +14,7 @@ spec:
           labels:
             rondbService: {{ include "rondb.labels.rondbService.create-backup" $ }}
         spec:
-{{- include "rondb.SecurityContext" $ | indent 10 }}
+{{- include "rondb.PodSecurityContext" $ | indent 10 }}
 {{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.backup) | indent 6 }}
 {{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.backup) | indent 6 }}
           serviceAccountName: rondb-backups-sa

@@ -32,7 +32,7 @@ spec:
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
 {{- include "rondb.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.mgmd) | indent 6 }}
 {{- include "rondb.tolerations" (dict "tolerations" .Values.tolerations.mgmd) | indent 6 }}
-{{- include "rondb.SecurityContext" $ | indent 6 }}
+{{- include "rondb.PodSecurityContext" $ | indent 6 }}
       {{ if .Values.priorityClass -}}
       priorityClassName: {{ .Values.priorityClass | quote }}
       {{- end  }}

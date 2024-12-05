@@ -121,7 +121,7 @@ metadata:
   name: fetch-bench-results
   namespace: {{ .Release.Namespace }}
 spec:
-{{- include "rondb.SecurityContext" . | indent 2 }}
+{{- include "rondb.PodSecurityContext" . | indent 2 }}
 {{- include "rondb.imagePullSecrets" . | indent 2 }}
   affinity:
     # We need to add this in the same node as benchs
