@@ -112,7 +112,7 @@ mysql:
     privileges:
       - database: "*"
         tables:
-          - "*": 
+          "*":
             - "ALL"
 clusterSize:
   activeDataReplicas: 1

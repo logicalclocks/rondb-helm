@@ -115,13 +115,14 @@ fi
 
 {{- range $.Values.mysql.users }}
 mysql <<EOF
-CREATE USER IF NOT EXISTS '{{ .username }}'@'{{ .host }}' IDENTIFIED BY '${ {{ include "rondb.mysql.getPasswordEnvVarName" .username }} }';
+{{- $username := .username }}
+{{- $host := .host }}
+CREATE USER IF NOT EXISTS '{{ $username }}'@'{{ $host }}' IDENTIFIED BY '${ {{ include "rondb.mysql.getPasswordEnvVarName" . }} }';
 {{- range .privileges }}
 {{- $database := .database }}
-{{- range .tables }}
-{{- $tableName, $privileges := . }}
-GRANT {{ join $privileges ", " }} ON {{ $database }}.{{ $tableName }} TO '{{ $.username }}'@'{{ $.host }}';
-GRANT NDB_STORED_USER ON {{ $database }}.{{ $tableName }} TO '{{ $.username }}'@'{{ $.host }}';
+{{- range $tableName, $privileges := .tables }}
+GRANT {{ $privileges | join ", " }} ON {{ $database }}.{{ $tableName }} TO '{{ $username }}'@'{{ $host }}';
+GRANT NDB_STORED_USER ON {{ $database }}.{{ $tableName }} TO '{{ $username }}'@'{{ $host }}';
 FLUSH PRIVILEGES;
 {{- end }}
 {{- end }}
