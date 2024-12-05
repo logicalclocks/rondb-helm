@@ -173,7 +173,7 @@ spec:
                     --defaults-file=$RONDB_DATA_DIR/my.cnf \
                     ping \
                     --protocol=tcp \
-{{- if and (include "hopsworkslib.withoutHopsworks" .) .Values.meta.mysqld.statefulSet.endToEndTls }}
+{{- if .Values.meta.mysqld.statefulSet.endToEndTls }}
                     --ssl-mode=REQUIRED
 {{- else }}
                     --ssl-mode=PREFERRED
@@ -214,13 +214,9 @@ spec:
       # each pod replica, ensuring that a pod always re-attaches to the same data
       # even if it is rescheduled to a different node.
 {{- if $.Values.meta.mysqld.statefulSet.endToEndTls}}
-{{- if include "hopsworkslib.withoutHopsworks" $ }}
         - name: tls-certificates
           mountPath: /etc/tls
           readOnly: true
-{{- else }}
-{{- fail "We cannot enable endToEnd encryption for MySQLds with Hopsworks" }}
-{{- end }}
 {{- end }}
       volumes:
       - name: mysqld-configs
@@ -232,7 +228,7 @@ spec:
       - name: rclone-configs
         configMap:
           name: rclone-configs
-{{- if and (include "hopsworkslib.withoutHopsworks" .) .Values.meta.mysqld.statefulSet.endToEndTls }}
+{{- if .Values.meta.mysqld.statefulSet.endToEndTls }}
       # This will be created by the cert-manager via the Certificate CRD
       # The MySQLd will therefore not start until the certificate is available
       - name: tls-certificates
@@ -303,7 +299,7 @@ spec:
         averageUtilization: 70
 {{ end }}
 ---
-{{ if and (include "hopsworkslib.withoutHopsworks" .) .Values.meta.mysqld.statefulSet.endToEndTls }}
+{{ if .Values.meta.mysqld.statefulSet.endToEndTls }}
 # Certificates will prompt the cert-manager to create a TLS Secret using the referenced
 # Issuer.
 apiVersion: cert-manager.io/v1

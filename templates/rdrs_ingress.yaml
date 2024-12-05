@@ -44,9 +44,6 @@ spec:
 {{- end }}
 ---
 {{- if $rdrsIngress.tls.enabled }}
-{{- if not (include "hopsworkslib.withoutHopsworks" $) }}
-{{- fail "We cannot enable Ingress encryption with Hopsworks" }}
-{{- else }}
 # This will prompt the cert-manager to create a TLS Secret using the referenced
 # Issuer. Could technically also auto-create a Certificate by annotating the Ingress
 # with `cert-manager.io/issuer` or `cert-manager.io/certificate`. This way, we however
@@ -72,7 +69,6 @@ spec:
   issuerRef:
     name: {{ include "rondb.certManager.issuer" $ }}
     kind: Issuer
-{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

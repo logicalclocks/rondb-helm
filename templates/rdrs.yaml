@@ -65,12 +65,7 @@ spec:
           httpGet:
             path: "0.1.0/ping"
             port: 4406
-{{ if and (.Values.meta.rdrs.statefulSet.endToEndTls)
-    ( or
-        (include "hopsworkslib.withoutHopsworks" .)
-        .Values.global._hopsworks.security.tls.enabled
-    )
-}}
+{{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
             scheme: HTTPS
 {{ else }}
             scheme: HTTP
@@ -83,12 +78,7 @@ spec:
           httpGet:
             path: "0.1.0/ping"
             port: 4406
-{{- if and (.Values.meta.rdrs.statefulSet.endToEndTls)
-    ( or
-        (include "hopsworkslib.withoutHopsworks" .)
-        .Values.global._hopsworks.security.tls.enabled
-    )
-}}
+{{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
             scheme: HTTPS
 {{- else }}
             scheme: HTTP
@@ -107,12 +97,7 @@ spec:
         - name: rdrs-configs
           mountPath: {{ include "rondb.dataDir" $ }}/rest_api.json
           subPath: rest_api.json
-{{- if and (.Values.meta.rdrs.statefulSet.endToEndTls)
-    ( or
-        (include "hopsworkslib.withoutHopsworks" .)
-        .Values.global._hopsworks.security.tls.enabled
-    )
-}}
+{{- if .Values.meta.rdrs.statefulSet.endToEndTls }}
         - name: tls-certificates
           mountPath: "/etc/tls"
           readOnly: true
@@ -122,21 +107,12 @@ spec:
       # even if it is rescheduled to a different node.
       volumes:
 {{- if .Values.meta.rdrs.statefulSet.endToEndTls }}
-    {{ if include "hopsworkslib.withoutHopsworks" . }}
       # This will be created by the cert-manager via the Certificate CRD
       # The RDRS will therefore not start until the certificate is available
       - name: tls-certificates
         secret:
           secretName: {{ include "rondb.tls.rdrs.endToEnd.secretName" $ }}
-          optional: false    
-{{- else if .Values.global._hopsworks.security.tls.enabled }}
-      # This will be created by the certs-operator via the HopsworksCert CRD
-      # The RDRS will therefore not start until the certificate is available
-      - name: tls-certificates
-        secret:
-          secretName: "rdrs-crypto-material"
           optional: false
-    {{- end }}
 {{- end }}
       - name: rdrs-configs
         configMap:
@@ -226,7 +202,6 @@ spec:
 {{ end }}
 ---
 {{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
-    {{ if include "hopsworkslib.withoutHopsworks" . }}
 # Certificates will prompt the cert-manager to create a TLS Secret using the referenced
 # Issuer.
 apiVersion: cert-manager.io/v1
@@ -245,21 +220,6 @@ spec:
   issuerRef:
     name: {{ include "rondb.certManager.issuer" $ }}
     kind: Issuer
----
-    {{ else if .Values.global._hopsworks.security.tls.enabled }}
-# HopsworksCert will prompt the certs-operator to create a Secret using the Hopsworks CA.
-apiVersion: certs.hopsworks.ai/v1alpha1
-kind: HopsworksCert
-metadata:
-  name: rdrs
-  namespace: {{ .Release.Namespace }}
-  annotations:
-    certs.hopsworks.ai/owned-by: service-{{ .Values.meta.rdrs.headlessClusterIpName }}
-spec:
-  commonName: {{ .Values.meta.rdrs.headlessClusterIpName }}.{{ .Release.Namespace }}
-  locality: mysql
----
-    {{ end }}
 {{ end }}
 {{- $globalLB := and .Values.global .Values.global._hopsworks .Values.global._hopsworks.externalLoadBalancers.enabled }}
 {{- if or .Values.meta.rdrs.externalLoadBalancer.enabled $globalLB }}

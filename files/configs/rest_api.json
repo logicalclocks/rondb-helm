@@ -44,25 +44,13 @@
     "Security": {
         "TLS": {
 {{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
-    {{ if include "hopsworkslib.withoutHopsworks" . }}
-    {{- /*
+{{- /*
     Standard filenames in Kubernetes TLS Secrets
-    */}}
+*/}}
             "EnableTLS": true,
             "CertificateFile": "/etc/tls/tls.crt",
             "PrivateKeyFile": "/etc/tls/tls.key",
-    {{ else if .Values.global._hopsworks.security.tls.enabled }}
-    {{- /*
-    The prefix in the filenames come from the "locality" field in the HopsworksCert CRD.
-    */}}
-            "EnableTLS": true,
-            "CertificateFile": "/etc/tls/mysql_certificate_bundle.pem",
-            "PrivateKeyFile": "/etc/tls/mysql_priv.pem",
-            "RootCACertFile": "/etc/tls/hops_root_ca.pem",
-    {{ else }}
-            "EnableTLS": false,
-    {{- end }}
-{{ else }}
+{{- else }}
             "EnableTLS": false,
 {{- end }}
             "RequireAndVerifyClientCert": false

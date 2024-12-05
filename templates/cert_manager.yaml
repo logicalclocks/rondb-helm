@@ -1,4 +1,4 @@
-{{ if and (include "hopsworkslib.withoutHopsworks" .) (or 
+{{ if (or 
     .Values.meta.mysqld.statefulSet.endToEndTls
     .Values.meta.rdrs.statefulSet.endToEndTls
     .Values.meta.rdrs.ingress.tls.enabled) 
