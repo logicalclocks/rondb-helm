@@ -16,12 +16,11 @@ spec:
       serviceAccountName: rondb-backups-sa
 {{- include "rondb.SecurityContext" $ | indent 6 }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
-{{- $global := .Values.global }}
-{{- include "hopsworkslib.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.backup "global" $global) | indent 6 }}
-{{- include "hopsworkslib.tolerations" (dict "tolerations" .Values.tolerations.backup "global" $global) | indent 6 }}
-      {{ if .Values.priorityClass -}}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.backup) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.backup) | indent 6 }}
+{{- if .Values.priorityClass }}
       priorityClassName: {{ .Values.priorityClass | quote }}
-      {{- end  }}
+{{- end }}
       initContainers:
 {{/*
     1. Wait for data nodes to be up

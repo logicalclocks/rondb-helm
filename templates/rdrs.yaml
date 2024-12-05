@@ -18,9 +18,8 @@ spec:
         rondbService: {{ include "rondb.labels.rondbService.rdrs" $ }}
     spec:
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
-{{- $global := .Values.global }}
-{{- include "hopsworkslib.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.rdrs "global" $global) | indent 6 }}
-{{- include "hopsworkslib.tolerations" (dict "tolerations" .Values.tolerations.rdrs "global" $global) | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.rdrs) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.rdrs) | indent 6 }}
       topologySpreadConstraints:
       # Spread across nodes
       - maxSkew: 3

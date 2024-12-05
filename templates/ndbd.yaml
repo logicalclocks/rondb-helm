@@ -88,9 +88,8 @@ spec:
     spec:
 {{- include "rondb.imagePullSecrets" $ | indent 6 }}
 {{- include "rondb.SecurityContext" $ | indent 6 }}
-{{- $global := $.Values.global }}
-{{- include "hopsworkslib.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.ndbmtd "global" $global) | indent 6 }}
-{{- include "hopsworkslib.tolerations" (dict "tolerations" $.Values.tolerations.ndbmtd "global" $global) | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.ndbmtd) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.ndbmtd) | indent 6 }}
       topologySpreadConstraints:
       # Spread across zones
       - maxSkew: 1

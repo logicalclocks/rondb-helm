@@ -22,10 +22,20 @@ imagePullSecrets:
 {{- define "rondb.SecurityContext" }}
 {{- if $.Values.securityContext }}
 securityContext: {{ $.Values.securityContext | toYaml | nindent 2 }}
-{{- else }}
-securityContext: {}
 {{- end }}
 {{- end }}
+
+{{- define "rondb.nodeSelector" -}}
+{{- if and .nodeSelector (not (empty .nodeSelector) )}}
+nodeSelector: {{ .nodeSelector | toYaml | nindent 2 }}
+{{- end }}
+{{- end -}}
+
+{{- define "rondb.tolerations" -}}
+{{- if and .tolerations (not (empty .tolerations) )}}
+tolerations: {{ .tolerations | toYaml | nindent 2 }}
+{{- end }}
+{{- end -}}
 
 {{ define "rondb.storageClass.default" -}}
 {{ if .Values.resources.requests.storage.classes.default  }}

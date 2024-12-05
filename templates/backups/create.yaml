@@ -15,9 +15,8 @@ spec:
             rondbService: {{ include "rondb.labels.rondbService.create-backup" $ }}
         spec:
 {{- include "rondb.SecurityContext" $ | indent 10 }}
-{{- $global := .Values.global }}
-{{- include "hopsworkslib.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.backup "global" $global) | indent 6 }}
-{{- include "hopsworkslib.tolerations" (dict "tolerations" .Values.tolerations.backup "global" $global) | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.backup) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.backup) | indent 6 }}
           serviceAccountName: rondb-backups-sa
           restartPolicy: OnFailure
           initContainers:
