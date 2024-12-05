@@ -54,6 +54,7 @@ isMultiNodeCluster: true
 terminationGracePeriodSeconds: 60
 priorityClass: "ndb-high-priority"
 enableSecurityContext: true
+serviceAccountAnnotations: {}
 networkPolicy:
   mgmds:
     enabled: true

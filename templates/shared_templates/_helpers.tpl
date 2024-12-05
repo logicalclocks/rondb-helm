@@ -56,6 +56,12 @@ tolerations: {{ .tolerations | toYaml | nindent 2 }}
 {{- end }}
 {{- end -}}
 
+{{- define "rondb.serviceAccountAnnotations" -}}
+{{- if $.Values.serviceAccountAnnotations }}
+annotations: {{ $.Values.serviceAccountAnnotations | toYaml | nindent 2 }}
+{{- end }}
+{{- end -}}
+
 {{ define "rondb.storageClass.default" -}}
 {{ if .Values.resources.requests.storage.classes.default  }}
 storageClassName: {{ .Values.resources.requests.storage.classes.default | quote }}

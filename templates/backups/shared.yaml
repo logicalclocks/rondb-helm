@@ -55,10 +55,7 @@ kind: ServiceAccount
 metadata:
   name: rondb-backups-sa
   namespace: {{ .Release.Namespace }}
-{{ include "hopsworkslib.serviceAccountAnnotations" (dict 
-"global" .Values.global  
-"serviceAccount" .Values.backups.serviceAccount
-) | nindent 2 }}
+{{ include "rondb.serviceAccountAnnotations" $ | indent 2 }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
