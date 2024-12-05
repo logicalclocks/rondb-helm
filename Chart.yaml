@@ -33,7 +33,4 @@ deprecated: false
 # annotations:
 #   example: A list of annotations keyed by name (optional).
 
-dependencies:
-- name: hopsworkslib
-  version: 0.1.0
-  repository: file://../hopsworkslib
+dependencies: []
