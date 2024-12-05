@@ -64,6 +64,7 @@ networkPolicy:
   ndbmtds:
     enabled: true
     ingressSelectors: []
+imagePullSecrets: []
 # TODO: Consider using Chart.appVersion for tag instead
 images:
   rondb:
