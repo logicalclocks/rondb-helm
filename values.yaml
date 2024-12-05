@@ -4,8 +4,7 @@ meta:
     headlessClusterIp:
       name: headless-mgmds
       port: 1186
-      annotations:
-        consul.hashicorp.com/service-name: mgmd
+      annotations: {}
   mysqld:
     statefulSet:
       name: mysqlds
@@ -13,9 +12,7 @@ meta:
     service:
       name: mysqld
       port: 3306
-      annotations:
-        consul.hashicorp.com/service-name: mysql
-        consul.hashicorp.com/service-tags: 'onlinefs'
+      annotations: {}
     headlessClusterIp:
       name: headless-mysqlds
       port: 3306
