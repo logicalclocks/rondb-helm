@@ -123,7 +123,7 @@ spec:
       - name: initialize-mysqld
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
-        {{ include "hopsworkslib.commonContainerSecurityContext" . | nindent 8 }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c

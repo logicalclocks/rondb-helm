@@ -204,7 +204,7 @@ spec:
       - name: mgmd-dependency-check
         image: {{ include "image_address" (dict "image" $.Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
-        {{ include "hopsworkslib.commonContainerSecurityContext" $ | nindent 8 }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         # Setting resources in order to be in QoS class Guaranteed
         resources:
           limits:
@@ -264,7 +264,7 @@ spec:
       - name: ndbmtd
         image: {{ include "image_address" (dict "image" $.Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
-        {{ include "hopsworkslib.commonContainerSecurityContext" $ | nindent 8 }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
@@ -358,7 +358,7 @@ spec:
       - name: rclone-listener
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
-        {{ include "hopsworkslib.commonContainerSecurityContext" $ | nindent 8 }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c

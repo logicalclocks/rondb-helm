@@ -20,8 +20,27 @@ imagePullSecrets:
 {{- end -}}
 
 {{- define "rondb.PodSecurityContext" }}
-{{- if $.Values.podSecurityContext }}
-securityContext: {{ $.Values.podSecurityContext | toYaml | nindent 2 }}
+{{- if $.Values.enableSecurityContext }}
+securityContext:
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+{{- end }}
+{{- end }}
+
+{{- define "rondb.ContainerSecurityContext" }}
+{{- if $.Values.enableSecurityContext }}
+securityContext:
+  allowPrivilegeEscalation: false
+  privileged: false
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: null
+  seccompProfile:
+    type: RuntimeDefault
 {{- end }}
 {{- end }}
 
@@ -56,7 +75,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- define "rondb.waitDatanodes" -}}
 - name: wait-datanodes-dependency
   image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
-  {{ include "hopsworkslib.commonContainerSecurityContext" . | nindent 2 }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 2 }}
   imagePullPolicy: {{ $.Values.imagePullPolicy }}
   command:
   - /bin/bash
