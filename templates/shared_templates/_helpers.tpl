@@ -65,8 +65,6 @@ annotations: {{ $.Values.serviceAccountAnnotations | toYaml | nindent 2 }}
 {{ define "rondb.storageClass.default" -}}
 {{ if .Values.resources.requests.storage.classes.default  }}
 storageClassName: {{ .Values.resources.requests.storage.classes.default | quote }}
-{{- else if and .Values.global .Values.global._hopsworks .Values.global._hopsworks.storageClassName }}
-storageClassName: {{  .Values.global._hopsworks.storageClassName | quote }}
 {{ end }}
 {{- end }}
 
