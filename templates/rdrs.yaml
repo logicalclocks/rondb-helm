@@ -220,30 +220,23 @@ spec:
     name: {{ include "rondb.certManager.issuer" $ }}
     kind: Issuer
 {{ end }}
-{{- $globalLB := and .Values.global .Values.global._hopsworks .Values.global._hopsworks.externalLoadBalancers.enabled }}
-{{- if or .Values.meta.rdrs.externalLoadBalancer.enabled $globalLB }}
+{{- if .Values.meta.rdrs.externalLoadBalancer.enabled }}
 # A service for external access
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "hopsworkslib.externalLoadBalancer.rdrs.serviceName" . }}
+  name: {{ .Values.meta.rdrs.externalLoadBalancer.name }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Chart.Name }}
   annotations:
-{{- $annotations := .Values.meta.rdrs.externalLoadBalancer.annotations }}
-{{- if $globalLB }}
-    {{- $annotations = merge $annotations .Values.global._hopsworks.externalLoadBalancers.annotations}}
-{{- end }}
-{{- range $k, $v := $annotations }}
+{{- range $k, $v := .Values.meta.rdrs.externalLoadBalancer.annotations }}
 {{ $k | indent 4 }}: {{ $v | quote }}
 {{- end }}
 spec:
   type: LoadBalancer
 {{- if .Values.meta.rdrs.externalLoadBalancer.class }}
   loadBalancerClass: {{ .Values.meta.rdrs.externalLoadBalancer.class }}
-{{- else if and $globalLB .Values.global._hopsworks.externalLoadBalancers.class }}
-  loadBalancerClass: {{ .Values.global._hopsworks.externalLoadBalancers.class }}
 {{- end }}
   selector:
     rondbService: {{ include "rondb.labels.rondbService.rdrs" $ }}

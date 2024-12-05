@@ -17,6 +17,7 @@ meta:
       name: headless-mysqlds
       port: 3306
     externalLoadBalancer:
+      name: mysqld-external
       enabled: false
       class: null
       annotations: {}
@@ -36,6 +37,7 @@ meta:
       prometheus.io/scheme: "https"
       prometheus.io/scrape: "true"
     externalLoadBalancer:
+      name: rdrs-external
       enabled: false
       class: null
       annotations: {}

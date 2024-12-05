@@ -355,31 +355,23 @@ roleRef:
   kind: Role
   name: {{ include "rondb.mysqldRole" . }}
   apiGroup: rbac.authorization.k8s.io
-{{- $globalLB := and .Values.global .Values.global._hopsworks .Values.global._hopsworks.externalLoadBalancers.enabled }}
-{{- if or .Values.meta.mysqld.externalLoadBalancer.enabled $globalLB }}
+{{- if .Values.meta.mysqld.externalLoadBalancer.enabled }}
 ---
-# A service for external access 
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "hopsworkslib.externalLoadBalancer.mysqld.serviceName" . }}
+  name: {{ .Values.meta.mysqld.externalLoadBalancer.name }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Chart.Name }}
   annotations:
-{{- $annotations := .Values.meta.mysqld.externalLoadBalancer.annotations }}
-{{- if $globalLB }}
-    {{- $annotations = merge $annotations .Values.global._hopsworks.externalLoadBalancers.annotations}}
-{{- end }}
-{{- range $k, $v := $annotations }}
+{{- range $k, $v := .Values.meta.mysqld.externalLoadBalancer.annotations }}
     {{ $k }}: {{ $v | quote }}
 {{- end }}
 spec:
   type: LoadBalancer
 {{- if .Values.meta.mysqld.externalLoadBalancer.class }}
   loadBalancerClass: {{ .Values.meta.mysqld.externalLoadBalancer.class }}
-{{- else if and $globalLB .Values.global._hopsworks.externalLoadBalancers.class }}
-  loadBalancerClass: {{ .Values.global._hopsworks.externalLoadBalancers.class }}
 {{- end }}
   selector:
     rondbService: {{ include "rondb.labels.rondbService.mysqld" $ }}
