@@ -173,11 +173,11 @@ spec:
       protocol: TCP
       port: 5406
       targetPort: 5406
----
 {{ if
     and (gt (.Values.clusterSize.minNumRdrs | int) 0)
     (not (eq .Values.clusterSize.minNumRdrs .Values.clusterSize.maxNumRdrs))
 }}
+---
 # Cannot autosscale from 0 since no metrics to measure
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -199,8 +199,8 @@ spec:
         type: Utilization
         averageUtilization: 70
 {{ end }}
----
 {{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
+---
 # Certificates will prompt the cert-manager to create a TLS Secret using the referenced
 # Issuer.
 apiVersion: cert-manager.io/v1
@@ -221,6 +221,7 @@ spec:
     kind: Issuer
 {{ end }}
 {{- if .Values.meta.rdrs.externalLoadBalancer.enabled }}
+---
 # A service for external access
 apiVersion: v1
 kind: Service

@@ -32,7 +32,7 @@ meta:
     addSysNiceCapability: true
   rdrs:
     statefulSet:
-      endToEndTls: false
+      endToEndTls: true
     annotations: *dummyAnnotations
     externalLoadBalancer:
       enabled: true
