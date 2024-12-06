@@ -46,7 +46,7 @@ jobs:
         - uses: docker://ghcr.io/yannh/kubeconform:latest
           with:
             entrypoint: '/kubeconform'
-            args: "-summary -strict -ignore-missing-schemas $TEMPLATE_OUT_DIR"
+            args: "-summary -strict -ignore-missing-schemas ${{ env.TEMPLATE_OUT_DIR }}"
 
         - name: Upload templates
           if: always()
