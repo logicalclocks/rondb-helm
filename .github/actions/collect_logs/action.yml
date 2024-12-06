@@ -30,7 +30,7 @@ runs:
 
     - name: Save events
       shell: bash
-      run: kubectl get events -n ${{ inputs.namespace }} --sort-by='.metadata.creationTimestamp' > $k8s_logs/all_events.txt
+      run: kubectl get events -n ${{ inputs.namespace }} --sort-by='.metadata.creationTimestamp' > k8s_logs/all_events.txt
 
     - name: Describe top
       shell: bash
