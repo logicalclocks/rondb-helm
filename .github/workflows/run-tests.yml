@@ -79,7 +79,7 @@ jobs:
       - name: Create RonDB cluster
         run: |
           helm upgrade -i $RONDB_CLUSTER_NAME \
-            --namespace=$RONDB_NAMESPACE \
+            --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/small.yaml \
             --set .benchmarking.enabled=true \
             .
