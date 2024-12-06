@@ -48,7 +48,7 @@ runs:
         mkdir -p k8s_logs/deployments
         kubectl get deployments -n ${{ inputs.namespace }} -o wide
         for dep in $(kubectl get deployments -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe deployment -n ${{ inputs.namespace }} $dep > k8s_logs/deployments/$dep.txt || echo "Failed to log Deployment $dep" >&2
+          kubectl describe deployment -n ${{ inputs.namespace }} $dep > k8s_logs/deployments/$dep.txt || true
         done
 
     - name: Describe StatefulSets
