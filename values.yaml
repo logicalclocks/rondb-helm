@@ -54,7 +54,7 @@ meta:
 staticCpuManagerPolicy: false
 isMultiNodeCluster: true
 terminationGracePeriodSeconds: 60
-priorityClass: "ndb-high-priority"
+priorityClass: rondb-high-priority
 enableSecurityContext: true
 serviceAccountAnnotations: {}
 networkPolicy:
