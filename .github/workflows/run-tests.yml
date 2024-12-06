@@ -41,6 +41,8 @@ jobs:
               --values values/dummy_lint.yaml \
               --output-dir $TEMPLATE_OUT_DIR
 
+        - run: ls -l $TEMPLATE_OUT_DIR/**
+
         - uses: docker://ghcr.io/yannh/kubeconform:latest
           with:
             entrypoint: '/kubeconform'
