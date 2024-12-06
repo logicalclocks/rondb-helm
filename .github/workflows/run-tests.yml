@@ -61,7 +61,6 @@ jobs:
     runs-on: [self-hosted, ARM64]
     env:
       K8S_NAMESPACE: rondb-helm-${{ github.run_id }}-${{ github.run_attempt }}
-      BENCH_DIR: /home/mysql/benchmarks
       RONDB_CLUSTER_NAME: my-rondb
 
     steps:

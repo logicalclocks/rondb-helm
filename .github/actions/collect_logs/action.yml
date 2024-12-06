@@ -6,7 +6,7 @@ inputs:
     required: true
   bench_dir:
     description: 'Directory where the benchmarking results are stored'
-    default: /srv/hops/sysbench
+    default: /home/mysql/benchmarks
     required: true
   local_bench_dir:
     description: 'Local directory to store the benchmarking results'
