@@ -1,7 +1,10 @@
 {{ if (or 
     .Values.meta.mysqld.statefulSet.endToEndTls
     .Values.meta.rdrs.statefulSet.endToEndTls
-    .Values.meta.rdrs.ingress.tls.enabled) 
+    (and 
+        .Values.meta.rdrs.ingress.enabled
+        .Values.meta.rdrs.ingress.tls.enabled
+    )) 
 }}
 # We don't use the cert-manager in a Hopsworks environment
 # Can also reference a base TLS Secret (air-gapped environment) or Let's Encrypt
