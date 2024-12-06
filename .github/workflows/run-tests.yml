@@ -81,9 +81,10 @@ jobs:
           helm upgrade -i $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/small.yaml \
-            --set .benchmarking.enabled=true \
-            --set .terminationGracePeriodSeconds=10 \
+            --set benchmarking.enabled=true \
+            --set terminationGracePeriodSeconds=10 \
             .
+          sleep 10
 
       - name: Waiting for benchmark job to complete
         shell: bash
