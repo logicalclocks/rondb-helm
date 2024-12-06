@@ -19,7 +19,6 @@ jobs:
       runs-on: ubuntu-latest
       env:
         TEMPLATE_OUT_DIR: template_out
-        RONDB_CLUSTER_NAME: my-rondb
       steps:
         - name: Checkout main repo
           uses: actions/checkout@v4
