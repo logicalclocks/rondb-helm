@@ -114,10 +114,11 @@ fi
 #################################
 
 {{- range $.Values.mysql.users }}
+MY_PW=${{ include "rondb.mysql.getPasswordEnvVarName" . }}
 mysql <<EOF
 {{- $username := .username }}
 {{- $host := .host }}
-CREATE USER IF NOT EXISTS '{{ $username }}'@'{{ $host }}' IDENTIFIED BY '${ {{ include "rondb.mysql.getPasswordEnvVarName" . }} }';
+CREATE USER IF NOT EXISTS '{{ $username }}'@'{{ $host }}' IDENTIFIED BY '${MY_PW}';
 {{- range .privileges }}
 {{- $database := .database }}
 {{- range $tableName, $privileges := .tables }}
