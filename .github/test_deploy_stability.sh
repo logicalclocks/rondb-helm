@@ -22,7 +22,7 @@ while true; do
         OK_SECONDS=$((OK_SECONDS + SLEEP_SECONDS))
         echo "All pods have been ready for $OK_SECONDS seconds now"
         OK_MINUTES=$((OK_SECONDS / 60))
-        if [ $OK_MINUTES -gte $MIN_STABLE_MINUTES ]; then
+        if [ $OK_MINUTES -ge $MIN_STABLE_MINUTES ]; then
             echo "The cluster seems stable"
             exit 0
         fi
