@@ -137,6 +137,10 @@ jobs:
         if: always()
         run: helm delete --namespace=$K8S_NAMESPACE $RONDB_CLUSTER_NAME
 
+      - if: always()
+        name: Delete Helm test Pods
+        run: kubectl delete pods --all --namespace $K8S_NAMESPACE
+
       - name: Wait for resource deletions
         if: always()
         timeout-minutes: 2
