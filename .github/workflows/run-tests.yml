@@ -1,8 +1,6 @@
 name: run-tests
 
 on:
-  # Launch on any push
-  push:
   pull_request:
     # Not running on "closed" - that is taken care of by "push" (if merged)
     types: [opened, synchronize, reopened]
