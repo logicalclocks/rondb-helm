@@ -54,3 +54,94 @@ jobs:
             name: templates
             path: /tmp/hopsworks-${{ github.ref }}
             retention-days: 5
+
+  test-deploy:
+    needs: [lint-test]
+    if: github.repository == 'logicalclocks/rondb-helm'
+    runs-on: [self-hosted, ARM64]
+    env:
+      K8S_NAMESPACE: rondb-helm-${{ github.run_id }}-${{ github.run_attempt }}
+      BENCH_DIR: /home/mysql/benchmarks
+      RONDB_CLUSTER_NAME: my-rondb
+
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - run: nproc
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - run: docker --version
+      - run: docker run --rm hello-world
+
+      - name: Check kubectl (should be Minikube)
+        run: |
+          kubectl version --client
+          kubectl get nodes
+
+      - name: Create namespace
+        run: kubectl create namespace $K8S_NAMESPACE
+
+      - name: Create RonDB cluster
+        run: |
+          helm upgrade -i $RONDB_CLUSTER_NAME \
+            --namespace=$RONDB_NAMESPACE \
+            --values ./values/minikube/small.yaml \
+            --set .benchmarking.enabled=true \
+            .
+
+      - name: Waiting for benchmark job to complete
+        shell: bash
+        run: |
+          kubectl wait --for=condition=complete --timeout=400s -n $K8S_NAMESPACE job/benchs &
+          JOB_COMPLETION_PID=$!
+
+          set +e
+          while kill -0 $JOB_COMPLETION_PID 2> /dev/null; do
+            echo "$(date) Benchmark job is still running..."
+            sleep 20
+            kubectl get pods -o wide -n $K8S_NAMESPACE
+          done
+          set -e
+
+          wait $JOB_COMPLETION_PID
+          exit $?
+
+      - name: Test deploy stability
+        shell: bash
+        timeout-minutes: 6
+        env:
+          SLEEP_SECONDS: 10
+          MIN_STABLE_MINUTES: 1
+        run: bash .github/test_deploy_stability.sh
+
+      - name: Collect logs
+        if: always()
+        uses: ./.github/actions/collect_logs
+        with:
+          namespace: ${{ env.K8S_NAMESPACE }}
+
+      - name: Delete RonDB Helmchart
+        if: always()
+        run: helm delete --namespace=$K8S_NAMESPACE $RONDB_CLUSTER_NAME
+
+      - name: Wait for resource deletions
+        if: always()
+        timeout-minutes: 2
+        run: |
+          echo -e "Waiting for resources in namespace $K8S_NAMESPACE to be deleted...";
+          while true; do
+            RESOURCES=$(kubectl get all --namespace $K8S_NAMESPACE --no-headers)
+            if [ -z "$RESOURCES" ]; then
+              echo "All resources deleted.";
+              exit 0;
+            fi
+            echo -e "\nRemaining resources in namespace $K8S_NAMESPACE:\n"
+            echo "$RESOURCES"
+            sleep 3;
+          done
+
+      - if: always()
+        run: kubectl delete namespace $K8S_NAMESPACE --timeout=50s || true
