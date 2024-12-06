@@ -82,6 +82,7 @@ jobs:
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/small.yaml \
             --set .benchmarking.enabled=true \
+            --set .terminationGracePeriodSeconds=10 \
             .
 
       - name: Waiting for benchmark job to complete
