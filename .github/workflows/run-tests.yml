@@ -86,6 +86,8 @@ jobs:
             .
           sleep 10
 
+      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=generate-data
+
       - name: Waiting for benchmark job to complete
         shell: bash
         run: |
@@ -110,6 +112,20 @@ jobs:
           SLEEP_SECONDS: 10
           MIN_STABLE_MINUTES: 1
         run: bash .github/test_deploy_stability.sh
+
+      - name: Terminate RonDB data node
+        run: kubectl -n $RONDB_NAMESPACE delete pod node-group-0-0 --force
+
+      - name: Test deploy stability again
+        shell: bash
+        timeout-minutes: 6
+        env:
+          SLEEP_SECONDS: 10
+          MIN_STABLE_MINUTES: 1
+        run: bash .github/test_deploy_stability.sh
+
+      # Check that data has been created correctly
+      - run: helm test -n $RONDB_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
 
       - name: Collect logs
         if: always()
