@@ -17,7 +17,9 @@ jobs:
   lint-test:
       name: Lint helm charts
       runs-on: ubuntu-latest
-
+      env:
+        TEMPLATE_OUT_DIR: template_out
+        RONDB_CLUSTER_NAME: my-rondb
       steps:
         - name: Checkout main repo
           uses: actions/checkout@v4
@@ -38,19 +40,19 @@ jobs:
               --debug \
               --dry-run \
               --values values/dummy_lint.yaml \
-              --output-dir /tmp/hopsworks-${{ github.ref }}
+              --output-dir $TEMPLATE_OUT_DIR
 
         - uses: docker://ghcr.io/yannh/kubeconform:latest
           with:
             entrypoint: '/kubeconform'
-            args: "-summary -strict -ignore-missing-schemas /tmp/hopsworks-${{ github.ref }}"
+            args: "-summary -strict -ignore-missing-schemas $TEMPLATE_OUT_DIR"
 
         - name: Upload templates
           if: always()
           uses: actions/upload-artifact@v4
           with:
             name: templates
-            path: /tmp/hopsworks-${{ github.ref }}
+            path: ${{ env.TEMPLATE_OUT_DIR }}
             retention-days: 5
 
   test-deploy:
