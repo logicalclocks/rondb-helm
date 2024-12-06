@@ -126,7 +126,7 @@ runs:
       run: |
         set +e
         kubectl exec \
-          bench-query-pod \
+          fetch-bench-results \
           -c idle-results-fetcher \
           -n ${{ inputs.namespace }} \
           -- cat ${{ inputs.bench_dir }}/sysbench/final_result.txt
@@ -136,7 +136,7 @@ runs:
       run: |
         mkdir -p ${{ inputs.local_bench_dir }}
         kubectl cp \
-          ${{ inputs.namespace }}/bench-query-pod:${{ inputs.bench_dir }} \
+          ${{ inputs.namespace }}/fetch-bench-results:${{ inputs.bench_dir }} \
           -c idle-results-fetcher \
           ${{ inputs.local_bench_dir }}
 
