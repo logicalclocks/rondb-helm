@@ -6,8 +6,8 @@
 # DUMMY VALUES #
 ################
 dummyAnnotation: &dummyAnnotations
-  isFoo: yes
-  isBar: no
+  isFoo: perhaps
+  isBar: maybe
 dummyLabel: &dummyLabels
   dummy: "dummyLabel"
 dummyStringArray: &dummyStringArray
