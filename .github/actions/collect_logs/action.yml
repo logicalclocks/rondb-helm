@@ -1,0 +1,124 @@
+name: 'Collect Kubernetes cluster logs'
+description: 'Reusable action to collect logs and any other relevant information from a Kubernetes cluster'
+inputs:
+  namespace:
+    description: 'Namespace to collect logs from'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set config
+      shell: bash
+      run: mkdir -p k8s_logs
+
+    - name: List Pods
+      shell: bash
+      run: kubectl get pods -n "${{ inputs.namespace }}" -o wide > k8s_logs/pods.txt
+
+    - name: List all
+      shell: bash
+      run: kubectl get all -n "${{ inputs.namespace }}" -o wide > k8s_logs/all.txt
+
+    - name: Save events
+      shell: bash
+      run: |
+        kubectl get events -n "${{ inputs.namespace }}" \
+        --field-selector involvedObject.kind=Pod | \
+        grep -E 'Pulling|Pulled' > k8s_logs/events.txt || \
+        echo "Failed to get events" >&2
+
+    - name: Describe top
+      shell: bash
+      run: kubectl top pods -n "${{ inputs.namespace }}" > k8s_logs/top.txt
+
+    - name: Get nodes
+      shell: bash
+      run: |
+        kubectl get nodes -o wide > k8s_logs/nodes.txt
+        kubectl top nodes >> k8s_logs/nodes.txt
+
+    - name: Describe Deployments
+      shell: bash
+      run: |
+        mkdir -p k8s_logs/deployments
+        namespace="${{ inputs.namespace }}"
+        kubectl get deployments -n $namespace -o wide
+        for dep in $(kubectl get deployments -n $namespace -o jsonpath='{.items[*].metadata.name}'); do
+          kubectl describe deployment -n $namespace $dep > k8s_logs/deployments/$dep.txt || echo "Failed to log Deployment $dep" >&2
+        done
+
+    - name: Describe StatefulSets
+      shell: bash
+      run: |
+        mkdir -p k8s_logs/statefulsets
+        namespace="${{ inputs.namespace }}"
+        kubectl get statefulsets -n $namespace -o wide
+        mkdir -p k8s_logs/statefulsets
+        for sts in $(kubectl get statefulsets -n $namespace -o jsonpath='{.items[*].metadata.name}'); do
+          kubectl describe statefulset -n $namespace $sts > k8s_logs/statefulsets/$sts.txt || echo "Failed to log StatefulSet $sts" >&2
+        done
+
+    - name: Pod logs
+      shell: bash
+      run: |
+        mkdir -p k8s_logs/pods/logs
+        namespace="${{ inputs.namespace }}"
+        for pod in $(kubectl get pods -n $namespace -o jsonpath='{.items[*].metadata.name}'); do
+          mkdir -p k8s_logs/pods/logs/$pod
+          for container in $(kubectl get pods -n $namespace $pod -o jsonpath='{.spec.containers[*].name}'); do
+            kubectl logs -n $namespace $pod $container > k8s_logs/pods/logs/$pod/$container.log || true
+            kubectl logs -n $namespace $pod $container --previous > k8s_logs/pods/logs/$pod/$container.previous.log || true
+          done
+        done
+
+    - name: Describe Pods
+      shell: bash
+      run: |
+        mkdir -p k8s_logs/pods/describe
+        namespace="${{ inputs.namespace }}"
+        for pod in $(kubectl get pods -n $namespace -o jsonpath='{.items[*].metadata.name}'); do
+          kubectl describe pod -n $namespace $pod > k8s_logs/pods/describe/$pod.txt || true
+        done
+
+    - name: PVC logs
+      shell: bash
+      run: |
+        mkdir -p k8s_logs/pvc
+        namespace="${{ inputs.namespace }}"
+        for p in $(kubectl get pvc -n $namespace -o jsonpath='{.items[*].metadata.name}'); do
+          kubectl describe pvc -n $namespace $p > k8s_logs/pvc/$p.txt || true
+        done
+
+    - name: PV logs
+      shell: bash
+      run: |
+        mkdir -p k8s_logs/pv
+        namespace="${{ inputs.namespace }}"
+        for p in $(kubectl get pv -n $namespace -o jsonpath='{.items[*].metadata.name}'); do
+          kubectl describe pv -n $namespace $p > k8s_logs/pv/$p.txt || true
+        done
+
+    - name: CRDs definitions
+      shell: bash
+      run: kubectl get crd -A > k8s_logs/crds.txt
+
+    - name: Save artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: k8s_logs
+        path: k8s_logs
+        if-no-files-found: error
+
+    - name: Print MGMd cluster.log
+      if: always()
+      shell: bash
+      run: kubectl exec mgmds-0 --namespace "${{ inputs.namespace }}" -c mgmd -- cat /srv/hops/mysql-cluster/log/cluster.log > cluster.log
+
+    - name: Save cluster.log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cluster.log
+        path: cluster.log
+        if-no-files-found: error
