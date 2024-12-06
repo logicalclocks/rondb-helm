@@ -80,7 +80,7 @@ jobs:
         run: |
           helm upgrade -i $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
-            --values ./values/minikube/small.yaml \
+            --values ./values/minikube/mini.yaml \
             --set benchmarking.enabled=true \
             --set terminationGracePeriodSeconds=10 \
             .
