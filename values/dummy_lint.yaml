@@ -1,0 +1,131 @@
+#####################################################
+# DO NOT USE THIS FILE; IT IS JUST FOR TEST-LINTING
+# - We simply enable everything here
+#####################################################
+################
+# DUMMY VALUES #
+################
+dummyAnnotation: &dummyAnnotations
+  isFoo: yes
+  isBar: no
+dummyLabel: &dummyLabels
+  dummy: "dummyLabel"
+dummyStringArray: &dummyStringArray
+  - dummy
+  - yummy
+#################
+# ACTUAL VALUES #
+#################
+meta:
+  mgmd:
+    headlessClusterIp:
+      annotations: *dummyAnnotations
+  mysqld:
+    statefulSet:
+      endToEndTls: true
+    service:
+      annotations: *dummyAnnotations
+    externalLoadBalancer:
+      enabled: true
+      class: abc
+      annotations: *dummyAnnotations
+    addSysNiceCapability: true
+  rdrs:
+    statefulSet:
+      endToEndTls: false
+    annotations: *dummyAnnotations
+    externalLoadBalancer:
+      enabled: true
+      class: abc
+      annotations: *dummyAnnotations
+    ingress:
+      enabled: true
+      class: nginx
+      useDefaultBackend: true
+      dnsNames: *dummyStringArray
+      tls:
+        enabled: true
+        ipAddresses:
+        - 127.0.0.1
+staticCpuManagerPolicy: true
+isMultiNodeCluster: true
+enableSecurityContext: true
+serviceAccountAnnotations: *dummyAnnotations
+networkPolicy:
+  mgmds:
+    enabled: true
+    ingressSelectors:
+    - podSelector:
+        matchLabels: *dummyLabels
+  ndbmtds:
+    enabled: true
+    ingressSelectors:
+    - podSelector:
+        matchLabels: *dummyLabels
+imagePullSecrets:
+- name: secret
+mysql:
+  sqlInitContent: 
+    ycsbTable: |
+      CREATE TABLE IF NOT EXISTS ycsb.usertable (
+          YCSB_KEY VARCHAR(255) PRIMARY KEY,
+          FIELD0 varbinary(4096)
+      );
+  exporter:
+    enabled: true
+  users:
+  - username: hopsworksroot
+    host: "%"
+    privileges:
+      - database: "*"
+        tables:
+          "table1": *dummyStringArray
+resources:
+  requests:
+    storage:
+      classes:
+        default: bla
+        diskColumns: foo
+rondbConfig:
+  InitialTablespaceSizeGiB: 1
+rdrs:
+  externalMetadataCluster:
+    mgmds:
+    - ip: 1.1.1.1
+      port: 1186
+tls:
+  caSecretName: some-secret
+benchmarking:
+  enabled: true
+  sysbench:
+    minimizeBandwidth: true
+restoreFromBackup:
+  backupId: 1
+  objectStorageProvider: s3
+  excludeDatabases: *dummyStringArray
+  excludeTables: *dummyStringArray
+  s3:
+    endpoint: rondb.com
+backups:
+  enabled: true
+  s3:
+    endpoint: rondb.com
+
+nodeSelector:
+  mysqld: &nodeSelector
+    node: RonDB
+  ndbmtd: *nodeSelector
+  mgmd: *nodeSelector
+  rdrs: *nodeSelector
+  backup: *nodeSelector
+
+tolerations:
+  mysqld: &tolerations
+  - key: "node"
+    operator: "Equal"
+    value: "RonDB"
+    effect: "NoSchedule" 
+  ndbmtd: *tolerations
+  mgmd: *tolerations
+  rdrs: *tolerations
+  backup: *tolerations

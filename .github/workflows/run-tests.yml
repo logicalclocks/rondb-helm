@@ -1,0 +1,56 @@
+name: run-tests
+
+on:
+  # Launch on any push
+  push:
+  pull_request:
+    # Not running on "closed" - that is taken care of by "push" (if merged)
+    types: [opened, synchronize, reopened]
+
+# This cancels any previous job from the same PR if the PR has been updated.
+# This cancel-in-progress only works per PR (thus, two different PRs wont be cancelled).
+# Concurrency is not an issue because the self-hosted worker will anyways only run one
+# job at a time from one repo.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+      name: Lint helm charts
+      runs-on: ubuntu-latest
+
+      steps:
+        - name: Checkout main repo
+          uses: actions/checkout@v4
+
+        - name: Set up Helm
+          uses: azure/setup-helm@v4
+          with:
+              version: '3.13.3'
+
+        - run: helm lint --strict .
+        - run: helm lint --strict --values values/dummy_lint.yaml .
+
+        - name: Helm template
+          if: always()
+          run: |
+            helm template . \
+              --include-crds \
+              --debug \
+              --dry-run \
+              --values values/dummy_lint.yaml \
+              --output-dir /tmp/hopsworks-${{ github.ref }}
+
+        - uses: docker://ghcr.io/yannh/kubeconform:latest
+          with:
+            entrypoint: '/kubeconform'
+            args: "-summary -strict -ignore-missing-schemas /tmp/hopsworks-${{ github.ref }}"
+
+        - name: Upload templates
+          if: always()
+          uses: actions/upload-artifact@v4
+          with:
+            name: templates
+            path: /tmp/hopsworks-${{ github.ref }}
+            retention-days: 5
