@@ -56,10 +56,4 @@
         --set operator.replicaCount=1
 
     helm repo add minio https://operator.min.io/
-    helm install --namespace tenant-ns \
-        --create-namespace tenant minio/tenant \
-        --set "tenant.pools[0].name=my-pool" \
-        --set "tenant.pools[0].servers=1" \
-        --set "tenant.pools[0].volumesPerServer=1" \
-        --set "tenant.pools[0].size=4Gi"
     ```
