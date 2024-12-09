@@ -95,7 +95,7 @@ jobs:
         run: |
           kubectl create secret generic $BUCKET_SECRET_NAME \
               --namespace=$K8S_NAMESPACE \
-              --from-literal "key_id=${MINIO_ACCESS_KEY} \
+              --from-literal "key_id=${MINIO_ACCESS_KEY}" \
               --from-literal "access_key=${MINIO_SECRET_KEY}"
 
       # TODO: Run benchmarks as well later
