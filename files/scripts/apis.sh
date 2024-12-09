@@ -16,8 +16,8 @@ while true; do
         --protocol=tcp \
         --port=3306 \
         --connect-timeout=2 \
-        --user=$MYSQL_BENCH_USER \
-        -p"$MYSQL_BENCH_PASSWORD" \
+        --user=$MYSQL_CLUSTER_USER \
+        -p"$MYSQL_CLUSTER_PASSWORD" \
         -e "SELECT 1;"
 
     if [ $? -eq 0 ]; then

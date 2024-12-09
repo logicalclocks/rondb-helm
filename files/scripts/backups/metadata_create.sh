@@ -14,6 +14,16 @@ MYSQL_AUTH="--user=root \
 ### BACKUP USERS ###
 ####################
 
+## WHY BACKUP USERS?
+#
+# By default, ndb_restore does not support restoring users.
+# One could activate it - however, if one wants to overwrite user passwords,
+# it can be helpful to restore users after one has initialized new user
+# passwords.
+
+# Excluding the users is not absolutely necessary, since we sed IF NOT EXISTS
+# into the restore SQL files.
+
 # Backup users; match all database names
 mysqlpump \
     $MYSQL_AUTH \
@@ -26,8 +36,12 @@ mysqlpump \
 ### BACKUP DATABASES ###
 ########################
 
+{{ $databases := (include "rondb.databases.benchmarking" $) | fromYamlArray -}}
+HELM_DATABASES=({{ join " " $databases }})
+
 # Get all databases
 BACKUP_BLACKLIST_DATABASES=('mysql' 'information_schema' 'performance_schema' 'sys' 'ndbinfo' 'users')
+BACKUP_BLACKLIST_DATABASES+=("${HELM_DATABASES[@]}")
 blacklist_sql="'$(
     IFS=','
     echo "${BACKUP_BLACKLIST_DATABASES[*]}" | sed "s/,/', '/g"

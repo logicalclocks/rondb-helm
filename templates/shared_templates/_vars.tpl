@@ -20,14 +20,14 @@ backupRemote
 
 {{- define "rondb.mysqldServiceHostname" -}}
 {{ printf "%s.%s.svc.cluster.local"
-        $.Values.meta.mysqld.service.name
+        $.Values.meta.mysqld.clusterIp.name
         $.Release.Namespace
 }}
 {{- end -}}
 
 {{- define "rondb.rdrsServiceHostname" -}}
 {{ printf "%s.%s.svc.cluster.local"
-        $.Values.meta.rdrs.serviceName
+        $.Values.meta.rdrs.clusterIpName
         $.Release.Namespace
 }}
 {{- end -}}
@@ -102,6 +102,18 @@ setup-mysqld
 mysqld
 {{- end -}}
 
+{{- define "rondb.labels.rondbService.binlog-servers" -}}
+binlog-server
+{{- end -}}
+
+{{- define "rondb.labels.rondbService.replica-appliers" -}}
+replica-applier
+{{- end -}}
+
+{{- define "rondb.labels.rondbService.mysqld-exporter" -}}
+mysqld-exporter
+{{- end -}}
+
 {{- define "rondb.labels.rondbService.rdrs" -}}
 rdrs
 {{- end -}}
@@ -118,20 +130,18 @@ create-backup
 restore-backup
 {{- end -}}
 
-{{- define "rondb.labels.rondbService.mysqld-exporter" -}}
-mysqld-exporter
-{{- end -}}
-
 {{- define "rondb.labels.rondbService.all" -}}
 - {{ include "rondb.labels.rondbService.mgmd" $ }}
 - {{ include "rondb.labels.rondbService.ndbmtd" $ }}
 - {{ include "rondb.labels.rondbService.setup-mysqld" $ }}
 - {{ include "rondb.labels.rondbService.mysqld" $ }}
+- {{ include "rondb.labels.rondbService.binlog-servers" $ }}
+- {{ include "rondb.labels.rondbService.replica-appliers" $ }}
+- {{ include "rondb.labels.rondbService.mysqld-exporter" $ }}
 - {{ include "rondb.labels.rondbService.rdrs" $ }}
 - {{ include "rondb.labels.rondbService.benchmark" $ }}
 - {{ include "rondb.labels.rondbService.create-backup" $ }}
 - {{ include "rondb.labels.rondbService.restore-backup" $ }}
-- {{ include "rondb.labels.rondbService.mysqld-exporter" $ }}
 {{- end -}}
 
 #######

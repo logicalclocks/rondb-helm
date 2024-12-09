@@ -1,5 +1,7 @@
 {{ if (or 
     .Values.meta.mysqld.statefulSet.endToEndTls
+    .Values.meta.binlogServers.statefulSet.endToEndTls
+    .Values.meta.replicaAppliers.statefulSet.endToEndTls
     .Values.meta.rdrs.statefulSet.endToEndTls
     (and 
         .Values.meta.rdrs.ingress.enabled

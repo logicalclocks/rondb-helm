@@ -9,7 +9,7 @@ meta:
     statefulSet:
       name: mysqlds
       endToEndTls: false
-    service:
+    clusterIp:
       name: mysqld
       port: 3306
       annotations: {}
@@ -21,14 +21,36 @@ meta:
       enabled: false
       class: null
       annotations: {}
+      port: 3306
     exporter:
       metricsPort: 9104
     addSysNiceCapability: true
+  binlogServers:
+    statefulSet:
+      name: mysqld-binlog-servers
+      endToEndTls: false
+    headlessClusterIp:
+      name: headless-binlog-servers
+      port: 3306
+    # One LoadBalancer per binlog server; Creating an Ingress per binlog server is difficult
+    externalLoadBalancers:
+      namePrefix: binlog-server
+      enabled: true
+      class: null
+      annotations: {}
+      port: 3306
+  replicaAppliers:
+    statefulSet:
+      name: mysqld-replica-appliers
+      endToEndTls: false
+    headlessClusterIp:
+      name: headless-replica-appliers
+      port: 3306
   rdrs:
     statefulSet:
       name: rdrs
       endToEndTls: false
-    serviceName: rdrs
+    clusterIpName: rdrs
     headlessClusterIpName: rdrs-cluster-ip
     annotations:
       consul.hashicorp.com/service-name: rdrs
@@ -89,19 +111,10 @@ images:
     name: mysqld_exporter
     tag: 0.11.2
 mysql:
-  sqlInitContent: 
-    ycsbTable: |
-      CREATE TABLE IF NOT EXISTS ycsb.usertable (
-          YCSB_KEY VARCHAR(255) PRIMARY KEY,
-          FIELD0 varbinary(4096)
-      );
-    # This is for Helm tests
-    exampleDbAccess: |
-      GRANT ALL PRIVILEGES ON exampledb.* TO 'bench'@'%';
-      -- Save user in RonDB (to access them on any MySQLd)
-      GRANT NDB_STORED_USER ON *.* TO 'bench'@'%';
-      FLUSH PRIVILEGES;
   credentialsSecretName: "mysql-passwords"
+  clusterUser: "helm"
+  sqlInitContent: {}
+  supplyOwnSecret: false
   exporter:
     enabled: false
     username: "exporter"
@@ -129,6 +142,7 @@ resources:
       mysqlds: 2
       rdrs: 2
       benchs: 2
+      restore: 1
       mysqldExporters: 0.2
     memory:
       ndbmtdsMiB: 4500
@@ -152,11 +166,14 @@ resources:
       classes:
         default: null
         diskColumns: null
+        binlogFiles: null
       diskColumnGiB: 2
       redoLogGiB: 2
       undoLogsGiB: 2
       slackGiB: 1
       logGiB: 2
+      binlogGiB: 2
+      relayLogGiB: 2
 rondbConfig:
   EmptyApiSlots: 8
   MySQLdSlotsPerNode: 4
@@ -177,7 +194,6 @@ timeoutsMinutes:
   restoreNativeBackup: 120
 benchmarking:
   enabled: false
-  mysqlUsername: "bench"
   type: "sysbench"
   dbt2:
     numWarehouses: 4
@@ -196,12 +212,18 @@ benchmarking:
     threadCountsToRun: "1;2;4;8;12;16;24;32;64"
     rows: 100000
     minimizeBandwidth: false
+  ycsb:
+    schemata: |
+      CREATE TABLE IF NOT EXISTS ycsb.usertable (
+          YCSB_KEY VARCHAR(255) PRIMARY KEY,
+          FIELD0 varbinary(4096)
+      );
 restoreFromBackup:
   backupId: null
   pathPrefix: rondb_backup
-  objectStorageProvider: s3
   excludeDatabases: []
   excludeTables: []
+  objectStorageProvider: s3
   s3:
     provider: "AWS"
     endpoint: null
@@ -233,17 +255,33 @@ backups:
     region: eu-north-1
     # possible values: aws:kms, aws:kms:dsse, AES256
     serverSideEncryption: aws:kms
-
 nodeSelector:
   mysqld: {}
   ndbmtd: {}
   mgmd: {}
   rdrs: {}
   backup: {}
-
 tolerations:
   mysqld: []
   ndbmtd: []
   mgmd: []
   rdrs: []
   backup: []
+globalReplication:
+  clusterNumber: 1
+  primary:
+    enabled: false
+    numBinlogServers: 2
+    maxNumBinlogServers: 2
+    expireBinlogsDays: 1.5
+    logReplicaUpdates: false
+    binlogFilename: binlog
+    ignoreDatabases: []
+    ignoreTables: []
+  secondary:
+    enabled: false
+    replicateFrom:
+      clusterNumber: 2
+      binlogServerHosts: []
+      ignoreDatabases: []
+      ignoreTables: []

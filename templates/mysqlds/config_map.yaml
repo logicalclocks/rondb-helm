@@ -3,8 +3,29 @@ kind: ConfigMap
 metadata:
   name: mysqld-configs
   namespace: {{ .Release.Namespace }}
+{{- $mysqldDict := dict
+    "tls" $.Values.meta.mysqld.statefulSet.endToEndTls
+}}
+{{- $binlogDict := dict
+    "forBinlogServers" true
+    "tls" $.Values.meta.binlogServers.statefulSet.endToEndTls
+}}
+{{- $replicaDict := dict
+    "forReplicaAppliers" true
+    "tls" $.Values.meta.replicaAppliers.statefulSet.endToEndTls
+}}
 data:
     my.cnf: |
-{{ tpl (.Files.Get "files/configs/my.cnf") . | indent 8 }}
+{{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $mysqldDict) | indent 6 }}
+    my-binlog-servers.cnf: |
+{{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $binlogDict) | indent 6 }}
+    my-replica-appliers.cnf: |
+{{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $replicaDict) | indent 6 }}
+    run_applier.sh: |
+{{ tpl (.Files.Get "files/scripts/replica_appliers/run_applier.sh") . | indent 6 }}
+    get_binlog_position.sh: |
+{{ tpl (.Files.Get "files/scripts/replica_appliers/get_binlog_position.sh") . | indent 6 }}
+    get_replication_status.sh: |
+{{ tpl (.Files.Get "files/scripts/replica_appliers/get_replication_status.sh") . | indent 6 }}
     metadata_create.sh: |
-{{ tpl (.Files.Get "files/scripts/backups/metadata_create.sh") . | indent 8 }}
+{{ tpl (.Files.Get "files/scripts/backups/metadata_create.sh") . | indent 6 }}

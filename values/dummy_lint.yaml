@@ -129,3 +129,15 @@ tolerations:
   mgmd: *tolerations
   rdrs: *tolerations
   backup: *tolerations
+globalReplication:
+  primary:
+    enabled: true
+    logReplicaUpdates: true
+    ignoreDatabases: *dummyStringArray
+    ignoreTables: *dummyStringArray
+  secondary:
+    enabled: true
+    replicateFrom:
+      binlogServerHosts: *dummyStringArray
+      ignoreDatabases: *dummyStringArray
+      ignoreTables: *dummyStringArray

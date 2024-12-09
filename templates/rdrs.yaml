@@ -33,11 +33,11 @@ spec:
           matchLabels:
             rondbService: {{ include "rondb.labels.rondbService.rdrs" $ }}
       affinity:
-        podAffinity:
+        podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
 {{- include "rondb.affinity.preferred.ndbdAZs" $ | indent 10 }}
       initContainers:
-{{ include "rondb.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitDatanodes" . | indent 6 }}
       containers:
       - name: rdrs
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
@@ -154,7 +154,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.meta.rdrs.serviceName }}
+  name: {{ .Values.meta.rdrs.clusterIpName }}
   namespace: {{ .Release.Namespace }}
   annotations:
 {{- range $k, $v := .Values.meta.rdrs.annotations }}

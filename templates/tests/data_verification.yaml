@@ -29,19 +29,19 @@ spec:
         pip3 install -r {{ $utilsDir }}/requirements.txt
         python3 {{ $utilsDir }}/mysql_data.py \
           --mysql-hostname "$MYSQL_HOSTNAME" \
-          --mysql-user "$MYSQL_BENCH_USER" \
-          --mysql-password "$MYSQL_BENCH_PASSWORD" \
+          --mysql-user "$MYSQL_CLUSTER_USER" \
+          --mysql-password "$MYSQL_CLUSTER_PASSWORD" \
           --sql-scripts-dir {{ $scriptsDir | quote }} \
           --run {{ .functionName | quote }}
       env:
         - name: MYSQL_HOSTNAME
           value: {{ include "rondb.mysqldServiceHostname" . }}
-        - name: MYSQL_BENCH_USER
-          value: {{ .Values.benchmarking.mysqlUsername }}
-        - name: MYSQL_BENCH_PASSWORD
+        - name: MYSQL_CLUSTER_USER
+          value: {{ .Values.mysql.clusterUser }}
+        - name: MYSQL_CLUSTER_PASSWORD
           valueFrom:
             secretKeyRef:
-              key: {{ .Values.benchmarking.mysqlUsername }}
+              key: {{ .Values.mysql.clusterUser }}
               name: {{ $.Values.mysql.credentialsSecretName }}
       volumeMounts:
       - name: mysql-client-configs

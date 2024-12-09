@@ -2,6 +2,7 @@ import argparse
 import os
 import pymysql
 
+{{- $database := include "rondb.databases.helmTests" . }}
 
 def generate_data(hostname, user, password, sql_scripts_dir):
     connection = pymysql.connect(
@@ -12,9 +13,9 @@ def generate_data(hostname, user, password, sql_scripts_dir):
     with connection:
         print(f"Connected to MySQL server at {hostname}")
         with connection.cursor() as cursor:
-            cursor.execute("DROP DATABASE IF EXISTS exampledb")
-            cursor.execute("CREATE DATABASE exampledb")
-            cursor.execute("USE exampledb")
+            cursor.execute("DROP DATABASE IF EXISTS {{ $database }}")
+            cursor.execute("CREATE DATABASE {{ $database }}")
+            cursor.execute("USE {{ $database }}")
             create_tables(connection, cursor, sql_scripts_dir)
             insert_data(connection, cursor)
             modify_some_data(connection, cursor)
@@ -94,7 +95,7 @@ def verify_data(hostname, user, password):
     )
     with connection:
         with connection.cursor() as cursor:
-            cursor.execute("USE exampledb")
+            cursor.execute("USE {{ $database }}")
             try:
                 verify_num_rows(cursor)
                 verify_t1(cursor)

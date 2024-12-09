@@ -47,51 +47,34 @@ spec:
 {{- end  }}
       initContainers:
 {{/*
-    Always wait for data nodes first so that timeouts are more accurate. Downloading
-    the native backups happens during data node startup.
+    This does not actually connect to the cluster
 */}}
-{{ include "rondb.waitDatanodes" . | indent 6 }}
-{{- if .Release.IsInstall }}
-      - name: wait-single-setup-job
-        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
-        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+
+{{- $maxTotalMySQLds := (include "rondb.maxTotalMySQLds" $ | int) }}
+{{- $clusterServerIdOffset := (mul $.Values.globalReplication.clusterNumber $maxTotalMySQLds) | int -}}
+{{- $serverIds := list -}}
+{{ range $i := until ($.Values.clusterSize.maxNumMySQLServers | int) -}}
+{{- $serverId := (printf "%d" (add $clusterServerIdOffset 1 $i)) }}
+{{- $serverIds = append $serverIds ($serverId) -}}
+{{- end }}
+
+      - name: mysqld-init-datadir
+        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
 {{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
         - |
-          set -e
-          echo "Waiting for {{ include "rondb.mysqldSetupJobName" . }} Job to have completed"
-
-{{- $waitTimeoutMinutes := .Values.timeoutsMinutes.singleSetupMySQLds }}
-{{- if .Values.restoreFromBackup.backupId }}
-    {{- $waitTimeoutMinutes := (add $waitTimeoutMinutes .Values.timeoutsMinutes.restoreNativeBackup) }}
-{{- end }}
-          (
-            set -x
-            kubectl wait \
-                -n {{ .Release.Namespace }} \
-                --for=condition=complete \
-                --timeout={{ $waitTimeoutMinutes }}m \
-                job/{{ include "rondb.mysqldSetupJobName" . }}
-          )
-
-          echo "Setup Job has completed successfully"
-{{- end }}
-      - name: mysqld-initialize-insecure
-        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
-        command:
-        - /bin/bash
-        - -c
-        - |
-{{ tpl (.Files.Get "files/scripts/mysqld_init.sh") . | indent 10 }}
+{{ tpl (.Files.Get "files/scripts/mysqld_init.sh") (deepCopy $ | mustMerge (dict
+    "startingNodeId" 67
+    "connectionsPerMySQLd" .Values.rondbConfig.MySQLdSlotsPerNode
+    "globalServerIds" $serverIds
+)) | indent 10 }}
         # TODO: Try to move over the created my.cnf file to the main container
         env:
           # This is actually already baked into the image
           - name: RONDB_DATA_DIR
             value: {{ include "rondb.dataDir" $ }}
-          - name: CONNECTIONS_PER_MYSQLD
-            value: {{ .Values.rondbConfig.MySQLdSlotsPerNode | quote}}
           - name: POD_NAME
             valueFrom:
               fieldRef:
@@ -103,17 +86,32 @@ spec:
           subPath: my.cnf
         - name: mysql-data-dir
           mountPath: {{ include "rondb.mysqldDataDir" . }}
+{{/*
+    Always wait for data nodes first so that timeouts are more accurate. Downloading
+    the native backups happens during data node startup.
+*/}}
+{{ include "rondb.container.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitSingleSetup" . | indent 6 }}
+{{ include "rondb.container.isDnsResolvable" (deepCopy $ | mustMerge (dict
+    "statefulSetName" $.Values.meta.mysqld.statefulSet.name
+    "headlessClusterIpName" $.Values.meta.mysqld.headlessClusterIp.name
+)) | indent 6 }}
       containers:
       - name: mysqld
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
         - |
           set -e
 
-{{ include "rondb.sedMyCnfFile" . | indent 10 }}
+{{ include "rondb.sedMyCnfFile" (dict
+    "startingNodeId" 67
+    "connectionsPerMySQLd" .Values.rondbConfig.MySQLdSlotsPerNode
+    "globalServerIds" $serverIds
+) | indent 10 }}
 
 {{ include "rondb.resolveOwnIp" $ | indent 10 }}
 
@@ -136,62 +134,18 @@ spec:
               secretKeyRef:
                 name: {{ $.Values.mysql.credentialsSecretName }}
                 key: root
-          - name: MYSQL_BENCH_USER
-            value: {{ .Values.benchmarking.mysqlUsername }}
-          - name: MYSQL_BENCH_PASSWORD
+          - name: MYSQL_CLUSTER_USER
+            value: {{ .Values.mysql.clusterUser }}
+          - name: MYSQL_CLUSTER_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: {{ $.Values.mysql.credentialsSecretName }}
-                key: {{ .Values.benchmarking.mysqlUsername }}
-          - name: CONNECTIONS_PER_MYSQLD
-            value: {{ .Values.rondbConfig.MySQLdSlotsPerNode | quote}}
+                key: {{ .Values.mysql.clusterUser }}
           - name: POD_NAME
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
-        startupProbe:
-          exec:
-            command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              mysql --defaults-file=$RONDB_DATA_DIR/my.cnf \
-                -e "SELECT 1"
-          failureThreshold: 100
-          periodSeconds: 10
-        livenessProbe:
-          exec:
-            command:
-              # An "Access Denied" will still return error code 0 because the server is up
-              # Alternatively, one can use the command "status"
-              - /bin/bash
-              - -c
-              - |
-                mysqladmin \
-                    --defaults-file=$RONDB_DATA_DIR/my.cnf \
-                    ping \
-                    --protocol=tcp \
-{{- if .Values.meta.mysqld.statefulSet.endToEndTls }}
-                    --ssl-mode=REQUIRED
-{{- else }}
-                    --ssl-mode=PREFERRED
-{{- end }}
-          failureThreshold: 4
-          periodSeconds: 5
-          timeoutSeconds: 2
-        readinessProbe:
-          exec:
-            command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              mysql --defaults-file=$RONDB_DATA_DIR/my.cnf \
-                -e "SELECT 1"
-          failureThreshold: 2
-          periodSeconds: 5
-          timeoutSeconds: 2
+{{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.mysqld.statefulSet.endToEndTls) | indent 8 }}
         securityContext:
           capabilities:
             add:
@@ -204,11 +158,11 @@ spec:
           # Using "raw", so that we can sed NodeIds into the file
           mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
           subPath: my.cnf
-        - name: mysql-data-dir
-          mountPath: {{ include "rondb.mysqldDataDir" . }}
         - name: mysqld-configs
           mountPath: {{ include "rondb.dataDir" $ }}/metadata_create.sh
           subPath: metadata_create.sh
+        - name: mysql-data-dir
+          mountPath: {{ include "rondb.mysqldDataDir" . }}
       # StatefulSets work with PVCs to create a dedicated persistent volume for
       # each pod replica, ensuring that a pod always re-attaches to the same data
       # even if it is rescheduled to a different node.
@@ -261,10 +215,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.meta.mysqld.service.name }}
+  name: {{ .Values.meta.mysqld.clusterIp.name }}
   namespace: {{ .Release.Namespace }}
   annotations:
-    {{- range $k, $v := .Values.meta.mysqld.service.annotations }}
+    {{- range $k, $v := .Values.meta.mysqld.clusterIp.annotations }}
     {{ $k }}: {{ $v | quote }}
     {{- end }}
 spec:
@@ -273,7 +227,7 @@ spec:
     rondbService: {{ include "rondb.labels.rondbService.mysqld" $ }}
   ports:
   - protocol: TCP
-    port: {{ .Values.meta.mysqld.service.port }}
+    port: {{ .Values.meta.mysqld.clusterIp.port }}
     targetPort: 3306
 ---
 {{ if not (eq .Values.clusterSize.minNumMySQLServers .Values.clusterSize.maxNumMySQLServers) }}
@@ -321,7 +275,7 @@ spec:
 {{ end }}
 ---
 {{/*
-    These are the permissions to allow the Job to wait for the restore-backup
+    These are the permissions to allow the MySQLds to wait for the MySQL setup
     Job to have completed.
 */}}
 apiVersion: rbac.authorization.k8s.io/v1

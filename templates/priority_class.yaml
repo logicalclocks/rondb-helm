@@ -1,8 +1,12 @@
+{{/*
+    TODO: Add logic to share PriorityClass between multiple charts
+*/}}
+{{ if .Values.priorityClass -}}
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
-  name: {{ $.Values.priorityClass }}
-  namespace: {{ $.Release.Namespace }}
-description: "This priority class should be used for RonDB service pods only."
+  name: {{ .Values.priorityClass }}
 value: 1000000
 globalDefault: false
+description: "This priority class should be used for rondb service pods only."
+{{- end  }}

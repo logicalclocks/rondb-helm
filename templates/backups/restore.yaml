@@ -5,7 +5,7 @@ metadata:
   name: {{ include "rondb.restoreNativeBackupJobname" . }}
   namespace: {{ .Release.Namespace }}
 spec:
-  backoffLimit: 0
+  backoffLimit: 2
   parallelism: 1
   template:
     metadata:
@@ -31,8 +31,14 @@ spec:
 
     The metadata is globally replicated, hence we only need to restore it on a single node.
     The same metadata will be in all backup parts.
+
+    The `--no-binlog` parameter is used to avoid writing the backup to the binary log.
+    (I assume) This means that they will not create any events in the NDB API.
+
+    Also note that following this, there will be a MySQLd Job spinning up to restore
+    MySQL metadata (users and databases).
 */}}
-{{ include "rondb.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitDatanodes" . | indent 6 }}
       - name: initialize-mysqld-once
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
@@ -93,10 +99,12 @@ spec:
         - /bin/bash
         - -c
         - |
-
-          # TODO: This needs an empty API slot; consider running on MGMd instead(?)
-
-{{- $excludeDbsCsv := include "rondb.arrayToCsv" (dict "array" .Values.restoreFromBackup.excludeDatabases) }}
+{{- $allDbsToExclude := concat 
+    .Values.restoreFromBackup.excludeDatabases
+    (include "rondb.databases.benchmarking" . | fromYamlArray)
+    ( include "rondb.databases.heartbeat" . | list)
+}}
+{{- $excludeDbsCsv := include "rondb.arrayToCsv" (dict "array" $allDbsToExclude) }}
 {{- $excludeDbs := "" }}
 {{- if $excludeDbsCsv }}
     {{- $excludeDbs = printf "--exclude-databases=%s" $excludeDbsCsv }}
@@ -116,6 +124,7 @@ spec:
             --restore-meta \
             --disable-indexes \
             --no-restore-disk-objects \
+            --no-binlog \
             --ndb-connectstring=$MGMD_HOST:1186 \
             --nodeid=$NODE_ID \
             --backupid=$BACKUP_ID \
@@ -137,7 +146,7 @@ spec:
           value: {{ .Values.restoreFromBackup.backupId | quote }}
         resources:
           limits:
-            cpu: 1
+            cpu: {{ .Values.resources.limits.cpus.restore }}
             memory: 200Mi
       - name: restore-ndbmtd-data
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
@@ -165,6 +174,7 @@ spec:
 
                 RUN_CMD="ndb_restore \
                   --restore-data \
+                  --no-binlog \
                   --allow-unique-indexes \
                   --ndb-connectstring=$MGMD_HOST:1186 \
                   --nodeid=$BACKUP_NODE_ID \
@@ -212,13 +222,21 @@ spec:
           subPath: rclone.conf
         resources:
           limits:
-            cpu: 1
+            cpu: {{ .Values.resources.limits.cpus.restore }}
             memory: 200Mi
 {{/*
-    TODO:
-        There needs to be one more step and that is --restore-epoch 
-        https://github.com/logicalclocks/ndb-chef/blob/master/files/default/restore_backup.sh#L256
-        This is executed ONLY when setting up the Global replication.
+    The `--restore-epoch` parameter is used to add a row to the mysql.ndb_apply_status table:
+
+    mysql> select * from ndb_apply_status;
+    +-----------+--------------+----------+-----------+---------+
+    | server_id | epoch        | log_name | start_pos | end_pos |
+    +-----------+--------------+----------+-----------+---------+
+    |         0 | 498216206335 |          |         0 |       0 |
+    +-----------+--------------+----------+-----------+---------+
+
+    Note that server_id is always 0, and the epoch is the epoch of the backup.
+
+    TODO: Figure out whether it is an issue to ALWAYS use `--restore-epoch` during restore.
 */}}
       - name: restore-backup-indexes
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
@@ -232,6 +250,8 @@ spec:
 
           RUN_CMD="ndb_restore \
             --rebuild-indexes \
+            --no-binlog \
+            --restore-epoch \
             --ndb-connectstring=$MGMD_HOST:1186 \
             --nodeid=1 \
             --backupid=$BACKUP_ID \
@@ -253,7 +273,7 @@ spec:
           value: {{ .Values.restoreFromBackup.backupId | quote }}
         resources:
           limits:
-            cpu: 1
+            cpu: {{ .Values.resources.limits.cpus.restore }}
             memory: 200Mi
       containers:
       - name: remove-native-backup
@@ -290,7 +310,7 @@ spec:
           value: {{ .Values.restoreFromBackup.backupId | quote }}
         resources:
           limits:
-            cpu: 1
+            cpu: {{ .Values.resources.limits.cpus.restore }}
             memory: 200Mi
       volumes:
       - name: rclone-configs

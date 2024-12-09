@@ -91,7 +91,7 @@ spec:
     Always wait for data nodes first so that wait-for-restore-timeout is more accurate.
     Downloading the native backups happens in the data node Pods before the ndbmtds start up.
 */}}
-{{ include "rondb.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitDatanodes" . | indent 6 }}
 {{- if .Values.restoreFromBackup.backupId }}
       - name: wait-restore-backup
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
@@ -157,13 +157,13 @@ spec:
               name: {{ $.Values.mysql.credentialsSecretName }}
               key: {{ .username }}
 {{- end }}
-        - name: MYSQL_BENCH_USER
-          value: {{ .Values.benchmarking.mysqlUsername }}
-        - name: MYSQL_BENCH_PASSWORD
+        - name: MYSQL_CLUSTER_USER
+          value: {{ .Values.mysql.clusterUser }}
+        - name: MYSQL_CLUSTER_PASSWORD
           valueFrom:
             secretKeyRef:
               name: {{ $.Values.mysql.credentialsSecretName }}
-              key: {{ .Values.benchmarking.mysqlUsername }}
+              key: {{ .Values.mysql.clusterUser }}
 {{- if .Values.mysql.exporter.enabled }}
         - name: MYSQL_EXPORTER_PASSWORD
           valueFrom:
