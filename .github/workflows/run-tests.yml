@@ -153,6 +153,8 @@ jobs:
           MIN_STABLE_MINUTES: 1
         run: bash .github/test_deploy_stability.sh
 
+      - run: kubectl create job -n $K8S_NAMESPACE --from=cronjob/create-backup manual-backup
+
       # Check that data has been created correctly
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
 
