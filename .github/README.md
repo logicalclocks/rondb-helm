@@ -20,7 +20,7 @@
         --extra-config=kubelet.cpu-manager-policy="static" \
         --extra-config=kubelet.cpu-manager-policy-options="full-pcpus-only=true" \
         --extra-config=kubelet.kube-reserved="cpu=500m" \
-        --addons=[metrics-server]
+        --addons=[metrics-server,storage-provisioner-rancher]
     ```
     * CNI Calico is needed to enable Network Policies.
     * Static CPU Manager is needed to allow fixing data nodes to host CPUs
@@ -45,3 +45,21 @@
             --set "tcp.3306"="$K8S_NAMESPACE/mysqld:3306" \
             --set "tcp.5406"="$K8S_NAMESPACE/rdrs:5406"
       ```
+3. Add MinIO (to test backup/restore):
+    ```bash
+    curl -O https://raw.githubusercontent.com/minio/operator/master/helm-releases/operator-6.0.4.tgz
+    tar -xzf operator-6.0.4.tgz
+    helm upgrade -i \
+        --namespace minio-operator \
+        --create-namespace \
+        minio-operator ./operator \
+        --set operator.replicaCount=1
+
+    helm repo add minio https://operator.min.io/
+    helm install --namespace tenant-ns \
+        --create-namespace tenant minio/tenant \
+        --set "tenant.pools[0].name=my-pool" \
+        --set "tenant.pools[0].servers=1" \
+        --set "tenant.pools[0].volumesPerServer=1" \
+        --set "tenant.pools[0].size=4Gi"
+    ```
