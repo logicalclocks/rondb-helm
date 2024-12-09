@@ -63,7 +63,9 @@ jobs:
     env:
       K8S_NAMESPACE: rondb-helm-${{ github.run_id }}-${{ github.run_attempt }}
       RONDB_CLUSTER_NAME: my-rondb
-
+      BUCKET_SECRET_NAME: bucket-credentials
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v4
@@ -76,6 +78,27 @@ jobs:
       - name: Create namespace
         run: kubectl create namespace $K8S_NAMESPACE
 
+      - name: Create MinIO tenant
+        run: |
+          helm install \
+            --namespace $K8S_NAMESPACE \
+            tenant minio/tenant \
+            --set "tenant.pools[0].name=my-pool" \
+            --set "tenant.pools[0].servers=1" \
+            --set "tenant.pools[0].volumesPerServer=1" \
+            --set "tenant.pools[0].size=4Gi" \
+            --set configSecret.name=myminio-env-configuration \
+            --set configSecret.accessKey=$MINIO_ACCESS_KEY \
+            --set configSecret.secretKey=$MINIO_SECRET_KEY
+
+      - name: Create RonDB's Bucket Secret
+        run: |
+          kubectl create secret generic $BUCKET_SECRET_NAME \
+              --namespace=$K8S_NAMESPACE \
+              --from-literal "key_id=${MINIO_ACCESS_KEY} \
+              --from-literal "access_key=${MINIO_SECRET_KEY}"
+
+      # TODO: Run benchmarks as well later
       - name: Create RonDB cluster
         run: |
           helm upgrade -i $RONDB_CLUSTER_NAME \
@@ -83,6 +106,12 @@ jobs:
             --values ./values/minikube/mini.yaml \
             --set benchmarking.enabled=true \
             --set terminationGracePeriodSeconds=10 \
+            --set backups.enabled=true \
+            --set backups.s3.endpoint=minio.default.svc.cluster.local:9000 \
+            --set backups.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
+            --set backups.s3.keyCredentialsSecret.key=key_id \
+            --set backups.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
+            --set backups.s3.secretCredentialsSecret.key=access_key \
             .
           sleep 10
 
