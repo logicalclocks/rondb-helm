@@ -90,7 +90,7 @@ jobs:
             --set "tenant.pools[0].size=4Gi" \
             --set "tenant.configSecret.name=myminio-env-configuration" \
             --set "tenant.configSecret.accessKey=${MINIO_ACCESS_KEY}" \
-            --set "tenant.configSecret.secretKey=${MINIO_SECRET_KEY}"
+            --set "tenant.configSecret.secretKey=${MINIO_SECRET_KEY}" \
             --set "tenant.buckets[0].name=${BUCKET_NAME}" \
             --set "tenant.buckets[0].region=${BUCKET_REGION}"
 
