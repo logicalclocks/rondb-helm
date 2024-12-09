@@ -222,10 +222,7 @@ jobs:
 
       - name: Delete MinIO tenant
         if: always()
-        run: |
-          helm delete \
-            --namespace $MINIO_TENANT_NAMESPACE \
-            tenant minio/tenant
+        run: helm delete --namespace $MINIO_TENANT_NAMESPACE tenant
 
       - shell: bash
         if: always()
