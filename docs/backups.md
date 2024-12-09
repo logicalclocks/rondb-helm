@@ -44,7 +44,7 @@ secret_access_key = foofoo
 env_auth = true
 ```
 
-An easy way of creating this file is to run `docker run --rm -it --entrypoint=/bin/bash rclone/rclone:latest` which will open a terminal in a rclone image. There you can run:
+An easy way of creating this file is to run `docker run --rm -it --entrypoint=/bin/sh rclone/rclone:latest` which will open a terminal in a rclone image. There you can run:
 
 ```bash
 # This will open an interactive process where you can specify your object storage 

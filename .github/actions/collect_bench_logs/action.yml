@@ -1,0 +1,44 @@
+name: 'Collect RonDB benchmarking logs'
+description: 'Reusable action to collect benchmarking logs from a RonDB cluster'
+inputs:
+  namespace:
+    description: 'Namespace to collect logs from'
+    required: true
+  # Using the following instead of env vars
+  bench_dir:
+    description: 'Directory where the benchmarking results are stored'
+    default: /home/mysql/benchmarks
+    required: true
+  local_bench_dir:
+    description: 'Local directory to store the benchmarking results'
+    default: bench_output
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Print final RonDB sysbench results
+      shell: bash
+      run: |
+        set +e
+        kubectl exec \
+          fetch-bench-results \
+          -c idle-results-fetcher \
+          -n ${{ inputs.namespace }} \
+          -- cat ${{ inputs.bench_dir }}/sysbench/final_result.txt
+
+    - name: Fetch entire RonDB benchmarking output
+      shell: bash
+      run: |
+        mkdir -p ${{ inputs.local_bench_dir }}
+        kubectl cp \
+          ${{ inputs.namespace }}/fetch-bench-results:${{ inputs.bench_dir }} \
+          -c idle-results-fetcher \
+          ${{ inputs.local_bench_dir }}
+
+    - name: Save RonDB benchmarking artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: bench_output
+        path: ${{ inputs.local_bench_dir }}
+        if-no-files-found: error

@@ -4,13 +4,9 @@ inputs:
   namespace:
     description: 'Namespace to collect logs from'
     required: true
-  bench_dir:
-    description: 'Directory where the benchmarking results are stored'
-    default: /home/mysql/benchmarks
-    required: true
-  local_bench_dir:
-    description: 'Local directory to store the benchmarking results'
-    default: bench_output
+  i:
+    description: 'The number of the current run'
+    default: "1"
     required: true
 
 runs:
@@ -18,131 +14,105 @@ runs:
   steps:
     - name: Set config
       shell: bash
-      run: mkdir -p k8s_logs
+      run: mkdir -p k8s_logs_${{ inputs.i }}_${{ inputs.i }}
 
     - name: List Pods
       shell: bash
-      run: kubectl get pods -n ${{ inputs.namespace }} -o wide > k8s_logs/pods.txt
+      run: kubectl get pods -n ${{ inputs.namespace }} -o wide > k8s_logs_${{ inputs.i }}/pods.txt
 
     - name: List all
       shell: bash
-      run: kubectl get all -n ${{ inputs.namespace }} -o wide > k8s_logs/all.txt
+      run: kubectl get all -n ${{ inputs.namespace }} -o wide > k8s_logs_${{ inputs.i }}/all.txt
 
     - name: Save events
       shell: bash
-      run: kubectl get events -n ${{ inputs.namespace }} --sort-by='.metadata.creationTimestamp' > k8s_logs/all_events.txt
+      run: kubectl get events -n ${{ inputs.namespace }} --sort-by='.metadata.creationTimestamp' > k8s_logs_${{ inputs.i }}/all_events.txt
 
     - name: Describe top
       shell: bash
-      run: kubectl top pods -n ${{ inputs.namespace }} > k8s_logs/top.txt
+      run: kubectl top pods -n ${{ inputs.namespace }} > k8s_logs_${{ inputs.i }}/top.txt
 
     - name: Get nodes
       shell: bash
       run: |
-        kubectl get nodes -o wide > k8s_logs/nodes.txt
-        kubectl top nodes >> k8s_logs/nodes.txt
+        kubectl get nodes -o wide > k8s_logs_${{ inputs.i }}/nodes.txt
+        kubectl top nodes >> k8s_logs_${{ inputs.i }}/nodes.txt
 
     - name: Describe Deployments
       shell: bash
       run: |
-        mkdir -p k8s_logs/deployments
+        mkdir -p k8s_logs_${{ inputs.i }}/deployments
         kubectl get deployments -n ${{ inputs.namespace }} -o wide
         for dep in $(kubectl get deployments -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe deployment -n ${{ inputs.namespace }} $dep > k8s_logs/deployments/$dep.txt || true
+          kubectl describe deployment -n ${{ inputs.namespace }} $dep > k8s_logs_${{ inputs.i }}/deployments/$dep.txt || true
         done
 
     - name: Describe StatefulSets
       shell: bash
       run: |
-        mkdir -p k8s_logs/statefulsets
+        mkdir -p k8s_logs_${{ inputs.i }}/statefulsets
         kubectl get statefulsets -n ${{ inputs.namespace }} -o wide
-        mkdir -p k8s_logs/statefulsets
+        mkdir -p k8s_logs_${{ inputs.i }}/statefulsets
         for sts in $(kubectl get statefulsets -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe statefulset -n ${{ inputs.namespace }} $sts > k8s_logs/statefulsets/$sts.txt || true
+          kubectl describe statefulset -n ${{ inputs.namespace }} $sts > k8s_logs_${{ inputs.i }}/statefulsets/$sts.txt || true
         done
 
     - name: Pod logs
       shell: bash
       run: |
-        mkdir -p k8s_logs/pods/logs
+        mkdir -p k8s_logs_${{ inputs.i }}/pods/logs
         for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          mkdir -p k8s_logs/pods/logs/$pod
+          mkdir -p k8s_logs_${{ inputs.i }}/pods/logs/$pod
           for container in $(kubectl get pods -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.containers[*].name}'); do
-            kubectl logs -n ${{ inputs.namespace }} $pod $container > k8s_logs/pods/logs/$pod/$container.log || true
-            kubectl logs -n ${{ inputs.namespace }} $pod $container --previous > k8s_logs/pods/logs/$pod/$container.previous.log || true
+            kubectl logs -n ${{ inputs.namespace }} $pod $container > k8s_logs_${{ inputs.i }}/pods/logs/$pod/$container.log || true
+            kubectl logs -n ${{ inputs.namespace }} $pod $container --previous > k8s_logs_${{ inputs.i }}/pods/logs/$pod/$container.previous.log || true
           done
         done
 
     - name: Describe Pods
       shell: bash
       run: |
-        mkdir -p k8s_logs/pods/describe
+        mkdir -p k8s_logs_${{ inputs.i }}/pods/describe
         for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe pod -n ${{ inputs.namespace }} $pod > k8s_logs/pods/describe/$pod.txt || true
+          kubectl describe pod -n ${{ inputs.namespace }} $pod > k8s_logs_${{ inputs.i }}/pods/describe/$pod.txt || true
         done
 
     - name: PVC logs
       shell: bash
       run: |
-        mkdir -p k8s_logs/pvc
+        mkdir -p k8s_logs_${{ inputs.i }}/pvc
         for p in $(kubectl get pvc -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe pvc -n ${{ inputs.namespace }} $p > k8s_logs/pvc/$p.txt || true
+          kubectl describe pvc -n ${{ inputs.namespace }} $p > k8s_logs_${{ inputs.i }}/pvc/$p.txt || true
         done
 
     - name: PV logs
       shell: bash
       run: |
-        mkdir -p k8s_logs/pv
+        mkdir -p k8s_logs_${{ inputs.i }}/pv
         for p in $(kubectl get pv -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe pv -n ${{ inputs.namespace }} $p > k8s_logs/pv/$p.txt || true
+          kubectl describe pv -n ${{ inputs.namespace }} $p > k8s_logs_${{ inputs.i }}/pv/$p.txt || true
         done
 
     - name: CRDs definitions
       shell: bash
-      run: kubectl get crd -A > k8s_logs/crds.txt
+      run: kubectl get crd -A > k8s_logs_${{ inputs.i }}/crds.txt
 
     - name: Save artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: k8s_logs
-        path: k8s_logs
+        name: k8s_logs_${{ inputs.i }}
+        path: k8s_logs_${{ inputs.i }}
         if-no-files-found: error
 
     - name: Print MGMd cluster.log
       if: always()
       shell: bash
-      run: kubectl exec mgmds-0 --namespace ${{ inputs.namespace }} -c mgmd -- cat /srv/hops/mysql-cluster/log/cluster.log > cluster.log
+      run: kubectl exec mgmds-0 --namespace ${{ inputs.namespace }} -c mgmd -- cat /srv/hops/mysql-cluster/log/cluster.log > cluster_${{ inputs.i }}.log
 
     - name: Save cluster.log
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: cluster.log
-        path: cluster.log
-        if-no-files-found: error
-
-    - name: Print final RonDB sysbench results
-      shell: bash
-      run: |
-        set +e
-        kubectl exec \
-          fetch-bench-results \
-          -c idle-results-fetcher \
-          -n ${{ inputs.namespace }} \
-          -- cat ${{ inputs.bench_dir }}/sysbench/final_result.txt
-
-    - name: Fetch entire RonDB benchmarking output
-      shell: bash
-      run: |
-        mkdir -p ${{ inputs.local_bench_dir }}
-        kubectl cp \
-          ${{ inputs.namespace }}/fetch-bench-results:${{ inputs.bench_dir }} \
-          -c idle-results-fetcher \
-          ${{ inputs.local_bench_dir }}
-
-    - name: Save RonDB benchmarking artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: bench_output
-        path: ${{ inputs.local_bench_dir }}
+        path: cluster_${{ inputs.i }}.log
         if-no-files-found: error

@@ -66,6 +66,7 @@ jobs:
       BUCKET_SECRET_NAME: bucket-credentials
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
+      MINIO_TENANT_NAMESPACE: minio-tenant-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v4
@@ -75,13 +76,11 @@ jobs:
           kubectl version --client
           kubectl get nodes
 
-      - name: Create namespace
-        run: kubectl create namespace $K8S_NAMESPACE
-
       - name: Create MinIO tenant
         run: |
           helm install \
-            --namespace $K8S_NAMESPACE \
+            --namespace $MINIO_TENANT_NAMESPACE \
+            --create-namespace \
             tenant minio/tenant \
             --set "tenant.pools[0].name=my-pool" \
             --set "tenant.pools[0].servers=1" \
@@ -91,23 +90,28 @@ jobs:
             --set configSecret.accessKey=$MINIO_ACCESS_KEY \
             --set configSecret.secretKey=$MINIO_SECRET_KEY
 
+      - run: echo "MINIO_ENDPOINT=https://minio.${{ env.MINIO_TENANT_NAMESPACE }}.svc.cluster.local" >> $GITHUB_ENV
+
+      - name: Create namespace
+        run: kubectl create namespace $K8S_NAMESPACE
+
+      # MinIO also creates a Secret but with a different format
       - name: Create RonDB's Bucket Secret
         run: |
           kubectl create secret generic $BUCKET_SECRET_NAME \
-              --namespace=$K8S_NAMESPACE \
-              --from-literal "key_id=${MINIO_ACCESS_KEY}" \
-              --from-literal "access_key=${MINIO_SECRET_KEY}"
+            --namespace=$K8S_NAMESPACE \
+            --from-literal "key_id=${MINIO_ACCESS_KEY}" \
+            --from-literal "access_key=${MINIO_SECRET_KEY}"
 
-      # TODO: Run benchmarks as well later
-      - name: Create RonDB cluster
+      - name: Create original RonDB cluster
         run: |
-          helm upgrade -i $RONDB_CLUSTER_NAME \
+          helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/mini.yaml \
             --set benchmarking.enabled=true \
-            --set terminationGracePeriodSeconds=10 \
             --set backups.enabled=true \
-            --set backups.s3.endpoint=minio.default.svc.cluster.local:9000 \
+            --set backups.s3.provider=Minio \
+            --set backups.s3.endpoint=$MINIO_ENDPOINT \
             --set backups.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
             --set backups.s3.keyCredentialsSecret.key=key_id \
             --set backups.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
@@ -118,21 +122,14 @@ jobs:
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=generate-data
 
       - name: Waiting for benchmark job to complete
-        shell: bash
-        run: |
-          kubectl wait --for=condition=complete --timeout=400s -n $K8S_NAMESPACE job/benchs &
-          JOB_COMPLETION_PID=$!
+        timeout-minutes: 4
+        run: bash .github/wait_job.sh $K8S_NAMESPACE benchs
 
-          set +e
-          while kill -0 $JOB_COMPLETION_PID 2> /dev/null; do
-            echo "$(date) Benchmark job is still running..."
-            sleep 20
-            kubectl get pods -o wide -n $K8S_NAMESPACE
-          done
-          set -e
-
-          wait $JOB_COMPLETION_PID
-          exit $?
+      - name: Collect bench logs
+        if: always()
+        uses: ./.github/actions/collect_bench_logs
+        with:
+          namespace: ${{ env.K8S_NAMESPACE }}
 
       - name: Test deploy stability
         shell: bash
@@ -153,9 +150,54 @@ jobs:
           MIN_STABLE_MINUTES: 1
         run: bash .github/test_deploy_stability.sh
 
+      # Check that data has been created correctly
+      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
+
       - run: kubectl create job -n $K8S_NAMESPACE --from=cronjob/create-backup manual-backup
 
-      # Check that data has been created correctly
+      - name: Waiting for backup job to complete
+        timeout-minutes: 3
+        shell: bash
+        run: bash .github/wait_job.sh $K8S_NAMESPACE manual-backup
+
+      - name: Collect logs
+        if: always()
+        uses: ./.github/actions/collect_logs
+        with:
+          namespace: ${{ env.K8S_NAMESPACE }}
+          i: 1
+
+      - name: Remove cluster
+        if: always()
+        uses: ./.github/actions/remove_cluster
+        timeout-minutes: 4
+        with:
+          namespace: ${{ env.K8S_NAMESPACE }}
+
+      - name: Create second RonDB cluster
+        run: |
+          helm install $RONDB_CLUSTER_NAME \
+            --namespace=$K8S_NAMESPACE \
+            --values ./values/minikube/mini.yaml \
+            --set restoreFromBackup.backupId=1 \
+            --set restoreFromBackup.s3.provider=Minio \
+            --set restoreFromBackup.s3.endpoint=$MINIO_ENDPOINT \
+            --set restoreFromBackup.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
+            --set restoreFromBackup.s3.keyCredentialsSecret.key=key_id \
+            --set restoreFromBackup.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
+            --set restoreFromBackup.s3.secretCredentialsSecret.key=access_key \
+            .
+          sleep 10
+
+      - name: Test deploy stability again
+        shell: bash
+        timeout-minutes: 6
+        env:
+          SLEEP_SECONDS: 10
+          MIN_STABLE_MINUTES: 1
+        run: bash .github/test_deploy_stability.sh
+
+      # Check that data has been restored correctly
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
 
       - name: Collect logs
@@ -163,37 +205,22 @@ jobs:
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.K8S_NAMESPACE }}
+          i: 2
 
-      - name: Delete RonDB Helmchart
+      - name: Remove cluster
         if: always()
-        run: helm delete --namespace=$K8S_NAMESPACE $RONDB_CLUSTER_NAME
+        uses: ./.github/actions/remove_cluster
+        timeout-minutes: 4
+        with:
+          namespace: ${{ env.K8S_NAMESPACE }}
 
       - name: Delete MinIO tenant
         if: always()
         run: |
-          helm install \
-            --namespace $K8S_NAMESPACE \
+          helm delete \
+            --namespace $MINIO_TENANT_NAMESPACE \
             tenant minio/tenant
 
-      - name: Delete Helm test Pods
+      - shell: bash
         if: always()
-        run: kubectl delete pods --all --namespace $K8S_NAMESPACE
-
-      - name: Wait for resource deletions
-        if: always()
-        timeout-minutes: 2
-        run: |
-          echo -e "Waiting for resources in namespace $K8S_NAMESPACE to be deleted...";
-          while true; do
-            RESOURCES=$(kubectl get all --namespace $K8S_NAMESPACE --no-headers)
-            if [ -z "$RESOURCES" ]; then
-              echo "All resources deleted.";
-              exit 0;
-            fi
-            echo -e "\nRemaining resources in namespace $K8S_NAMESPACE:\n"
-            echo "$RESOURCES"
-            sleep 3;
-          done
-
-      - if: always()
-        run: kubectl delete namespace $K8S_NAMESPACE --timeout=50s || true
+        run: kubectl delete namespace $MINIO_TENANT_NAMESPACE --timeout=50s || true

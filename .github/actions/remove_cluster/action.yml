@@ -1,0 +1,46 @@
+name: 'Remove RonDB cluster'
+description: 'Reusable action to remove RonDB cluster without removing MinIO tenant'
+inputs:
+  namespace:
+    description: 'Namespace to collect logs from'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+  - name: Delete RonDB Helmchart
+    shell: bash
+    run: helm delete --namespace=${{ inputs.namespace }} $RONDB_CLUSTER_NAME
+
+  - name: Delete Helm test Pods
+    shell: bash
+    run: kubectl delete pods --all --namespace ${{ inputs.namespace }}
+
+  - name: Wait for resource deletions
+    shell: bash
+    run: |
+      echo -e "Waiting for resources in namespace ${{ inputs.namespace }} to be deleted...";
+      TIMEOUT=120
+      START_TIME=$(date +%s)
+
+      while true; do
+        CURRENT_TIME=$(date +%s)
+        ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+
+        RESOURCES=$(kubectl get all --namespace ${{ inputs.namespace }} --no-headers)
+        if [ -z "$RESOURCES" ]; then
+          echo "All resources deleted.";
+          exit 0;
+        fi
+        echo -e "\nRemaining resources in namespace ${{ inputs.namespace }}:\n"
+        echo "$RESOURCES"
+        
+        if [ "$ELAPSED_TIME" -ge "$TIMEOUT" ]; then
+          echo "Timeout reached after $((TIMEOUT / 60)) minutes. Some resources were not deleted.";
+          exit 1;
+        fi
+        sleep 3;
+      done
+
+  - shell: bash
+    run: kubectl delete namespace ${{ inputs.namespace }} --timeout=50s || true
