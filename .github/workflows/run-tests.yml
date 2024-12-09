@@ -168,8 +168,15 @@ jobs:
         if: always()
         run: helm delete --namespace=$K8S_NAMESPACE $RONDB_CLUSTER_NAME
 
-      - if: always()
-        name: Delete Helm test Pods
+      - name: Delete MinIO tenant
+        if: always()
+        run: |
+          helm install \
+            --namespace $K8S_NAMESPACE \
+            tenant minio/tenant
+
+      - name: Delete Helm test Pods
+        if: always()
         run: kubectl delete pods --all --namespace $K8S_NAMESPACE
 
       - name: Wait for resource deletions
