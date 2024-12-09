@@ -122,8 +122,7 @@ jobs:
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=generate-data
 
       - name: Waiting for benchmark job to complete
-        timeout-minutes: 4
-        run: bash .github/wait_job.sh $K8S_NAMESPACE benchs
+        run: bash .github/wait_job.sh $K8S_NAMESPACE benchs 240
 
       - name: Collect bench logs
         if: always()
@@ -156,9 +155,8 @@ jobs:
       - run: kubectl create job -n $K8S_NAMESPACE --from=cronjob/create-backup manual-backup
 
       - name: Waiting for backup job to complete
-        timeout-minutes: 3
         shell: bash
-        run: bash .github/wait_job.sh $K8S_NAMESPACE manual-backup
+        run: bash .github/wait_job.sh $K8S_NAMESPACE manual-backup 180
 
       - name: Collect logs
         if: always()

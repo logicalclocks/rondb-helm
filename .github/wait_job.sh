@@ -4,8 +4,9 @@ set +e
 
 namespace=$1
 job_name=$2
+timeout_seconds=$3
 
-kubectl wait --for=condition=complete -n $namespace job/$job_name &
+kubectl wait --for=condition=complete -n $namespace --timeout=${timeout_seconds}s job/$job_name &
 JOB_COMPLETION_PID=$!
 
 set +e
