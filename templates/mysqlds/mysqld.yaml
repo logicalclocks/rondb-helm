@@ -100,7 +100,6 @@ spec:
       - name: mysqld
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
-{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
@@ -331,6 +330,6 @@ spec:
     rondbService: {{ include "rondb.labels.rondbService.mysqld" $ }}
   ports:
     - protocol: TCP
-      port: {{ .Values.meta.mysqld.service.port }}
+      port: {{ .Values.meta.mysqld.externalLoadBalancer.port }}
       targetPort: 3306
 {{- end }}

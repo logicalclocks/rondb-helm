@@ -30,6 +30,16 @@ meta:
       class: abc
       annotations: *dummyAnnotations
     addSysNiceCapability: true
+  binlogServers:
+    statefulSet:
+      endToEndTls: true
+    externalLoadBalancers:
+      enabled: true
+      class: bla
+      annotations: *dummyAnnotations
+  replicaAppliers:
+    statefulSet:
+      endToEndTls: true
   rdrs:
     statefulSet:
       endToEndTls: true

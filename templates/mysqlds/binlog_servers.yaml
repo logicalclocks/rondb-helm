@@ -262,23 +262,14 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app: {{ $.Chart.Name }}
-{{- $globalLB := and $.Values.global $.Values.global._hopsworks $.Values.global._hopsworks.externalLoadBalancers.enabled }}
-{{- $annotations := $.Values.meta.binlogServers.externalLoadBalancers.annotations }}
-{{- if $globalLB }}
-    {{- $annotations = merge $annotations $.Values.global._hopsworks.externalLoadBalancers.annotations}}
-{{- end }}
-{{- if $annotations }}
   annotations:
-{{- range $k, $v := $annotations }}
+{{- range $k, $v := $.Values.meta.binlogServers.externalLoadBalancers.annotations }}
     {{ $k }}: {{ $v | quote }}
-{{- end }}
 {{- end }}
 spec:
   type: LoadBalancer
 {{- if $.Values.meta.binlogServers.externalLoadBalancers.class }}
   loadBalancerClass: {{ $.Values.meta.binlogServers.externalLoadBalancers.class }}
-{{- else if and $globalLB $.Values.global._hopsworks.externalLoadBalancers.class }}
-  loadBalancerClass: {{ $.Values.global._hopsworks.externalLoadBalancers.class }}
 {{- end }}
   selector:
     rondbService: {{ include "rondb.labels.rondbService.binlog-servers" $ }}

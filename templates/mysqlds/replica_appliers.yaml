@@ -60,7 +60,7 @@ spec:
                   values:
                   - {{ include "rondb.labels.rondbService.replica-appliers" $ }}
               topologyKey: topology.kubernetes.io/zone
-{{ include "rondb.ContainerSecurityContext" $ | indent 6 }}
+{{ include "rondb.PodSecurityContext" $ | indent 6 }}
       initContainers:
       - name: mysqld-init-datadir
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
