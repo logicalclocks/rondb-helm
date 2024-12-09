@@ -105,8 +105,7 @@ echo_newline "[K8s Entrypoint MySQLd] Setting up cluster user '${MYSQL_CLUSTER_U
 mysql <<EOF
 -- Create user to operate the Helmchart
 CREATE USER IF NOT EXISTS '${MYSQL_CLUSTER_USER}'@'%'
-    IDENTIFIED BY '${MYSQL_CLUSTER_PASSWORD}'
-    WITH MAX_USER_CONNECTIONS {{ .Values.mysql.exporter.maxUserConnections }};
+    IDENTIFIED BY '${MYSQL_CLUSTER_PASSWORD}';
 GRANT NDB_STORED_USER ON *.* TO '${MYSQL_CLUSTER_USER}'@'%';
 FLUSH PRIVILEGES;
 EOF
