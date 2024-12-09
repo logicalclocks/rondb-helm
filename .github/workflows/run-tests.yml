@@ -63,6 +63,8 @@ jobs:
     env:
       K8S_NAMESPACE: rondb-helm-${{ github.run_id }}-${{ github.run_attempt }}
       RONDB_CLUSTER_NAME: my-rondb
+      BUCKET_NAME: rondb-helm
+      BUCKET_REGION: eu-north-1
       BUCKET_SECRET_NAME: bucket-credentials
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
@@ -86,9 +88,11 @@ jobs:
             --set "tenant.pools[0].servers=1" \
             --set "tenant.pools[0].volumesPerServer=1" \
             --set "tenant.pools[0].size=4Gi" \
-            --set configSecret.name=myminio-env-configuration \
-            --set configSecret.accessKey=$MINIO_ACCESS_KEY \
-            --set configSecret.secretKey=$MINIO_SECRET_KEY
+            --set "tenant.configSecret.name=myminio-env-configuration" \
+            --set "tenant.configSecret.accessKey=${MINIO_ACCESS_KEY}" \
+            --set "tenant.configSecret.secretKey=${MINIO_SECRET_KEY}"
+            --set "tenant.buckets[0].name=${BUCKET_NAME}" \
+            --set "tenant.buckets[0].region=${BUCKET_REGION}"
 
       - run: echo "MINIO_ENDPOINT=https://minio.${{ env.MINIO_TENANT_NAMESPACE }}.svc.cluster.local" >> $GITHUB_ENV
 
@@ -112,6 +116,8 @@ jobs:
             --set backups.enabled=true \
             --set backups.s3.provider=Minio \
             --set backups.s3.endpoint=$MINIO_ENDPOINT \
+            --set backups.s3.bucketName=$BUCKET_NAME \
+            --set backups.s3.region=$BUCKET_REGION \
             --set backups.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
             --set backups.s3.keyCredentialsSecret.key=key_id \
             --set backups.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
@@ -180,6 +186,8 @@ jobs:
             --set restoreFromBackup.backupId=1 \
             --set restoreFromBackup.s3.provider=Minio \
             --set restoreFromBackup.s3.endpoint=$MINIO_ENDPOINT \
+            --set restoreFromBackup.s3.bucketName=$BUCKET_NAME \
+            --set restoreFromBackup.s3.region=$BUCKET_REGION \
             --set restoreFromBackup.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
             --set restoreFromBackup.s3.keyCredentialsSecret.key=key_id \
             --set restoreFromBackup.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
