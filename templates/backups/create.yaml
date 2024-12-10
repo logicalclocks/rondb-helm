@@ -72,7 +72,7 @@ spec:
             - /bin/bash
             - -c
             - |
-              JOB_NUMBER=$(echo $JOB_NAME | tr -d '[[:alpha:]]' | tr -d '-' | sed 's/^0*//' | cut -c -9)
+{{- include "rondb.backups.defineJobNumberEnv" $ | indent 14 }}
               ndb_mgm --ndb-connectstring=$MGM_CONNECTSTRING -e "START BACKUP $JOB_NUMBER SNAPSHOTEND WAIT COMPLETED"
             env:
             - name: JOB_NAME

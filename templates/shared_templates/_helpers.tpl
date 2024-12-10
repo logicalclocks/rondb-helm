@@ -149,3 +149,23 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
         - {{ $nodeGroup | quote }}
 {{ end }}
 {{- end }}
+
+
+# Previously JOB_NUMBER=$(echo $JOB_NAME | tr -d '[[:alpha:]]' | tr -d '-' | sed 's/^0*//' | cut -c -9)
+# However, sometimes, the JOB_NAME would not contain an integer
+# Now, we hash the JOB_NAME, remove alphabets and take the first 5 characters
+# echo -n "$JOB_NAME" | sha1sum                     # Hash
+# echo -n "$JOB_NAME" | ... | cut -d ' ' -f 1       # Remove appended whitespace
+# echo -n "$JOB_NAME" | ... | xxd -p                # Hexadecimal hash
+# echo -n "$JOB_NAME" | ... | tr -d '\n'            # Remove newline
+# echo -n "$JOB_NAME" | ... | tr -d '[[:alpha:]]'   # Remove alphabets
+# echo -n "$JOB_NAME" | ... | sed 's/^0*//'         # Remove appended zeroes
+# echo -n "$JOB_NAME" | ... | cut -c 1-5            # Truncate to 5 characters
+{{- define "rondb.backups.defineJobNumberEnv" }}
+JOB_NUMBER=$(echo -n "$JOB_NAME" | sha1sum | cut -d ' ' -f 1 | tr -d '\n' | tr -d '[[:alpha:]]' | sed 's/^0*//' | cut -c 1-5)
+if [ -z "$JOB_NUMBER" ]; then
+    echo "JOB_NUMBER is not set"
+    exit 1
+fi
+echo "Job number: $JOB_NUMBER"
+{{- end }}
