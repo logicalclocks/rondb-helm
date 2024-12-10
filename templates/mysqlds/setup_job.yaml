@@ -56,16 +56,16 @@ spec:
         # This will be read by rclone
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
-{{- if eq $.Values.backups.objectStorageProvider "s3" }}
+{{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
         - name: ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-{{- toYaml $.Values.backups.s3.keyCredentialsSecret | nindent 14 }}
+{{- toYaml $.Values.restoreFromBackup.s3.keyCredentialsSecret | nindent 14 }}
               optional: true
         - name: SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-{{- toYaml $.Values.backups.s3.secretCredentialsSecret | nindent 14 }}
+{{- toYaml $.Values.restoreFromBackup.s3.secretCredentialsSecret | nindent 14 }}
               optional: true
 {{- end }}
         - name: POD_NAME
