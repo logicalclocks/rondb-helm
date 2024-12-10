@@ -141,18 +141,10 @@ jobs:
         with:
           namespace: ${{ env.K8S_NAMESPACE }}
 
-      - name: Test deploy stability
-        shell: bash
-        timeout-minutes: 6
-        env:
-          SLEEP_SECONDS: 10
-          MIN_STABLE_MINUTES: 1
-        run: bash .github/test_deploy_stability.sh
-
       - name: Terminate RonDB data node
         run: kubectl -n $K8S_NAMESPACE delete pod node-group-0-0 --force
 
-      - name: Test deploy stability again
+      - name: Test deploy stability
         shell: bash
         timeout-minutes: 6
         env:
