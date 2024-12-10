@@ -185,7 +185,7 @@ jobs:
           helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/mini.yaml \
-            --set restoreFromBackup.backupId=1 \ # TODO
+            --set restoreFromBackup.backupId=1 \
             --set restoreFromBackup.s3.provider=Minio \
             --set restoreFromBackup.s3.endpoint=$MINIO_ENDPOINT \
             --set restoreFromBackup.s3.bucketName=$BUCKET_NAME \
