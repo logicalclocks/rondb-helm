@@ -94,7 +94,7 @@ jobs:
             --set "tenant.buckets[0].name=${BUCKET_NAME}" \
             --set "tenant.buckets[0].region=${BUCKET_REGION}"
 
-      - run: echo "MINIO_ENDPOINT=https://minio.${{ env.MINIO_TENANT_NAMESPACE }}.svc.cluster.local" >> $GITHUB_ENV
+      - run: echo "MINIO_ENDPOINT=http://minio.${{ env.MINIO_TENANT_NAMESPACE }}.svc.cluster.local" >> $GITHUB_ENV
 
       - name: Create namespace
         run: kubectl create namespace $K8S_NAMESPACE
