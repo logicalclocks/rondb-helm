@@ -14,11 +14,44 @@ BUCKET_SECRET_NAME=bucket-credentials
 MINIO_ACCESS_KEY=minio
 MINIO_SECRET_KEY=minio123
 MINIO_TENANT_NAMESPACE=minio-tenant
-BUCKET_NAME=$ORIGINAL_RONDB_NAMESPACE
+BUCKET_NAME=rondb-backups
 BUCKET_REGION=eu-north-1
+
+backups_values_file=values.backup.yaml
+restore_values_file=values.restore.yaml
 
 # No https/TLS needed due to `tenant.certificate.requestAutoCert=false`
 MINIO_ENDPOINT=http://minio.$MINIO_TENANT_NAMESPACE.svc.cluster.local
+
+# Object storage info is re-usable for both backups and restores
+_writeValuesFiles() {
+    YAML_CONTENT=$(
+        cat <<EOF
+  s3:
+    provider: Minio
+    endpoint: $MINIO_ENDPOINT
+    bucketName: $BUCKET_NAME
+    region: $BUCKET_REGION
+    serverSideEncryption: null
+    keyCredentialsSecret:
+      name: $BUCKET_SECRET_NAME
+      key: key_id
+    secretCredentialsSecret:
+      name: $BUCKET_SECRET_NAME
+      key: access_key
+EOF
+    )
+
+    {
+        echo "backups:"
+        echo "$YAML_CONTENT"
+    } >"$backups_values_file"
+
+    {
+        echo "restoreFromBackup:"
+        echo "$YAML_CONTENT"
+    } >"$restore_values_file"
+}
 
 _getBackupId() {
     POD_NAME=$(kubectl get pods -n $ORIGINAL_RONDB_NAMESPACE --selector=job-name=manual-backup -o jsonpath='{.items[?(@.status.phase=="Succeeded")].metadata.name}' | head -n 1)
@@ -49,25 +82,13 @@ setupFirstCluster() {
         --from-literal "key_id=${MINIO_ACCESS_KEY}" \
         --from-literal "access_key=${MINIO_SECRET_KEY}" || true
 
-    rondb_vals=$(
-        cat <<EOF
-    --namespace=$ORIGINAL_RONDB_NAMESPACE \
-    --values ./values/minikube/mini.yaml \
-    --set backups.enabled=true \
-    --set backups.s3.provider=Minio \
-    --set backups.s3.endpoint=$MINIO_ENDPOINT \
-    --set backups.s3.bucketName=$BUCKET_NAME \
-    --set backups.s3.region=$BUCKET_REGION \
-    --set backups.s3.serverSideEncryption=null \
-    --set backups.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
-    --set backups.s3.keyCredentialsSecret.key=key_id \
-    --set backups.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
-    --set backups.s3.secretCredentialsSecret.key=access_key
-EOF
-    )
+    _writeValuesFiles
+    helm install $RONDB_CLUSTER_NAME \
+        --namespace=$ORIGINAL_RONDB_NAMESPACE \
+        --values ./values/minikube/mini.yaml \
+        --values $backups_values_file \
+        --set backups.enabled=true .
 
-    eval helm template $rondb_vals . >bla.yaml
-    eval helm upgrade -i $RONDB_CLUSTER_NAME $rondb_vals .
     helm test -n $ORIGINAL_RONDB_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=generate-data
 
     kubectl delete job -n $ORIGINAL_RONDB_NAMESPACE manual-backup || true
@@ -77,12 +98,16 @@ EOF
     echo "BACKUP_ID is ${BACKUP_ID}"
 }
 
+destroy_first_cluster() {
+    helm delete $RONDB_CLUSTER_NAME -n $ORIGINAL_RONDB_NAMESPACE  || true
+    kubectl delete namespace $ORIGINAL_RONDB_NAMESPACE  || true
+}
+
 restoreCluster() {
     BACKUP_ID=$(_getBackupId)
     echo "BACKUP_ID is ${BACKUP_ID}"
 
-    helm delete $RONDB_CLUSTER_NAME -n $ORIGINAL_RONDB_NAMESPACE
-    kubectl delete namespace $ORIGINAL_RONDB_NAMESPACE
+    destroy_first_cluster
 
     kubectl create namespace $RESTORED_RONDB_NAMESPACE
 
@@ -91,19 +116,12 @@ restoreCluster() {
         --from-literal "key_id=${MINIO_ACCESS_KEY}" \
         --from-literal "access_key=${MINIO_SECRET_KEY}"
 
+    _writeValuesFiles
     helm install $RONDB_CLUSTER_NAME \
         --namespace=$RESTORED_RONDB_NAMESPACE \
         --values ./values/minikube/mini.yaml \
+        --values $restore_values_file \
         --set restoreFromBackup.backupId=${BACKUP_ID} \
-        --set restoreFromBackup.s3.provider=Minio \
-        --set restoreFromBackup.s3.endpoint=$MINIO_ENDPOINT \
-        --set restoreFromBackup.s3.bucketName=$BUCKET_NAME \
-        --set restoreFromBackup.s3.region=$BUCKET_REGION \
-        --set restoreFromBackup.s3.serverSideEncryption=null \
-        --set restoreFromBackup.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
-        --set restoreFromBackup.s3.keyCredentialsSecret.key=key_id \
-        --set restoreFromBackup.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
-        --set restoreFromBackup.s3.secretCredentialsSecret.key=access_key \
         .
 
     # Check that restoring worked
@@ -111,8 +129,8 @@ restoreCluster() {
 }
 
 destroy_restored_cluster() {
-    helm delete $RONDB_CLUSTER_NAME -n $RESTORED_RONDB_NAMESPACE
-    kubectl delete namespace $RESTORED_RONDB_NAMESPACE
+    helm delete $RONDB_CLUSTER_NAME -n $RESTORED_RONDB_NAMESPACE  || true
+    kubectl delete namespace $RESTORED_RONDB_NAMESPACE  || true
 }
 
 destroy_minio_tenant() {
@@ -123,3 +141,7 @@ destroy_minio_tenant() {
 setupFirstCluster
 restoreCluster
 destroy_restored_cluster
+# destroy_minio_tenant
+
+rm -f $backups_values_file
+rm -f $restore_values_file
