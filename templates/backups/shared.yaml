@@ -14,7 +14,9 @@ data:
         secret_access_key = REG_SECRET_ACCESS_KEY
         env_auth = false
         region = {{ .Values.restoreFromBackup.s3.region }}
+{{- if .Values.restoreFromBackup.s3.serverSideEncryption }}
         server_side_encryption = {{ .Values.restoreFromBackup.s3.serverSideEncryption }}
+{{- end }}
         storage_class = STANDARD
 {{- if .Values.restoreFromBackup.s3.endpoint }}
         endpoint = {{ .Values.restoreFromBackup.s3.endpoint }}
@@ -29,7 +31,9 @@ data:
         secret_access_key = REG_SECRET_ACCESS_KEY
         env_auth = false
         region = {{ .Values.backups.s3.region }}
+{{- if .Values.backups.s3.serverSideEncryption }}
         server_side_encryption = {{ .Values.backups.s3.serverSideEncryption }}
+{{- end }}
         storage_class = STANDARD
 {{- if .Values.backups.s3.endpoint }}
         endpoint = {{ .Values.backups.s3.endpoint }}

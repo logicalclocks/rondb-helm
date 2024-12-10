@@ -94,7 +94,7 @@ jobs:
             --set "tenant.buckets[0].name=${BUCKET_NAME}" \
             --set "tenant.buckets[0].region=${BUCKET_REGION}"
 
-      - run: echo "MINIO_ENDPOINT=http://minio.${{ env.MINIO_TENANT_NAMESPACE }}.svc.cluster.local" >> $GITHUB_ENV
+      - run: echo "MINIO_ENDPOINT=https://minio.${{ env.MINIO_TENANT_NAMESPACE }}.svc.cluster.local" >> $GITHUB_ENV
 
       - name: Create namespace
         run: kubectl create namespace $K8S_NAMESPACE
@@ -118,6 +118,7 @@ jobs:
             --set backups.s3.endpoint=$MINIO_ENDPOINT \
             --set backups.s3.bucketName=$BUCKET_NAME \
             --set backups.s3.region=$BUCKET_REGION \
+            --set backups.s3.serverSideEncryption=null \
             --set backups.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
             --set backups.s3.keyCredentialsSecret.key=key_id \
             --set backups.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
@@ -188,6 +189,7 @@ jobs:
             --set restoreFromBackup.s3.endpoint=$MINIO_ENDPOINT \
             --set restoreFromBackup.s3.bucketName=$BUCKET_NAME \
             --set restoreFromBackup.s3.region=$BUCKET_REGION \
+            --set restoreFromBackup.s3.serverSideEncryption=null \
             --set restoreFromBackup.s3.keyCredentialsSecret.name=$BUCKET_SECRET_NAME \
             --set restoreFromBackup.s3.keyCredentialsSecret.key=key_id \
             --set restoreFromBackup.s3.secretCredentialsSecret.name=$BUCKET_SECRET_NAME \
