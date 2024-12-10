@@ -69,6 +69,7 @@ jobs:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
       MINIO_TENANT_NAMESPACE: minio-tenant-${{ github.run_id }}-${{ github.run_attempt }}
+      BACKUP_JOB_NAME: manual-backup
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v4
@@ -160,16 +161,20 @@ jobs:
       # Check that data has been created correctly
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
 
-      - run: kubectl create job -n $K8S_NAMESPACE --from=cronjob/create-backup manual-backup
+      - run: kubectl create job -n $K8S_NAMESPACE --from=cronjob/create-backup $BACKUP_JOB_NAME
 
       - name: Waiting for backup job to complete
         shell: bash
-        run: bash .github/wait_job.sh $K8S_NAMESPACE manual-backup 180
+        run: bash .github/wait_job.sh $K8S_NAMESPACE $BACKUP_JOB_NAME 180
 
-      - run: |
-          POD_NAME=$(kubectl get pods -n rondb-helm --selector=job-name=manual-backup -o jsonpath='{.items[?(@.status.phase=="Succeeded")].metadata.name}' | head -n 1)
+      - name: Get backup ID
+        run: |
+          kubectl get pods -n $K8S_NAMESPACE --selector=job-name=$BACKUP_JOB_NAME
+          POD_NAME=$(kubectl get pods -n $K8S_NAMESPACE --selector=job-name=$BACKUP_JOB_NAME -o jsonpath='{.items[?(@.status.phase=="Succeeded")].metadata.name}' | head -n 1)
           echo "POD_NAME is ${POD_NAME}"
-          BACKUP_ID=$(kubectl logs $POD_NAME -n rondb-helm --container=upload-native-backups | grep -o "BACKUP-[0-9]\+" | head -n 1 | awk -F '-' '{print $2}')
+
+          kubectl logs $POD_NAME -n $K8S_NAMESPACE --container=upload-native-backups
+          BACKUP_ID=$(kubectl logs $POD_NAME -n $K8S_NAMESPACE --container=upload-native-backups | grep -o "BACKUP-[0-9]\+" | head -n 1 | awk -F '-' '{print $2}')
           echo "BACKUP_ID is ${BACKUP_ID}"
           echo "BACKUP_ID=${BACKUP_ID}" >> $GITHUB_ENV
 
