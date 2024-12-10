@@ -55,5 +55,6 @@
         minio-operator ./operator \
         --set operator.replicaCount=1
 
+    # Still needed to instantiate MinIO Tenants
     helm repo add minio https://operator.min.io/
     ```
