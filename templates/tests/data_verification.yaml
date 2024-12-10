@@ -13,6 +13,7 @@ metadata:
   annotations:
     "helm.sh/hook": test
     "helm.sh/hook-weight": {{ .hookWeight | quote }}
+    "helm.sh/hook-delete-policy": hook-succeeded
 spec:
   restartPolicy: Never
   initContainers:    

@@ -12,10 +12,6 @@ runs:
     shell: bash
     run: helm delete --namespace=${{ inputs.namespace }} $RONDB_CLUSTER_NAME
 
-  - name: Delete Helm test Pods
-    shell: bash
-    run: kubectl delete pods --all --namespace ${{ inputs.namespace }}
-
   - name: Wait for resource deletions
     shell: bash
     run: |
