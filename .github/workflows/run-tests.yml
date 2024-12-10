@@ -166,6 +166,13 @@ jobs:
         shell: bash
         run: bash .github/wait_job.sh $K8S_NAMESPACE manual-backup 180
 
+      - run: |
+          POD_NAME=$(kubectl get pods -n rondb-helm --selector=job-name=manual-backup -o jsonpath='{.items[?(@.status.phase=="Succeeded")].metadata.name}' | head -n 1)
+          echo "POD_NAME is ${POD_NAME}"
+          BACKUP_ID=$(kubectl logs $POD_NAME -n rondb-helm --container=upload-native-backups | grep -o "BACKUP-[0-9]\+" | head -n 1 | awk -F '-' '{print $2}')
+          echo "BACKUP_ID is ${BACKUP_ID}"
+          echo "BACKUP_ID=${BACKUP_ID}" >> $GITHUB_ENV
+
       - name: Collect logs
         if: always()
         uses: ./.github/actions/collect_logs
@@ -185,7 +192,7 @@ jobs:
           helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/mini.yaml \
-            --set restoreFromBackup.backupId=1 \
+            --set restoreFromBackup.backupId=${BACKUP_ID} \
             --set restoreFromBackup.s3.provider=Minio \
             --set restoreFromBackup.s3.endpoint=$MINIO_ENDPOINT \
             --set restoreFromBackup.s3.bucketName=$BUCKET_NAME \
