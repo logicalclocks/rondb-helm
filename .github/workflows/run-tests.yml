@@ -115,6 +115,8 @@ jobs:
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/mini.yaml \
             --set benchmarking.enabled=true \
+            --set clusterSize.minNumMySQLServers=1 \
+            --set clusterSize.maxNumMySQLServers=2 \
             --set backups.enabled=true \
             --set backups.s3.provider=Minio \
             --set backups.s3.endpoint=$MINIO_ENDPOINT \
