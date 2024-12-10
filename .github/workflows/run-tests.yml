@@ -88,13 +88,14 @@ jobs:
             --set "tenant.pools[0].servers=1" \
             --set "tenant.pools[0].volumesPerServer=1" \
             --set "tenant.pools[0].size=4Gi" \
+            --set "tenant.certificate.requestAutoCert=false" \
             --set "tenant.configSecret.name=myminio-env-configuration" \
             --set "tenant.configSecret.accessKey=${MINIO_ACCESS_KEY}" \
             --set "tenant.configSecret.secretKey=${MINIO_SECRET_KEY}" \
             --set "tenant.buckets[0].name=${BUCKET_NAME}" \
             --set "tenant.buckets[0].region=${BUCKET_REGION}"
 
-      - run: echo "MINIO_ENDPOINT=https://minio.${{ env.MINIO_TENANT_NAMESPACE }}.svc.cluster.local" >> $GITHUB_ENV
+      - run: echo "MINIO_ENDPOINT=http://minio.${{ env.MINIO_TENANT_NAMESPACE }}.svc.cluster.local" >> $GITHUB_ENV
 
       - name: Create namespace
         run: kubectl create namespace $K8S_NAMESPACE
@@ -184,7 +185,7 @@ jobs:
           helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/mini.yaml \
-            --set restoreFromBackup.backupId=1 \
+            --set restoreFromBackup.backupId=1 \ # TODO
             --set restoreFromBackup.s3.provider=Minio \
             --set restoreFromBackup.s3.endpoint=$MINIO_ENDPOINT \
             --set restoreFromBackup.s3.bucketName=$BUCKET_NAME \
