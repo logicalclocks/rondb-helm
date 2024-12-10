@@ -245,6 +245,6 @@ jobs:
         if: always()
         run: helm delete --namespace $MINIO_TENANT_NAMESPACE tenant
 
-      - shell: bash
+      - name: Delete MinIO namespace
         if: always()
         run: kubectl delete namespace $MINIO_TENANT_NAMESPACE --timeout=50s || true
