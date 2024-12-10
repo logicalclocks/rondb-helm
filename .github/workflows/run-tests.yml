@@ -187,6 +187,17 @@ jobs:
         with:
           namespace: ${{ env.K8S_NAMESPACE }}
 
+      - name: Create namespace
+        run: kubectl create namespace $K8S_NAMESPACE
+
+      # MinIO also creates a Secret but with a different format
+      - name: Create RonDB's Bucket Secret
+        run: |
+          kubectl create secret generic $BUCKET_SECRET_NAME \
+            --namespace=$K8S_NAMESPACE \
+            --from-literal "key_id=${MINIO_ACCESS_KEY}" \
+            --from-literal "access_key=${MINIO_SECRET_KEY}"
+
       - name: Create second RonDB cluster
         run: |
           helm install $RONDB_CLUSTER_NAME \
