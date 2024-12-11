@@ -7,51 +7,16 @@
 
 set -e
 
+backups_values_file=values.backup.yaml
+restore_values_file=values.restore.yaml
+BUCKET_SECRET_NAME=rondb-backups
+MINIO_ACCESS_KEY=minio
+MINIO_SECRET_KEY=minio123
+./docs/setup_minio.sh $backups_values_file $restore_values_file $BUCKET_SECRET_NAME $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+
 ORIGINAL_RONDB_NAMESPACE=rondb-original
 RESTORED_RONDB_NAMESPACE=rondb-restored
 RONDB_CLUSTER_NAME=my-rondb
-BUCKET_SECRET_NAME=bucket-credentials
-MINIO_ACCESS_KEY=minio
-MINIO_SECRET_KEY=minio123
-MINIO_TENANT_NAMESPACE=minio-tenant
-BUCKET_NAME=rondb-backups
-BUCKET_REGION=eu-north-1
-
-backups_values_file=values.backup.yaml
-restore_values_file=values.restore.yaml
-
-# No https/TLS needed due to `tenant.certificate.requestAutoCert=false`
-MINIO_ENDPOINT=http://minio.$MINIO_TENANT_NAMESPACE.svc.cluster.local
-
-# Object storage info is re-usable for both backups and restores
-_writeValuesFiles() {
-    YAML_CONTENT=$(
-        cat <<EOF
-  s3:
-    provider: Minio
-    endpoint: $MINIO_ENDPOINT
-    bucketName: $BUCKET_NAME
-    region: $BUCKET_REGION
-    serverSideEncryption: null
-    keyCredentialsSecret:
-      name: $BUCKET_SECRET_NAME
-      key: key_id
-    secretCredentialsSecret:
-      name: $BUCKET_SECRET_NAME
-      key: access_key
-EOF
-    )
-
-    {
-        echo "backups:"
-        echo "$YAML_CONTENT"
-    } >"$backups_values_file"
-
-    {
-        echo "restoreFromBackup:"
-        echo "$YAML_CONTENT"
-    } >"$restore_values_file"
-}
 
 _getBackupId() {
     POD_NAME=$(kubectl get pods -n $ORIGINAL_RONDB_NAMESPACE --selector=job-name=manual-backup -o jsonpath='{.items[?(@.status.phase=="Succeeded")].metadata.name}' | head -n 1)
@@ -60,29 +25,14 @@ _getBackupId() {
 }
 
 setupFirstCluster() {
-    helm upgrade -i \
-        --namespace $MINIO_TENANT_NAMESPACE \
-        --create-namespace \
-        tenant minio/tenant \
-        --set "tenant.pools[0].name=my-pool" \
-        --set "tenant.pools[0].servers=1" \
-        --set "tenant.pools[0].volumesPerServer=1" \
-        --set "tenant.pools[0].size=4Gi" \
-        --set "tenant.certificate.requestAutoCert=false" \
-        --set "tenant.configSecret.name=myminio-env-configuration" \
-        --set "tenant.configSecret.accessKey=${MINIO_ACCESS_KEY}" \
-        --set "tenant.configSecret.secretKey=${MINIO_SECRET_KEY}" \
-        --set "tenant.buckets[0].name=${BUCKET_NAME}" \
-        --set "tenant.buckets[0].region=${BUCKET_REGION}"
-
-    kubectl create namespace $ORIGINAL_RONDB_NAMESPACE || true
+    kubectl delete namespace $ORIGINAL_RONDB_NAMESPACE || true
+    kubectl create namespace $ORIGINAL_RONDB_NAMESPACE
 
     kubectl create secret generic $BUCKET_SECRET_NAME \
         --namespace=$ORIGINAL_RONDB_NAMESPACE \
         --from-literal "key_id=${MINIO_ACCESS_KEY}" \
-        --from-literal "access_key=${MINIO_SECRET_KEY}" || true
+        --from-literal "access_key=${MINIO_SECRET_KEY}"
 
-    _writeValuesFiles
     helm install $RONDB_CLUSTER_NAME \
         --namespace=$ORIGINAL_RONDB_NAMESPACE \
         --values ./values/minikube/mini.yaml \
@@ -109,6 +59,7 @@ restoreCluster() {
 
     destroy_first_cluster
 
+    kubectl delete namespace $RESTORED_RONDB_NAMESPACE || true
     kubectl create namespace $RESTORED_RONDB_NAMESPACE
 
     kubectl create secret generic $BUCKET_SECRET_NAME \
@@ -116,7 +67,6 @@ restoreCluster() {
         --from-literal "key_id=${MINIO_ACCESS_KEY}" \
         --from-literal "access_key=${MINIO_SECRET_KEY}"
 
-    _writeValuesFiles
     helm install $RONDB_CLUSTER_NAME \
         --namespace=$RESTORED_RONDB_NAMESPACE \
         --values ./values/minikube/mini.yaml \
