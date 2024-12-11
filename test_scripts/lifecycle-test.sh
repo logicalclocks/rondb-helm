@@ -21,7 +21,7 @@ CLUSTER_B_NAME=$2
 CLUSTER_C_NAME=$3
 CLUSTER_D_NAME=$4
 
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
 # Values files relating to object storage
 source $SCRIPT_DIR/minio.env
@@ -64,6 +64,12 @@ getBackupId() {
     POD_NAME=$(kubectl get pods -n $namespace --selector=job-name=manual-backup -o jsonpath='{.items[?(@.status.phase=="Succeeded")].metadata.name}' | head -n 1)
     BACKUP_ID=$(kubectl logs $POD_NAME -n $namespace --container=upload-native-backups | grep -o "BACKUP-[0-9]\+" | head -n 1 | awk -F '-' '{print $2}')
     echo $BACKUP_ID
+}
+
+deleteCluster() {
+    local clusterName=$1
+    helm delete $clusterName --namespace=$clusterName
+    kubectl delete namespace $clusterName
 }
 
 #########################
@@ -137,8 +143,7 @@ helm upgrade -i $CLUSTER_B_NAME \
     --set "globalReplication.secondary.enabled=false" \
     .
 
-helm delete $CLUSTER_A_NAME --namespace=$CLUSTER_A_NAME
-kubectl delete namespace $CLUSTER_A_NAME
+deleteCluster $CLUSTER_A_NAME
 
 #########################
 # [Test: create backup] #
@@ -190,8 +195,7 @@ helm upgrade -i $CLUSTER_C_NAME \
     --set "globalReplication.secondary.replicateFrom.clusterNumber=$CLUSTER_NUMBER_B" \
     --set "globalReplication.secondary.replicateFrom.binlogServerHosts={$BINLOG_HOSTS_B}"
 
-helm delete $CLUSTER_B_NAME --namespace=$CLUSTER_B_NAME
-kubectl delete namespace $CLUSTER_B_NAME
+deleteCluster $CLUSTER_B_NAME
 
 ###########################################
 # [Test: replicate from 3rd party backup] #
@@ -220,10 +224,10 @@ helm upgrade -i $CLUSTER_D_NAME \
     --set "globalReplication.secondary.replicateFrom.clusterNumber=$CLUSTER_NUMBER_C" \
     --set "globalReplication.secondary.replicateFrom.binlogServerHosts={$BINLOG_HOSTS_C}"
 
-helm delete $CLUSTER_C_NAME --namespace=$CLUSTER_C_NAME
-helm delete $CLUSTER_D_NAME --namespace=$CLUSTER_D_NAME
+deleteCluster $CLUSTER_C_NAME
+deleteCluster $CLUSTER_D_NAME
 
-# Delete all namespaces
+# Sanity check; delete all namespaces again
 for namespace in ${namespaces[@]}; do
     kubectl delete namespace $namespace || true
 done
