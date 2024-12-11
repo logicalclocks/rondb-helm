@@ -13,7 +13,6 @@ MINIO_TENANT_NAMESPACE=$6
 
 helm repo add minio https://operator.min.io/
 
-MINIO_TENANT_NAMESPACE=minio-tenant
 BUCKET_NAME=rondb-backups
 BUCKET_REGION=eu-north-1
 
