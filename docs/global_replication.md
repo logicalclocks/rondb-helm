@@ -75,3 +75,17 @@ Clean up:
 helm delete --kubeconfig=$PRIMARY_KUBECONFIG rondb-primary --namespace=$NAMESPACE
 helm delete --kubeconfig=$SECONDARY_KUBECONFIG rondb-secondary --namespace=$NAMESPACE
 ```
+
+### Lifecycle tests
+
+This will test backup/restore in the context of Global Replication:
+
+```bash
+backups_values_file=values.backup.yaml
+restore_values_file=values.restore.yaml
+BUCKET_SECRET_NAME=rondb-backups
+MINIO_ACCESS_KEY=minio
+MINIO_SECRET_KEY=minio123
+./test_scripts/setup_minio.sh $backups_values_file $restore_values_file $BUCKET_SECRET_NAME $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+./test_scripts/lifecycle-test.sh $backups_values_file $restore_values_file $BUCKET_SECRET_NAME $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+```
