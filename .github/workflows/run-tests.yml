@@ -116,7 +116,7 @@ jobs:
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.K8S_NAMESPACE }}
-          i: 1
+          folder_name: k8s_logs
 
       - name: Remove cluster
         if: always()
@@ -148,6 +148,7 @@ jobs:
         run: |
           ./test_scripts/setup_minio.sh
 
+      # This script will also remove all clusters & namespaces
       - name: Run lifecycle test
         run: |
           ./test_scripts/lifecycle-test.sh \
@@ -156,7 +157,12 @@ jobs:
             $CLUSTER_C_NAME \
             $CLUSTER_D_NAME
 
-      # TODO: Collect all logs as well
+      - name: Collect logs
+        if: failure()
+        uses: ./.github/actions/collect_logs
+        with:
+          namespace: ${{ env.CLUSTER_A_NAME }}
+          folder_name: ${{ env.CLUSTER_A_NAME }}
 
       - name: Remove cluster
         if: failure()
@@ -166,6 +172,13 @@ jobs:
           namespace: ${{ env.CLUSTER_A_NAME }}
           helm_chart: ${{ env.CLUSTER_A_NAME }}
 
+      - name: Collect logs
+        if: failure()
+        uses: ./.github/actions/collect_logs
+        with:
+          namespace: ${{ env.CLUSTER_B_NAME }}
+          folder_name: ${{ env.CLUSTER_B_NAME }}
+
       - name: Remove cluster
         if: failure()
         uses: ./.github/actions/remove_cluster
@@ -174,6 +187,13 @@ jobs:
           namespace: ${{ env.CLUSTER_B_NAME }}
           helm_chart: ${{ env.CLUSTER_B_NAME }}
 
+      - name: Collect logs
+        if: failure()
+        uses: ./.github/actions/collect_logs
+        with:
+          namespace: ${{ env.CLUSTER_C_NAME }}
+          folder_name: ${{ env.CLUSTER_C_NAME }}
+
       - name: Remove cluster
         if: failure()
         uses: ./.github/actions/remove_cluster
@@ -181,6 +201,13 @@ jobs:
         with:
           namespace: ${{ env.CLUSTER_C_NAME }}
           helm_chart: ${{ env.CLUSTER_C_NAME }}
+
+      - name: Collect logs
+        if: failure()
+        uses: ./.github/actions/collect_logs
+        with:
+          namespace: ${{ env.CLUSTER_D_NAME }}
+          folder_name: ${{ env.CLUSTER_D_NAME }}
 
       - name: Remove cluster
         if: failure()
