@@ -79,6 +79,7 @@ restoreCluster() {
 
 setupFirstCluster $ORIGINAL_RONDB_NAMESPACE
 BACKUP_ID=$(getBackupId $ORIGINAL_RONDB_NAMESPACE)
+# We destroy this here in order to free up resources
 destroy_cluster $ORIGINAL_RONDB_NAMESPACE
 
 restoreCluster $RESTORED_RONDB_NAMESPACE $BACKUP_ID

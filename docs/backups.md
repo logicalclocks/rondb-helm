@@ -72,16 +72,14 @@ Reasoning:
 
 ## Testing backup/restore
 
-Running these scripts will test backup/restore:
-
-```bash
-./test_scripts/setup_minio.sh
-./test_scripts/test_backup_restore.sh
-```
-
-Clean up MinIO:
-
-```bash
-helm delete tenant -n $MINIO_TENANT_NAMESPACE
-kubectl delete namespace $MINIO_TENANT_NAMESPACE
-```
+1. Edit ./test_scripts/common.env if needed
+2. Run these scripts; will test backup/restore:
+    ```bash
+    ./test_scripts/setup_minio.sh
+    ./test_scripts/test_backup_restore.sh
+    ```
+3. Clean up MinIO:
+    ```bash
+    helm delete tenant -n $MINIO_TENANT_NAMESPACE
+    kubectl delete namespace $MINIO_TENANT_NAMESPACE
+    ```
