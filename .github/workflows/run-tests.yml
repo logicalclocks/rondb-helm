@@ -170,7 +170,7 @@ jobs:
       # TODO: Collect all logs as well
 
       - name: Remove cluster
-        if: always()
+        if: failure()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
@@ -178,7 +178,7 @@ jobs:
           helm_chart: cluster-a
 
       - name: Remove cluster
-        if: always()
+        if: failure()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
@@ -186,7 +186,7 @@ jobs:
           helm_chart: cluster-b
 
       - name: Remove cluster
-        if: always()
+        if: failure()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
@@ -194,7 +194,7 @@ jobs:
           helm_chart: cluster-c
 
       - name: Remove cluster
-        if: always()
+        if: failure()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
