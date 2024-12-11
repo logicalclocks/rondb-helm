@@ -130,6 +130,13 @@ helm upgrade -i $CLUSTER_B_NAME \
 # Check that data has been created correctly
 helm test -n $CLUSTER_B_NAME $CLUSTER_B_NAME --logs --filter name=verify-data
 
+# Since we're killing cluster A, cluster B's replica appliers don't make sense anymore.
+helm upgrade -i $CLUSTER_B_NAME \
+    --namespace=$CLUSTER_B_NAME \
+    --reuse-values \
+    --set "globalReplication.secondary.enabled=false" \
+    .
+
 helm delete $CLUSTER_A_NAME --namespace=$CLUSTER_A_NAME
 kubectl delete namespace $CLUSTER_A_NAME
 
