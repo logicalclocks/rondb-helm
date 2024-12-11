@@ -2,7 +2,7 @@
 
 The following shows how to replicate between two RonDB clusters.
 
-## Active-Passive Setup
+## Active-Passive from scratch
 
 ### Minikube
 
