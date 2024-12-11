@@ -131,14 +131,10 @@ jobs:
     if: github.repository == 'logicalclocks/rondb-helm'
     runs-on: [self-hosted, ARM64]
     env:
-      K8S_NAMESPACE: rondb-helm-${{ github.run_id }}-${{ github.run_attempt }}
-      RONDB_CLUSTER_NAME: my-rondb
-      BUCKET_SECRET_NAME: bucket-credentials
-      MINIO_ACCESS_KEY: minio
-      MINIO_SECRET_KEY: minio123
-      MINIO_TENANT_NAMESPACE: minio-tenant-${{ github.run_id }}-${{ github.run_attempt }}
-      backups_values_file: values.backup.yaml
-      restore_values_file: values.restore.yaml
+      CLUSTER_A_NAME: cluster-a
+      CLUSTER_B_NAME: cluster-b
+      CLUSTER_C_NAME: cluster-c
+      CLUSTER_D_NAME: cluster-d
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v4
@@ -150,22 +146,15 @@ jobs:
 
       - name: Setup MinIO
         run: |
-          ./test_scripts/setup_minio.sh \
-            $backups_values_file \
-            $restore_values_file \
-            $BUCKET_SECRET_NAME \
-            $MINIO_ACCESS_KEY \
-            $MINIO_SECRET_KEY \
-            $MINIO_TENANT_NAMESPACE
+          ./test_scripts/setup_minio.sh
 
       - name: Run lifecycle test
         run: |
           ./test_scripts/lifecycle-test.sh \
-            $backups_values_file \
-            $restore_values_file \
-            $BUCKET_SECRET_NAME \
-            $MINIO_ACCESS_KEY \
-            $MINIO_SECRET_KEY
+            $CLUSTER_A_NAME \
+            $CLUSTER_B_NAME \
+            $CLUSTER_C_NAME \
+            $CLUSTER_D_NAME
 
       # TODO: Collect all logs as well
 
@@ -174,37 +163,41 @@ jobs:
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
-          namespace: cluster-a
-          helm_chart: cluster-a
+          namespace: ${{ env.CLUSTER_A_NAME }}
+          helm_chart: ${{ env.CLUSTER_A_NAME }}
 
       - name: Remove cluster
         if: failure()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
-          namespace: cluster-b
-          helm_chart: cluster-b
+          namespace: ${{ env.CLUSTER_B_NAME }}
+          helm_chart: ${{ env.CLUSTER_B_NAME }}
 
       - name: Remove cluster
         if: failure()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
-          namespace: cluster-c
-          helm_chart: cluster-c
+          namespace: ${{ env.CLUSTER_C_NAME }}
+          helm_chart: ${{ env.CLUSTER_C_NAME }}
 
       - name: Remove cluster
         if: failure()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
-          namespace: cluster-d
-          helm_chart: cluster-d
+          namespace: ${{ env.CLUSTER_D_NAME }}
+          helm_chart: ${{ env.CLUSTER_D_NAME }}
 
       - name: Delete MinIO tenant
         if: always()
-        run: helm delete --namespace $MINIO_TENANT_NAMESPACE tenant
+        run: |
+          source ./test_scripts/common.env
+          helm delete --namespace $MINIO_TENANT_NAMESPACE tenant
 
       - name: Delete MinIO namespace
         if: always()
-        run: kubectl delete namespace $MINIO_TENANT_NAMESPACE --timeout=50s || true
+        run: |
+          source ./test_scripts/common.env
+          kubectl delete namespace $MINIO_TENANT_NAMESPACE --timeout=50s || true

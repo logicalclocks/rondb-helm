@@ -13,17 +13,16 @@ EOF
 
 set -e
 
-# Values files relating to object storage
-backups_values_file=$1
-restore_values_file=$2
-BUCKET_SECRET_NAME=$3
-MINIO_ACCESS_KEY=$4
-MINIO_SECRET_KEY=$5
+# We use these both for namespace names and Helm instance names
+CLUSTER_A_NAME=$1
+CLUSTER_B_NAME=$2
+CLUSTER_C_NAME=$3
+CLUSTER_D_NAME=$4
 
-CLUSTER_A_NAME=cluster-a
-CLUSTER_B_NAME=cluster-b
-CLUSTER_C_NAME=cluster-c
-CLUSTER_D_NAME=cluster-d
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+# Values files relating to object storage
+source $SCRIPT_DIR/common.env
 
 namespaces=($CLUSTER_A_NAME $CLUSTER_B_NAME $CLUSTER_C_NAME $CLUSTER_D_NAME)
 for namespace in ${namespaces[@]}; do
