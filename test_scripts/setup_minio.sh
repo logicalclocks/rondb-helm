@@ -9,6 +9,7 @@ restore_values_file=$2
 BUCKET_SECRET_NAME=$3
 MINIO_ACCESS_KEY=$4
 MINIO_SECRET_KEY=$5
+MINIO_TENANT_NAMESPACE=$6
 
 helm repo add minio https://operator.min.io/
 

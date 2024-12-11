@@ -12,7 +12,8 @@ restore_values_file=values.restore.yaml
 BUCKET_SECRET_NAME=rondb-backups
 MINIO_ACCESS_KEY=minio
 MINIO_SECRET_KEY=minio123
-./test_scripts/setup_minio.sh $backups_values_file $restore_values_file $BUCKET_SECRET_NAME $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+MINIO_TENANT_NAMESPACE=minio-tenant
+./test_scripts/setup_minio.sh $backups_values_file $restore_values_file $BUCKET_SECRET_NAME $MINIO_ACCESS_KEY $MINIO_SECRET_KEY $MINIO_TENANT_NAMESPACE
 
 ORIGINAL_RONDB_NAMESPACE=rondb-original
 RESTORED_RONDB_NAMESPACE=rondb-restored
