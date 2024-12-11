@@ -22,7 +22,7 @@ kubectl create namespace $SECONDARY_NAMESPACE
 # - Create dependencies such as cert-manager or Ingress controller
 # - Create object storage Secrets for each namespace
 
-./docs/active-passive-minikube.sh $PRIMARY_NAMESPACE $SECONDARY_NAMESPACE
+./test_scripts/active-passive-minikube.sh $PRIMARY_NAMESPACE $SECONDARY_NAMESPACE
 ```
 
 Verify replication:
@@ -59,7 +59,7 @@ kubectl create namespace $NAMESPACE --kubeconfig=$SECONDARY_KUBECONFIG
 # - Create dependencies such as cert-manager or Ingress controller
 # - Create object storage Secrets for each namespace
 
-./docs/active-passive-prod.sh $NAMESPACE $PRIMARY_KUBECONFIG $SECONDARY_KUBECONFIG
+./test_scripts/active-passive-prod.sh $NAMESPACE $PRIMARY_KUBECONFIG $SECONDARY_KUBECONFIG
 ```
 
 Verify replication:
