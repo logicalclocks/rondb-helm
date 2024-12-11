@@ -155,7 +155,7 @@ jobs:
             $restore_values_file \
             $BUCKET_SECRET_NAME \
             $MINIO_ACCESS_KEY \
-            $MINIO_SECRET_KEY
+            $MINIO_SECRET_KEY \
             $MINIO_TENANT_NAMESPACE
 
       - name: Run lifecycle test
