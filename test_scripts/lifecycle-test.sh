@@ -185,14 +185,7 @@ BINLOG_HOSTS_B=$(getBinlogHostsString $CLUSTER_B_NAME)
 
 helm upgrade -i $CLUSTER_C_NAME \
     --namespace=$CLUSTER_C_NAME . \
-    --values values/minikube/mini.yaml \
-    --values $restore_values_file \
-    --set "clusterSize.minNumRdrs=0" \
-    --set "restoreFromBackup.backupId=$BACKUP_B_ID" \
-    --set "priorityClass=$CLUSTER_C_NAME" \
-    --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
-    --set "mysql.supplyOwnSecret=true" \
-    --set "globalReplication.clusterNumber=$CLUSTER_NUMBER_C" \
+    --reuse-values \
     --set "globalReplication.secondary.enabled=true" \
     --set "globalReplication.secondary.replicateFrom.clusterNumber=$CLUSTER_NUMBER_B" \
     --set "globalReplication.secondary.replicateFrom.binlogServerHosts={$BINLOG_HOSTS_B}"
