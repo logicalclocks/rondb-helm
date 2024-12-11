@@ -72,7 +72,7 @@ Reasoning:
 
 ## Testing backup/restore
 
-1. Edit ./test_scripts/common.env if needed
+1. Edit ./test_scripts/minio.env if needed
 2. Run these scripts; will test backup/restore:
     ```bash
     ./test_scripts/setup_minio.sh

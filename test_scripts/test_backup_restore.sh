@@ -10,7 +10,7 @@ set -e
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # Values files relating to object storage
-source $SCRIPT_DIR/common.env
+source $SCRIPT_DIR/minio.env
 
 ORIGINAL_RONDB_NAMESPACE=rondb-original
 RESTORED_RONDB_NAMESPACE=rondb-restored

@@ -220,11 +220,11 @@ jobs:
       - name: Delete MinIO tenant
         if: always()
         run: |
-          source ./test_scripts/common.env
+          source ./test_scripts/minio.env
           helm delete --namespace $MINIO_TENANT_NAMESPACE tenant
 
       - name: Delete MinIO namespace
         if: always()
         run: |
-          source ./test_scripts/common.env
+          source ./test_scripts/minio.env
           kubectl delete namespace $MINIO_TENANT_NAMESPACE --timeout=50s || true

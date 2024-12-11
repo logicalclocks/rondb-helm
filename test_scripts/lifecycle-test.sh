@@ -24,7 +24,7 @@ CLUSTER_D_NAME=$4
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 # Values files relating to object storage
-source $SCRIPT_DIR/common.env
+source $SCRIPT_DIR/minio.env
 
 namespaces=($CLUSTER_A_NAME $CLUSTER_B_NAME $CLUSTER_C_NAME $CLUSTER_D_NAME)
 for namespace in ${namespaces[@]}; do

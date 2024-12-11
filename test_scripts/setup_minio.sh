@@ -6,7 +6,7 @@ set -e
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-source $SCRIPT_DIR/common.env
+source $SCRIPT_DIR/minio.env
 
 helm repo add minio https://operator.min.io/
 

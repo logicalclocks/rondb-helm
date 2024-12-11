@@ -82,7 +82,7 @@ This will test backup/restore in the context of Global Replication. There is a d
 
 ### Minikube
 
-1. Edit ./test_scripts/common.env if needed
+1. Edit ./test_scripts/minio.env if needed
 2. Run:
     ```bash
     ./test_scripts/setup_minio.sh
