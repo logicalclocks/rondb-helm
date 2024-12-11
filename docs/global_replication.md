@@ -76,9 +76,11 @@ helm delete --kubeconfig=$PRIMARY_KUBECONFIG rondb-primary --namespace=$NAMESPAC
 helm delete --kubeconfig=$SECONDARY_KUBECONFIG rondb-secondary --namespace=$NAMESPACE
 ```
 
-### Lifecycle tests
+## Active-passive with backups ("lifecycle tests")
 
-This will test backup/restore in the context of Global Replication:
+This will test backup/restore in the context of Global Replication. There is a difference for example whether global replication is started from scratch or from a backup. There is also a difference whether the backup came from the primary cluster or an entirely different cluster. These tests will check for all cases.
+
+### Minikube
 
 1. Edit ./test_scripts/common.env if needed
 2. Run:

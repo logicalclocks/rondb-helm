@@ -9,6 +9,8 @@ This runs a test suite with the following steps:
 7. Shut down cluster B
 8. Setup cluster D, restore B
 9. [Test: replicate from 3rd party backup] Replicate C->D, verify data
+
+Essentially: A->B->C->D
 EOF
 
 set -e
