@@ -7,13 +7,12 @@
 
 set -e
 
-backups_values_file=values.backup.yaml
-restore_values_file=values.restore.yaml
-BUCKET_SECRET_NAME=rondb-backups
-MINIO_ACCESS_KEY=minio
-MINIO_SECRET_KEY=minio123
-MINIO_TENANT_NAMESPACE=minio-tenant
-./test_scripts/setup_minio.sh $backups_values_file $restore_values_file $BUCKET_SECRET_NAME $MINIO_ACCESS_KEY $MINIO_SECRET_KEY $MINIO_TENANT_NAMESPACE
+# Values files relating to object storage
+backups_values_file=$1
+restore_values_file=$2
+BUCKET_SECRET_NAME=$3
+MINIO_ACCESS_KEY=$4
+MINIO_SECRET_KEY=$5
 
 ORIGINAL_RONDB_NAMESPACE=rondb-original
 RESTORED_RONDB_NAMESPACE=rondb-restored
@@ -84,15 +83,9 @@ destroy_restored_cluster() {
     kubectl delete namespace $RESTORED_RONDB_NAMESPACE  || true
 }
 
-destroy_minio_tenant() {
-    helm delete tenant -n $MINIO_TENANT_NAMESPACE
-    kubectl delete namespace $MINIO_TENANT_NAMESPACE
-}
-
 setupFirstCluster
 restoreCluster
 destroy_restored_cluster
-# destroy_minio_tenant
 
 rm -f $backups_values_file
 rm -f $restore_values_file

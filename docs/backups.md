@@ -69,3 +69,25 @@ Reasoning:
   in active-active. Cluster A will lose access to this user then.
 - If we restore a backup cluster for Global Replication, one can place existing MySQL
   passwords into Secrets themselves and pass that to values.yaml
+
+## Testing backup/restore
+
+Running these scripts will test backup/restore:
+
+```bash
+backups_values_file=values.backup.yaml
+restore_values_file=values.restore.yaml
+BUCKET_SECRET_NAME=rondb-backups
+MINIO_ACCESS_KEY=minio
+MINIO_SECRET_KEY=minio123
+MINIO_TENANT_NAMESPACE=minio-tenant
+./test_scripts/setup_minio.sh $backups_values_file $restore_values_file $BUCKET_SECRET_NAME $MINIO_ACCESS_KEY $MINIO_SECRET_KEY $MINIO_TENANT_NAMESPACE
+./test_scripts/test_backup_restore $backups_values_file $restore_values_file $BUCKET_SECRET_NAME $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+```
+
+Clean up MinIO:
+
+```bash
+helm delete tenant -n $MINIO_TENANT_NAMESPACE
+kubectl delete namespace $MINIO_TENANT_NAMESPACE
+```
