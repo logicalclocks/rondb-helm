@@ -11,6 +11,10 @@
 
 See [Backups](docs/backups.md) for this.
 
+## CI (GitHub Actions)
+
+See [CI](docs/github_actions.md) for this.
+
 ## TODO
 
 See [TODO](docs/todo.md) for this.
