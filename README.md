@@ -45,7 +45,7 @@ kubectl create secret generic aws-credentials \
     --from-literal "access_key=${AWS_SECRET_ACCESS_KEY}"
 
 # Run this if both:
-# - We are running standalone (without Hopsworks)
+# - We want to use the cert-manager for TLS certificates
 # - [RDRS Ingress is enabled] OR [Any TLS is enabled]
 source ./standalone_deps.sh
 setup_deps $RONDB_NAMESPACE
