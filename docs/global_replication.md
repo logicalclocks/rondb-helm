@@ -9,9 +9,6 @@ The following shows how to replicate between two RonDB clusters.
 Using Minikube, we replicate *between namespaces* (i.e. within the same K8s cluster).
 
 ```bash
-helm lint
-helm template . > /dev/null
-
 PRIMARY_NAMESPACE=rondb-primary
 SECONDARY_NAMESPACE=rondb-secondary
 
@@ -44,9 +41,6 @@ helm delete rondb-secondary --namespace=$SECONDARY_NAMESPACE
 We now replicate between two Kubernetes clusters, where each contains one RonDB cluster.
 
 ```bash
-helm lint
-helm template . > /dev/null
-
 # Same namespace for both
 NAMESPACE=rondb-default
 PRIMARY_KUBECONFIG=<path_to_primary_config>
