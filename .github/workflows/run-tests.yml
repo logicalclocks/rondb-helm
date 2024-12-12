@@ -115,8 +115,8 @@ jobs:
           helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/mini.yaml \
-            --set meta.mysqld.statefulSet.endToEndTls.enabled \
-            --set meta.rdrs.statefulSet.endToEndTls.enabled \
+            --set meta.mysqld.statefulSet.endToEndTls.enabled=true \
+            --set meta.rdrs.statefulSet.endToEndTls.enabled=true \
             --set benchmarking.enabled=true \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=2 \
