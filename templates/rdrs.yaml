@@ -64,7 +64,7 @@ spec:
           httpGet:
             path: "0.1.0/ping"
             port: 4406
-{{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
+{{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
             scheme: HTTPS
 {{ else }}
             scheme: HTTP
@@ -77,7 +77,7 @@ spec:
           httpGet:
             path: "0.1.0/ping"
             port: 4406
-{{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
+{{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
             scheme: HTTPS
 {{- else }}
             scheme: HTTP
@@ -96,7 +96,7 @@ spec:
         - name: rdrs-configs
           mountPath: {{ include "rondb.dataDir" $ }}/rest_api.json
           subPath: rest_api.json
-{{- if .Values.meta.rdrs.statefulSet.endToEndTls }}
+{{- if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
         - name: tls-certificates
           mountPath: "/etc/tls"
           readOnly: true
@@ -105,7 +105,7 @@ spec:
       # each pod replica, ensuring that a pod always re-attaches to the same data
       # even if it is rescheduled to a different node.
       volumes:
-{{- if .Values.meta.rdrs.statefulSet.endToEndTls }}
+{{- if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
       # This will be created by the cert-manager via the Certificate CRD
       # The RDRS will therefore not start until the certificate is available
       - name: tls-certificates
@@ -199,7 +199,7 @@ spec:
         type: Utilization
         averageUtilization: 70
 {{ end }}
-{{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
+{{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
 ---
 # Certificates will prompt the cert-manager to create a TLS Secret using the referenced
 # Issuer.
