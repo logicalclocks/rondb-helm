@@ -1,0 +1,37 @@
+{{/*
+    These are the permissions to allow waiting for the restore-backup
+    Job to have completed.
+*/}}
+{{- if .Values.restoreFromBackup.backupId }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "rondb.role.restoreWatcher" . }}
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "watch"]
+  resourceNames: [{{ include "rondb.restoreNativeBackupJobname" . }}]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "rondb.serviceAccount.restoreWatcher" . }}
+  namespace: {{ .Release.Namespace }}
+{{ include "rondb.serviceAccountAnnotations" $ | indent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "rondb.roleBinding.restoreWatcher" . }}
+  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "rondb.serviceAccount.restoreWatcher" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "rondb.role.restoreWatcher" . }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

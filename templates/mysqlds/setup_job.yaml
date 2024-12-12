@@ -20,7 +20,7 @@ spec:
     spec:
       restartPolicy: Never
 {{- if .Values.restoreFromBackup.backupId }}
-      serviceAccountName: {{ include "rondb.mysqldSetupServiceAccountName" . }}
+      serviceAccountName: {{ include "rondb.serviceAccount.restoreWatcher" . }}
 {{- end }}
 {{- include "rondb.PodSecurityContext" $ | indent 6 }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
@@ -93,6 +93,10 @@ spec:
 */}}
 {{ include "rondb.container.waitDatanodes" $ | indent 6 }}
 {{ include "rondb.container.waitRestore" $ | indent 6 }}
+{{/* 
+    Very important that binlog servers do not miss any binlog events.
+*/}}
+{{ include "rondb.container.waitOneBinlogServer" $ | indent 6 }}
       containers:
 {{/*
     Spawning up a MySQLd without network access, initializing the data directory,
@@ -188,40 +192,3 @@ data:
 {{ include "rondb.sqlInitContent" . | indent 6 }}
 ---
 {{ end }}
-{{/*
-    These are the permissions to allow the Job to wait for the restore-backup
-    Job to have completed.
-*/}}
-{{- if .Values.restoreFromBackup.backupId }}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: {{ include "rondb.mysqldSetupRole" . }}
-  namespace: {{ .Release.Namespace }}
-rules:
-- apiGroups: ["batch"]
-  resources: ["jobs"]
-  verbs: ["get", "list", "watch"]
-  resourceNames: [{{ include "rondb.restoreNativeBackupJobname" . }}]
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: {{ include "rondb.mysqldSetupServiceAccountName" . }}
-  namespace: {{ .Release.Namespace }}
-{{ include "rondb.serviceAccountAnnotations" $ | indent 2 }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: {{ include "rondb.mysqldSetupRoleBinding" . }}
-  namespace: {{ .Release.Namespace }}
-subjects:
-- kind: ServiceAccount
-  name: {{ include "rondb.mysqldSetupServiceAccountName" . }}
-  namespace: {{ .Release.Namespace }}
-roleRef:
-  kind: Role
-  name: {{ include "rondb.mysqldSetupRole" . }}
-  apiGroup: rbac.authorization.k8s.io
-{{- end }}

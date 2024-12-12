@@ -11,6 +11,51 @@
 {{- printf "MYSQL_%s_PASSWORD" (required "Username is required" .username) | upper | replace "-" "_" -}}
 {{- end -}}
 
+{{- define "rondb.container.waitOneBinlogServer" -}}
+{{- if $.Values.globalReplication.primary.enabled }}
+- name: wait-one-binlog-server
+  image: {{ include "image_address" (dict "image" $.Values.images.rondb) }}
+  imagePullPolicy: {{ $.Values.imagePullPolicy }}
+  command:
+  - /bin/bash
+  - -c
+  - |
+    until nslookup $BINLOG_SERVER_HOSTNAME; do
+        echo "Waiting for $BINLOG_SERVER_HOSTNAME to be resolvable..."
+        sleep $(((RANDOM % 2) + 2))
+    done
+
+    while true; do
+        mysqladmin \
+            -h $BINLOG_SERVER_HOSTNAME \
+            --port=3306 \
+            --connect-timeout=2 \
+            ping
+
+        if [ $? -eq 0 ]; then
+            echo "Successfully pinged to MySQL binlog server"
+            break
+        fi
+        echo "MySQL ping failed, retrying in a bit..."
+        sleep 2
+    done
+  env:
+# The Binlog servers need to be running before any SQL has been run.
+# This means that its readinessProbe will be failing at first since
+# the MySQL passwords have not been set yet. Therefore, we try to
+# contact the headless ClusterIP directly here, which is registered
+# before the readinessProbe is successul.
+{{- $firstBinlogHostname := (printf "%s-%d.%s.%s.svc.cluster.local"
+    $.Values.meta.binlogServers.statefulSet.name
+    0
+    $.Values.meta.binlogServers.headlessClusterIp.name
+    $.Release.Namespace
+)}}
+  - name: BINLOG_SERVER_HOSTNAME
+    value: {{ $firstBinlogHostname }}
+{{- end }}
+{{- end }}
+
 {{- define "rondb.container.waitSingleSetup" -}}
 {{- if .Release.IsInstall }}
 - name: wait-single-setup-job

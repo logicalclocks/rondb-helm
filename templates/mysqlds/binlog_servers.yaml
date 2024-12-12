@@ -63,6 +63,10 @@ spec:
 {{- if .Values.priorityClass }}
       priorityClassName: {{ .Values.priorityClass | quote }}
 {{- end  }}
+{{- if .Values.restoreFromBackup.backupId }}
+      # We need to wait for the restore Job
+      serviceAccountName: {{ include "rondb.serviceAccount.restoreWatcher" . }}
+{{- end }}
       initContainers:
       - name: mysqld-init-datadir
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
@@ -121,7 +125,11 @@ spec:
 {{/*
     Always wait for data nodes first so that timeouts are more accurate.
 */}}
-{{ include "rondb.container.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitDatanodes" $ | indent 6 }}
+{{/*
+    It is always safer to not have any MySQLds running when restoring from backup.
+*/}}
+{{ include "rondb.container.waitRestore" $ | indent 6 }}
 {{ include "rondb.container.isDnsResolvable" (deepCopy $ | mustMerge (dict
     "statefulSetName" .Values.meta.binlogServers.statefulSet.name
     "headlessClusterIpName" .Values.meta.binlogServers.headlessClusterIp.name
@@ -184,6 +192,8 @@ spec:
         # This acts as a heartbeat, which can also be used by the replica applier to monitor
         # the replication channel
         # This will fail until the setubJob has set up MySQL passwords
+        # IMPORTANT: Since we actually write data here, it's important that the binlog server is running first.
+        #            All the more reason for the startupProbe to exist.
         readinessProbe:
           exec:
             command:

@@ -50,15 +50,15 @@ helm-user-supplied.sql
 setup-mysqld-dont-remove
 {{- end -}}
 
-{{- define "rondb.mysqldSetupServiceAccountName" -}}
+{{- define "rondb.serviceAccount.restoreWatcher" -}}
 restore-backup-watcher-sa
 {{- end -}}
 
-{{- define "rondb.mysqldSetupRole" -}}
+{{- define "rondb.role.restoreWatcher" -}}
 restore-backup-watcher
 {{- end -}}
 
-{{- define "rondb.mysqldSetupRoleBinding" -}}
+{{- define "rondb.roleBinding.restoreWatcher" -}}
 restore-backup-watcher-binding
 {{- end -}}
 

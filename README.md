@@ -150,13 +150,15 @@ Currently, we are running the following steps:
 3. (If global primary cluster) **Stateful Set** - Run MySQL binlog servers:
    1. InitContainer: Initialize MySQLd data dir (no connection needed)
    2. Wait for data nodes to start up
-   3. Main container: Run MySQLd replication servers with networking
+   3. (If restoring) Wait for Job A
+   4. Main container: Run MySQLd replication servers with networking
        - Allow listening to the restore of a backup
 4.  **Job B** - Initialize MySQLds:
     1. (If restoring) Download MySQL metadata backup
     2. Wait for data nodes to start up
     3. (If restoring) Wait for Job A
-    4. Spawn *temporary* MySQLd that:
+    4. (If global primary cluster) Wait for binlog servers
+    5. Spawn *temporary* MySQLd that:
        1. (If restoring) Restores MySQL metadata backup
        2. Applies Helm deployment SQL init files
        3. Applies user-applied SQL init files
