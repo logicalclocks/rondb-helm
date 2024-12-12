@@ -150,6 +150,7 @@ jobs:
 
       # This script will also remove all clusters & namespaces
       - name: Run lifecycle test
+        timeout-minutes: 20
         run: |
           ./test_scripts/lifecycle-test.sh \
             $CLUSTER_A_NAME \
