@@ -103,6 +103,32 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
       memory: 100Mi
 {{- end }}
 
+{{- define "rondb.container.waitRestore" -}}
+{{- if $.Values.restoreFromBackup.backupId }}
+- name: wait-restore-backup
+  image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
+  imagePullPolicy: {{ $.Values.imagePullPolicy }}
+  command:
+  - /bin/bash
+  - -c
+  - |
+    echo "Waiting for restore-backup Job to have completed"
+    set -e
+
+    (set -x; kubectl wait \
+      -n {{ .Release.Namespace }} \
+      --for=condition=complete \
+      --timeout={{ .Values.timeoutsMinutes.restoreNativeBackup }}m \
+      job/{{ include "rondb.restoreNativeBackupJobname" . }})          
+
+    echo "Restore Job has completed successfully"
+  resources:
+    limits:
+      cpu: 0.3
+      memory: 30Mi
+{{- end }}
+{{- end }}
+
 {{- define "rondb.apiInitContainer" -}}
 - name: cluster-dependency-check
   image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
