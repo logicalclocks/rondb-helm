@@ -108,8 +108,30 @@
                                     "type": "string"
                                 },
                                 "endToEndTls": {
-                                    "type": "boolean",
-                                    "description": "Whether to use end-to-end encryption for MySQLd pods. Since MySQLds use raw TCP connections and thereby by-pass Ingress-rules, this is generally recommended. Otherwise, Ingress-TCP can be configured directly via the Ingress controller (not in this Helmchart)."
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "description": "Whether to use end-to-end encryption for MySQLd pods. Since MySQLds use raw TCP connections and thereby by-pass Ingress-rules, this is generally recommended. Otherwise, Ingress-TCP can be configured directly via the Ingress controller (not in this Helmchart).",
+                                            "enabled": "boolean"
+                                        },
+                                        "certfileName": {
+                                            "type": "string",
+                                            "default": "tls.crt"
+                                        },
+                                        "keyfileName": {
+                                            "type": "string",
+                                            "default": "tls.key"
+                                        },
+                                        "cafileName": {
+                                            "type": "string",
+                                            "default": "ca.crt"
+                                        }
+                                    },
+                                    "required": [
+                                        "enabled",
+                                        "certfileName",
+                                        "keyfileName"
+                                    ]
                                 }
                             },
                             "required": [
@@ -188,8 +210,30 @@
                                     "type": "string"
                                 },
                                 "endToEndTls": {
-                                    "type": "boolean",
-                                    "description": "Whether to use end-to-end encryption for RDRS pods. This is recommended for high-security use cases."
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "description": "Whether to use end-to-end encryption for RDRS pods. This is recommended for high-security use cases.",
+                                            "enabled": "boolean"
+                                        },
+                                        "certfileName": {
+                                            "type": "string",
+                                            "default": "tls.crt"
+                                        },
+                                        "keyfileName": {
+                                            "type": "string",
+                                            "default": "tls.key"
+                                        },
+                                        "cafileName": {
+                                            "type": "string",
+                                            "default": "ca.crt"
+                                        }
+                                    },
+                                    "required": [
+                                        "enabled",
+                                        "certfileName",
+                                        "keyfileName"
+                                    ]
                                 }
                             },
                             "required": [

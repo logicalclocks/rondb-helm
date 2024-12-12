@@ -22,7 +22,8 @@ meta:
       annotations: *dummyAnnotations
   mysqld:
     statefulSet:
-      endToEndTls: true
+      endToEndTls:
+        enabled: true
     service:
       annotations: *dummyAnnotations
     externalLoadBalancer:
@@ -32,7 +33,8 @@ meta:
     addSysNiceCapability: true
   rdrs:
     statefulSet:
-      endToEndTls: true
+      endToEndTls:
+        enabled: true
     annotations: *dummyAnnotations
     externalLoadBalancer:
       enabled: true

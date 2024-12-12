@@ -43,13 +43,11 @@
 {{- end }}
     "Security": {
         "TLS": {
-{{ if .Values.meta.rdrs.statefulSet.endToEndTls }}
-{{- /*
-    Standard filenames in Kubernetes TLS Secrets
-*/}}
+{{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
             "EnableTLS": true,
-            "CertificateFile": "/etc/tls/tls.crt",
-            "PrivateKeyFile": "/etc/tls/tls.key",
+            "CertificateFile": "/etc/tls/{{ $.Values.meta.rdrs.statefulSet.endToEndTls.certfileName }}",
+            "PrivateKeyFile": "/etc/tls/{{ $.Values.meta.rdrs.statefulSet.endToEndTls.keyfileName }}",
+            "RootCACertFile": "/etc/tls/{{ $.Values.meta.rdrs.statefulSet.endToEndTls.cafileName }}",
 {{- else }}
             "EnableTLS": false,
 {{- end }}

@@ -8,10 +8,12 @@ staticCpuManagerPolicy: false
 meta:
   mysqld:
     statefulSet:
-      endToEndTls: false
+      endToEndTls:
+        enabled: false
   rdrs:
     statefulSet:
-      endToEndTls: false
+      endToEndTls:
+        enabled: false
     ingress:
       enabled: false
       tls:

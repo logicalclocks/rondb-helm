@@ -8,7 +8,11 @@ meta:
   mysqld:
     statefulSet:
       name: mysqlds
-      endToEndTls: false
+      endToEndTls:
+        enabled: false
+        certfileName: tls.crt
+        keyfileName: tls.key
+        cafileName: ca.crt
     clusterIp:
       name: mysqld
       port: 3306
@@ -28,7 +32,11 @@ meta:
   rdrs:
     statefulSet:
       name: rdrs
-      endToEndTls: false
+      endToEndTls:
+        enabled: false
+        certfileName: tls.crt
+        keyfileName: tls.key
+        cafileName: ca.crt
     clusterIpName: rdrs
     headlessClusterIpName: rdrs-cluster-ip
     annotations:
