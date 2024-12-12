@@ -135,18 +135,19 @@ Then in the values file, set `.Values.staticCpuManagerPolicy=true`.
 Currently, we are running the following steps:
 
 1. **Stateful Set** - Run data nodes:
-   1. (If restoring) InitContainer: Download native backups on data nodes
+   1. (If restoring) InitContainer: Download native backups on data nodes (TODO: Do this in Job A)
    2. Main container: Run data nodes
 2. (If restoring) **Job A** - Restore binary data:
    1. Wait for data nodes to start up
    2. Create *temporary* MySQLd that connects to the data nodes and
         creates system tables (important!). Otherwise, system tables
         will be restored by native backup.
-   3. Run `ndb_restore --restore-meta --disable-indexes` on one ndbmtd
-   4. Run `ndb_restore --restore-data` on all ndbmtds
-   5. Run `ndb_restore --rebuild-indexes` on one ndbmtd
-   6. (If global secondary cluster) Run `ndb_restore --restore-epoch` on one ndbmtd
-   7. Remove native backups on all ndbmtds
+   3. TODO: Download native backups on data nodes here instead
+   4. Run `ndb_restore --restore-meta --disable-indexes` on one ndbmtd
+   5. Run `ndb_restore --restore-data` on all ndbmtds
+   6. Run `ndb_restore --rebuild-indexes` on one ndbmtd
+   7. (If global secondary cluster) Run `ndb_restore --restore-epoch` on one ndbmtd
+   8. Remove native backups on all ndbmtds
 3. (If global primary cluster) **Stateful Set** - Run MySQL binlog servers:
    1. InitContainer: Initialize MySQLd data dir (no connection needed)
    2. Wait for data nodes to start up
