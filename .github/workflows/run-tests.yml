@@ -109,14 +109,19 @@ jobs:
             --from-literal "key_id=${MINIO_ACCESS_KEY}" \
             --from-literal "access_key=${MINIO_SECRET_KEY}"
 
+      # Testing end-to-end TLS will require the cert-manager running
       - name: Create original RonDB cluster
         run: |
           helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --values ./values/minikube/mini.yaml \
+            --set meta.mysqld.statefulSet.endToEndTls.enabled \
+            --set meta.rdrs.statefulSet.endToEndTls.enabled \
             --set benchmarking.enabled=true \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=2 \
+            --set clusterSize.minNumRdrs=1 \
+            --set clusterSize.maxNumRdrs=2 \
             --set backups.enabled=true \
             --set backups.s3.provider=Minio \
             --set backups.s3.endpoint=$MINIO_ENDPOINT \
