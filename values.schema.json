@@ -985,24 +985,21 @@
         },
         "externalLoadBalancer": {
             "type": "object",
-            "description": "Configuration for load balancer service to be used for external access to RDRS. ",
+            "description": "Configuration for load balancer service to be used for external access to RDRS",
             "properties": {
                 "enabled": {
                     "type": "boolean",
-                    "default": false,
-                    "description": "Enabled if this flag is true or if global._hopsworks.externalLoadBalancers.enabled is true"
+                    "default": false
                 },
                 "class": {
                     "type": [
                         "string",
                         "null"
                     ],
-                    "default": null,
-                    "description": "Load balancer implementation class. If not defined, we fallback to global._hopsworks.externalLoadBalancers.class if defined. "
+                    "default": null
                 },
                 "annotations": {
-                    "type": "object",
-                    "description": "Cloud provider load balancer specific annotations. We merge it with the global._hopsworks.externalLoadBalancers.annotations if defined. "
+                    "type": "object"
                 }
             }
         },
