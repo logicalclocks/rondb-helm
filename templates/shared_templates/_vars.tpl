@@ -145,11 +145,3 @@ rondb-cert-issuer
 {{- define "rondb.tls.rdrs.ingress.secretName" -}}
 rdrs-ingress-tls
 {{- end -}}
-
-{{- define "rondb.tls.rdrs.endToEnd.secretName" -}}
-rdrs-end-to-end-tls
-{{- end -}}
-
-{{- define "rondb.tls.mysqld.endToEnd.secretName" -}}
-mysqld-end-to-end-tls
-{{- end -}}

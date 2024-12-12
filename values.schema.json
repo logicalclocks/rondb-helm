@@ -114,6 +114,15 @@
                                             "description": "Whether to use end-to-end encryption for MySQLd pods. Since MySQLds use raw TCP connections and thereby by-pass Ingress-rules, this is generally recommended. Otherwise, Ingress-TCP can be configured directly via the Ingress controller (not in this Helmchart).",
                                             "enabled": "boolean"
                                         },
+                                        "secretName": {
+                                            "type": "string",
+                                            "description": "Name of the TLS Secret"
+                                        },
+                                        "supplyOwnSecret": {
+                                            "enabled": "boolean",
+                                            "default": false,
+                                            "description": "Whether the Helmchart user will create a TLS Secret outside of this Helmchart. Otherwise we rely on cert-manager to create one."
+                                        },
                                         "certfileName": {
                                             "type": "string",
                                             "default": "tls.crt"
@@ -132,6 +141,8 @@
                                     },
                                     "required": [
                                         "enabled",
+                                        "secretName",
+                                        "supplyOwnSecret",
                                         "certfileName",
                                         "keyfileName"
                                     ]
@@ -219,6 +230,15 @@
                                             "description": "Whether to use end-to-end encryption for RDRS pods. This is recommended for high-security use cases.",
                                             "enabled": "boolean"
                                         },
+                                        "secretName": {
+                                            "type": "string",
+                                            "description": "Name of the TLS Secret"
+                                        },
+                                        "supplyOwnSecret": {
+                                            "enabled": "boolean",
+                                            "default": false,
+                                            "description": "Whether the Helmchart user will create a TLS Secret outside of this Helmchart. Otherwise we rely on cert-manager to create one."
+                                        },
                                         "certfileName": {
                                             "type": "string",
                                             "default": "tls.crt"
@@ -237,6 +257,8 @@
                                     },
                                     "required": [
                                         "enabled",
+                                        "secretName",
+                                        "supplyOwnSecret",
                                         "certfileName",
                                         "keyfileName"
                                     ]

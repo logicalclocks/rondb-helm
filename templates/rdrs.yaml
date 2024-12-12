@@ -110,7 +110,7 @@ spec:
       # The RDRS will therefore not start until the certificate is available
       - name: tls-certificates
         secret:
-          secretName: {{ include "rondb.tls.rdrs.endToEnd.secretName" $ }}
+          secretName: {{ $.Values.meta.rdrs.statefulSet.endToEndTls.secretName }}
           optional: false
 {{- end }}
       - name: rdrs-configs
@@ -199,7 +199,10 @@ spec:
         type: Utilization
         averageUtilization: 70
 {{ end }}
-{{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
+{{- if and
+    $.Values.meta.rdrs.statefulSet.endToEndTls.enabled
+    (not $.Values.meta.rdrs.statefulSet.endToEndTls.supplyOwnSecret)
+}}
 ---
 # Certificates will prompt the cert-manager to create a TLS Secret using the referenced
 # Issuer.
@@ -209,7 +212,7 @@ metadata:
   name: rdrs-cert
   namespace: {{ .Release.Namespace }}
 spec:
-  secretName: {{ include "rondb.tls.rdrs.endToEnd.secretName" $ }}
+  secretName: {{ $.Values.meta.rdrs.statefulSet.endToEndTls.secretName }}
   duration: 2160h # 90d
   renewBefore: 360h # 15d
   dnsNames:

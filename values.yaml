@@ -10,6 +10,8 @@ meta:
       name: mysqlds
       endToEndTls:
         enabled: false
+        secretName: mysqld-end-to-end-tls
+        supplyOwnSecret: false
         certfileName: tls.crt
         keyfileName: tls.key
         cafileName: null
@@ -34,6 +36,8 @@ meta:
       name: rdrs
       endToEndTls:
         enabled: false
+        secretName: rdrs-end-to-end-tls
+        supplyOwnSecret: false
         certfileName: tls.crt
         keyfileName: tls.key
         cafileName: null
