@@ -173,8 +173,11 @@ echo "BACKUP_B_ID is ${BACKUP_B_ID}"
 # [Test: restore backup] #
 ##########################
 
-# First just restore backup and validate data
-# Prepare replica appliers, but don't start them
+# First just restore backup and validate data.
+# Don't start replica appliers just yet.
+# Since we will also be replicating *from* this cluster,
+# we already activate the binlog servers. Better now than
+# that they miss the first heartbeats from the primary.
 
 kubectl create secret generic $BUCKET_SECRET_NAME \
     --namespace=$CLUSTER_C_NAME \
@@ -190,7 +193,12 @@ helm upgrade -i $CLUSTER_C_NAME \
     --set "priorityClass=$CLUSTER_C_NAME" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=true" \
-    --set "globalReplication.clusterNumber=$CLUSTER_NUMBER_C"
+    --set "globalReplication.clusterNumber=$CLUSTER_NUMBER_C" \
+    --set "globalReplication.primary.enabled=true" \
+    --set "globalReplication.primary.numBinlogServers=$NUM_BINLOG_SERVERS" \
+    --set "globalReplication.primary.maxNumBinlogServers=$MAX_NUM_BINLOG_SERVERS" \
+    --set "meta.binlogServers.statefulSet.name=$BINLOG_SERVER_STATEFUL_SET" \
+    --set "meta.binlogServers.headlessClusterIp.name=$BINLOG_SERVER_HEADLESS" \
 
 helm test -n $CLUSTER_C_NAME $CLUSTER_C_NAME --logs --filter name=verify-data
 
