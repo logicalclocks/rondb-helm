@@ -261,10 +261,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.meta.mysqld.service.name }}
+  name: {{ .Values.meta.mysqld.clusterIp.name }}
   namespace: {{ .Release.Namespace }}
   annotations:
-    {{- range $k, $v := .Values.meta.mysqld.service.annotations }}
+    {{- range $k, $v := .Values.meta.mysqld.clusterIp.annotations }}
     {{ $k }}: {{ $v | quote }}
     {{- end }}
 spec:
@@ -273,7 +273,7 @@ spec:
     rondbService: {{ include "rondb.labels.rondbService.mysqld" $ }}
   ports:
   - protocol: TCP
-    port: {{ .Values.meta.mysqld.service.port }}
+    port: {{ .Values.meta.mysqld.clusterIp.port }}
     targetPort: 3306
 ---
 {{ if not (eq .Values.clusterSize.minNumMySQLServers .Values.clusterSize.maxNumMySQLServers) }}
@@ -377,6 +377,6 @@ spec:
     rondbService: {{ include "rondb.labels.rondbService.mysqld" $ }}
   ports:
     - protocol: TCP
-      port: {{ .Values.meta.mysqld.service.port }}
+      port: {{ .Values.meta.mysqld.externalLoadBalancer.port }}
       targetPort: 3306
 {{- end }}

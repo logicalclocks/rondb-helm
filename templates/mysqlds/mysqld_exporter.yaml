@@ -47,7 +47,7 @@ spec:
           - name: MYSQL_HOST
             value: {{ include "rondb.mysqldServiceHostname" . }}
           - name: MYSQL_PORT
-            value: {{ .Values.meta.mysqld.service.port | quote }}
+            value: {{ .Values.meta.mysqld.clusterIp.port | quote }}
           - name: DATA_SOURCE_NAME
             value: "$(MYSQL_USER):$(MYSQL_PASSWORD)@($(MYSQL_HOST):$(MYSQL_PORT))/"
         livenessProbe:

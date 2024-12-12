@@ -9,7 +9,7 @@ meta:
     statefulSet:
       name: mysqlds
       endToEndTls: false
-    service:
+    clusterIp:
       name: mysqld
       port: 3306
       annotations: {}
@@ -21,6 +21,7 @@ meta:
       enabled: false
       class: null
       annotations: {}
+      port: 3306
     exporter:
       metricsPort: 9104
     addSysNiceCapability: true
@@ -28,7 +29,7 @@ meta:
     statefulSet:
       name: rdrs
       endToEndTls: false
-    serviceName: rdrs
+    clusterIpName: rdrs
     headlessClusterIpName: rdrs-cluster-ip
     annotations:
       consul.hashicorp.com/service-name: rdrs

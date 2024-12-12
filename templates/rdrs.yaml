@@ -154,7 +154,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.meta.rdrs.serviceName }}
+  name: {{ .Values.meta.rdrs.clusterIpName }}
   namespace: {{ .Release.Namespace }}
   annotations:
 {{- range $k, $v := .Values.meta.rdrs.annotations }}

@@ -22,7 +22,7 @@ spec:
 {{- if $rdrsIngress.useDefaultBackend }}
   defaultBackend:
     service:
-      name: {{ $.Values.meta.rdrs.serviceName }}
+      name: {{ $.Values.meta.rdrs.clusterIpName }}
       port:
         number: 4406
 {{- end }}
@@ -38,7 +38,7 @@ spec:
           pathType: Prefix
           backend:
             service:
-              name: {{ $.Values.meta.rdrs.serviceName }}
+              name: {{ $.Values.meta.rdrs.clusterIpName }}
               port:
                 number: 4406
 {{- end }}

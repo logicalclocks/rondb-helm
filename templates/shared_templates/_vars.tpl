@@ -20,14 +20,14 @@ backupRemote
 
 {{- define "rondb.mysqldServiceHostname" -}}
 {{ printf "%s.%s.svc.cluster.local"
-        $.Values.meta.mysqld.service.name
+        $.Values.meta.mysqld.clusterIp.name
         $.Release.Namespace
 }}
 {{- end -}}
 
 {{- define "rondb.rdrsServiceHostname" -}}
 {{ printf "%s.%s.svc.cluster.local"
-        $.Values.meta.rdrs.serviceName
+        $.Values.meta.rdrs.clusterIpName
         $.Release.Namespace
 }}
 {{- end -}}
