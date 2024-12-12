@@ -12,7 +12,7 @@ meta:
         enabled: false
         certfileName: tls.crt
         keyfileName: tls.key
-        cafileName: ca.crt
+        cafileName: null
     clusterIp:
       name: mysqld
       port: 3306
@@ -36,7 +36,7 @@ meta:
         enabled: false
         certfileName: tls.crt
         keyfileName: tls.key
-        cafileName: ca.crt
+        cafileName: null
     clusterIpName: rdrs
     headlessClusterIpName: rdrs-cluster-ip
     annotations:
