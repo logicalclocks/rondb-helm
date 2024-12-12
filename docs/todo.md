@@ -25,15 +25,16 @@ Potential solutions:
 
 ### Next steps
 
-1. Allow only writing certain databases to the binlog
-2. Create Stateful Set per cluster we are replicating from
-3. Look into implementing multiple replica appliers
+1. Add test for fail-overs
+2. Allow only writing certain databases to the binlog
+3. Create Stateful Set per cluster we are replicating from
+4. Look into implementing multiple replica appliers
    1. Replication channel cutover only happens if replica applier server dies
    2. Have multiple replica appliers running but use Lease/Mutex, so only one replicates
-4. Consider placing binlog servers behind a LoadBalancer (might not work)
-5. Fix error with multiple binlog files at startup
-6. Add API for users (e.g. hopsworksroot)
-7. Consider disabling running user-defined init scripts (and relying on replication)
+5. Consider placing binlog servers behind a LoadBalancer (might not work)
+6. Fix error with multiple binlog files at startup
+7. Add API for users (e.g. hopsworksroot)
+8. Consider disabling running user-defined init scripts (and relying on replication)
 
 ### Query heartbeat table
 
