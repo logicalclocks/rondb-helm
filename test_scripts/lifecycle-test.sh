@@ -66,6 +66,24 @@ getBackupId() {
     echo $BACKUP_ID
 }
 
+# Mostly to check that the replica applier doesn't trip up (the heartbeat will cause further replication)
+testStability() {
+    timeout 300 env K8S_NAMESPACE=$1 SLEEP_SECONDS=10 MIN_STABLE_MINUTES=1 bash -c .github/test_deploy_stability.sh || {
+        echo "Cluster $1 did not stabilize"
+        exit 1
+    }
+}
+
+# This makes sense if the primary cluster will be killed
+stopReplicaAppliers() {
+    local namespace=$1
+    helm upgrade -i $namespace \
+        --namespace=$namespace \
+        --reuse-values \
+        --set "globalReplication.secondary.enabled=false" \
+        .
+}
+
 deleteCluster() {
     local clusterName=$1
     helm delete $clusterName --namespace=$clusterName
@@ -132,17 +150,13 @@ helm upgrade -i $CLUSTER_B_NAME \
     --set "globalReplication.secondary.replicateFrom.clusterNumber=$CLUSTER_NUMBER_A" \
     --set "globalReplication.secondary.replicateFrom.binlogServerHosts={$BINLOG_HOSTS_A}"
 
-# TODO: Wait for stateful set replica appliers to be up
+# Make sure replica appliers are up
+testStability $CLUSTER_B_NAME
+
 # Check that data has been created correctly
 helm test -n $CLUSTER_B_NAME $CLUSTER_B_NAME --logs --filter name=verify-data
 
-# Since we're killing cluster A, cluster B's replica appliers don't make sense anymore.
-helm upgrade -i $CLUSTER_B_NAME \
-    --namespace=$CLUSTER_B_NAME \
-    --reuse-values \
-    --set "globalReplication.secondary.enabled=false" \
-    .
-
+stopReplicaAppliers $CLUSTER_B_NAME
 deleteCluster $CLUSTER_A_NAME
 
 #########################
@@ -195,6 +209,8 @@ helm upgrade -i $CLUSTER_C_NAME \
     --set "globalReplication.secondary.replicateFrom.clusterNumber=$CLUSTER_NUMBER_B" \
     --set "globalReplication.secondary.replicateFrom.binlogServerHosts={$BINLOG_HOSTS_B}"
 
+testStability $CLUSTER_C_NAME
+stopReplicaAppliers $CLUSTER_C_NAME
 deleteCluster $CLUSTER_B_NAME
 
 ###########################################
@@ -223,6 +239,10 @@ helm upgrade -i $CLUSTER_D_NAME \
     --set "globalReplication.secondary.enabled=true" \
     --set "globalReplication.secondary.replicateFrom.clusterNumber=$CLUSTER_NUMBER_C" \
     --set "globalReplication.secondary.replicateFrom.binlogServerHosts={$BINLOG_HOSTS_C}"
+
+helm test -n $CLUSTER_D_NAME $CLUSTER_D_NAME --logs --filter name=verify-data
+
+testStability $CLUSTER_D_NAME
 
 deleteCluster $CLUSTER_C_NAME
 deleteCluster $CLUSTER_D_NAME
