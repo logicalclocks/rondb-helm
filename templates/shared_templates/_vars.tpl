@@ -147,9 +147,9 @@ rdrs-ingress-tls
 {{- end -}}
 
 {{- define "rondb.tls.rdrs.endToEnd.secretName" -}}
-rdrs-endToEnd-tls
+rdrs-end-to-end-tls
 {{- end -}}
 
 {{- define "rondb.tls.mysqld.endToEnd.secretName" -}}
-mysqld-endToEnd-tls
+mysqld-end-to-end-tls
 {{- end -}}
