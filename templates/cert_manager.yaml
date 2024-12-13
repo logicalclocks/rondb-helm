@@ -1,11 +1,11 @@
 {{ if (or 
-    .Values.meta.mysqld.statefulSet.endToEndTls.enabled
-    .Values.meta.binlogServers.statefulSet.endToEndTls.enabled
-    .Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled
-    .Values.meta.rdrs.statefulSet.endToEndTls.enabled
+    $.Values.meta.mysqld.statefulSet.endToEndTls.enabled
+    $.Values.meta.binlogServers.statefulSet.endToEndTls.enabled
+    $.Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled
+    $.Values.meta.rdrs.statefulSet.endToEndTls.enabled
     (and
-        .Values.meta.rdrs.ingress.enabled
-        .Values.meta.rdrs.ingress.tls.enabled
+        $.Values.meta.rdrs.ingress.enabled
+        $.Values.meta.rdrs.ingress.tls.enabled
     )) 
 }}
 # We don't use the cert-manager in a Hopsworks environment
@@ -14,12 +14,51 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   name: {{ include "rondb.certManager.issuer" $ }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ $.Release.Namespace }}
 spec:
-{{- if .Values.tls.caSecretName }}
+{{- if $.Values.tls.caSecretName }}
   ca:
-    secretName: {{ .Values.tls.caSecretName }}
+    secretName: {{ $.Values.tls.caSecretName }}
 {{- else }}
   selfSigned: {}
 {{- end }}
 {{- end }}
+---
+# /* We might reach a MySQLd Pod via the headless or non-headless ClusterIP */
+{{- $mysqldDict := dict
+    "certName" "mysql-cert"
+    "endToEndTls" $.Values.meta.mysqld.statefulSet.endToEndTls
+    "dnsNames" (list
+        (include "rondb.mysqldServiceHostname" $)
+        (printf "%s.%s.svc.cluster.local" $.Values.meta.mysqld.headlessClusterIp.name $.Release.Namespace)
+    )
+}}
+{{ include "rondb.certManager.certificate.endToEnd" (deepCopy $ | mustMerge $mysqldDict) }}
+---
+{{- $binlogDict := dict
+    "certName" "binlog-cert"
+    "endToEndTls" $.Values.meta.binlogServers.statefulSet.endToEndTls
+    "dnsNames" (list
+        (printf "%s.%s.svc.cluster.local" $.Values.meta.binlogServers.headlessClusterIp.name $.Release.Namespace)
+    )
+}}
+{{ include "rondb.certManager.certificate.endToEnd" (deepCopy $ | mustMerge $binlogDict) }}
+---
+{{- $replicaApplierDict := dict
+    "certName" "replica-applier-cert"
+    "endToEndTls" $.Values.meta.replicaAppliers.statefulSet.endToEndTls
+    "dnsNames" (list
+        (printf "%s.%s.svc.cluster.local" $.Values.meta.replicaAppliers.headlessClusterIp.name $.Release.Namespace)
+    )
+}}
+{{ include "rondb.certManager.certificate.endToEnd" (deepCopy $ | mustMerge $replicaApplierDict) }}
+---
+{{- $rdrsDict := dict
+    "certName" "rdrs-end-to-end-cert"
+    "endToEndTls" $.Values.meta.rdrs.statefulSet.endToEndTls
+    "dnsNames" (list
+        (include "rondb.rdrsServiceHostname" $)
+        (printf "%s.%s.svc.cluster.local" $.Values.meta.rdrs.headlessClusterIpName $.Release.Namespace)
+    )
+}}
+{{ include "rondb.certManager.certificate.endToEnd" (deepCopy $ | mustMerge $rdrsDict) }}

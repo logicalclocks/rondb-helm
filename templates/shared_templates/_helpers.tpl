@@ -203,3 +203,28 @@ if [ -z "$JOB_NUMBER" ]; then
 fi
 echo "Job number: $JOB_NUMBER"
 {{- end }}
+
+{{- define "rondb.certManager.certificate.endToEnd" }}
+{{- if and 
+    .endToEndTls.enabled 
+    (not .endToEndTls.supplyOwnSecret)
+}}
+# Certificates will prompt the cert-manager to create a TLS Secret using the referenced
+# Issuer.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ required "A Certificate must specify a name" .certName }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  secretName: {{ .endToEndTls.secretName }}
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  dnsNames:
+{{ required "A Certificate must contain dnsNames" .dnsNames | toYaml | indent 4 }}
+  issuerRef:
+    name: {{ include "rondb.certManager.issuer" $ }}
+    kind: Issuer
+---
+{{ end }}
+{{- end }}
