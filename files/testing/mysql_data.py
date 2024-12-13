@@ -8,6 +8,8 @@ def generate_data(hostname, user, password, sql_scripts_dir):
         host=hostname,
         user=user,
         password=password,
+        # From https://stackoverflow.com/a/55617654/9068781
+        ssl={"fake_flag_to_enable_tls": True}
     )
     with connection:
         print(f"Connected to MySQL server at {hostname}")
@@ -91,6 +93,8 @@ def verify_data(hostname, user, password):
         host=hostname,
         user=user,
         password=password,
+        # From https://stackoverflow.com/a/55617654/9068781
+        ssl={"fake_flag_to_enable_tls": True}
     )
     with connection:
         with connection.cursor() as cursor:
