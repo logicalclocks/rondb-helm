@@ -52,6 +52,16 @@ CHANGE REPLICATION SOURCE TO
     SOURCE_LOG_FILE="${BINLOG_FILE}",
     -- The starting position on the source MySQL Server
     SOURCE_LOG_POS=${BINLOG_POSITION},
+{{- if .Values.meta.replicaAppliers.endToEndTls.enabled }}
+    -- WARNING: This is needed if the binlog servers enforce SSL
+    SOURCE_SSL_CAPATH = '/etc/tls',
+    SOURCE_SSL_CERT = {{ .Values.meta.replicaAppliers.endToEndTls.certfileName | quote }},
+    SOURCE_SSL_KEY = {{ .Values.meta.replicaAppliers.endToEndTls.keyfileName | quote }},
+{{- if .tls.caFilename }}
+    SOURCE_SSL_CA = {{ .Values.meta.replicaAppliers.endToEndTls.cafileName | quote }},
+{{- end }}
+{{- end }}
+
     -- Ignore replication from server IDs in backup cluster to avoid circular replication
     IGNORE_SERVER_IDS=(${IGNORE_SERVER_IDS});
 EOF
