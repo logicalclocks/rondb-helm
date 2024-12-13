@@ -77,12 +77,13 @@ This will test backup/restore in the context of Global Replication. There is a d
 ### Minikube
 
 1. Edit ./test_scripts/minio.env if needed
-2. Run:
+2. If not using cert-manager, disable all values in `values/end_to_end_tls.yaml`
+3. Run:
     ```bash
     ./test_scripts/setup_minio.sh
     ./test_scripts/lifecycle-test.sh "cluster-a" "cluster-b" "cluster-c" "cluster-d"
     ```
-3. Clean up MinIO:
+4. Clean up MinIO:
     ```bash
     helm delete tenant -n $MINIO_TENANT_NAMESPACE
     kubectl delete namespace $MINIO_TENANT_NAMESPACE
