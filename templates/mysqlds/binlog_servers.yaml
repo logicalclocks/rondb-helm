@@ -227,7 +227,7 @@ spec:
       # StatefulSets work with PVCs to create a dedicated persistent volume for
       # each pod replica, ensuring that a pod always re-attaches to the same data
       # even if it is rescheduled to a different node.
-{{- if $.Values.meta.binlogServers.statefulSet.endToEndTls }}
+{{- if $.Values.meta.binlogServers.statefulSet.endToEndTls.enabled }}
         - name: tls-certificates
           mountPath: /etc/tls
           readOnly: true
@@ -237,7 +237,7 @@ spec:
         configMap:
           name: mysqld-configs
           defaultMode: 0777
-{{- if $.Values.meta.binlogServers.statefulSet.endToEndTls }}
+{{- if $.Values.meta.binlogServers.statefulSet.endToEndTls.enabled }}
       # This will be created by the cert-manager via the Certificate CRD
       # The MySQLd will therefore not start until the certificate is available
       - name: tls-certificates
