@@ -97,6 +97,7 @@ deleteCluster() {
 helm upgrade -i $CLUSTER_A_NAME \
     --namespace=$CLUSTER_A_NAME . \
     --values values/minikube/mini.yaml \
+    --values values/end_to_end_tls.yaml \
     --set "clusterSize.minNumRdrs=0" \
     --set "priorityClass=$CLUSTER_A_NAME" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
@@ -134,6 +135,7 @@ kubectl create secret generic $BUCKET_SECRET_NAME \
 helm upgrade -i $CLUSTER_B_NAME \
     --namespace=$CLUSTER_B_NAME . \
     --values values/minikube/mini.yaml \
+    --values values/end_to_end_tls.yaml \
     --values $backups_values_file \
     --set "clusterSize.minNumRdrs=0" \
     --set "backups.enabled=true" \
@@ -187,6 +189,7 @@ kubectl create secret generic $BUCKET_SECRET_NAME \
 helm upgrade -i $CLUSTER_C_NAME \
     --namespace=$CLUSTER_C_NAME . \
     --values values/minikube/mini.yaml \
+    --values values/end_to_end_tls.yaml \
     --values $restore_values_file \
     --set "clusterSize.minNumRdrs=0" \
     --set "restoreFromBackup.backupId=$BACKUP_B_ID" \
@@ -237,6 +240,7 @@ kubectl create secret generic $BUCKET_SECRET_NAME \
 helm upgrade -i $CLUSTER_D_NAME \
     --namespace=$CLUSTER_D_NAME . \
     --values values/minikube/mini.yaml \
+    --values values/end_to_end_tls.yaml \
     --values $restore_values_file \
     --set "clusterSize.minNumRdrs=0" \
     --set "restoreFromBackup.backupId=$BACKUP_B_ID" \
