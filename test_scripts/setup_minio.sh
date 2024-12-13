@@ -4,15 +4,12 @@
 
 set -e
 
-backups_values_file=$1
-restore_values_file=$2
-BUCKET_SECRET_NAME=$3
-MINIO_ACCESS_KEY=$4
-MINIO_SECRET_KEY=$5
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+source $SCRIPT_DIR/minio.env
 
 helm repo add minio https://operator.min.io/
 
-MINIO_TENANT_NAMESPACE=minio-tenant
 BUCKET_NAME=rondb-backups
 BUCKET_REGION=eu-north-1
 

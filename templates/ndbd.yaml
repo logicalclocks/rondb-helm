@@ -148,6 +148,15 @@ spec:
 {{- end  }}
       terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
       initContainers:
+{{/*
+    Placing this here speeds up the process of restoring from a backup.
+    However, if the data node is deleted, this will be triggered again.
+    We avoid downloading again, by checking the data node filesystem.
+    However, this can be difficult to maintain.
+    
+    TODO: Since we already have the rclone-listener sidecar, use it to also
+        download the backup-to-be-restored.
+*/}}
 {{- if $.Values.restoreFromBackup.backupId }}
       - name: download-backup-to-restore
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}

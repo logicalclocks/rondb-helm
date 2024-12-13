@@ -76,7 +76,15 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{ end }}
 {{- end }}
 
-{{- define "rondb.waitDatanodes" -}}
+{{ define "rondb.storageClass.binlogs" -}}
+{{ if .Values.resources.requests.storage.classes.binlogFiles }}
+storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | quote }}
+{{- else }}
+{{ include "rondb.storageClass.default" . }}
+{{ end }}
+{{- end }}
+
+{{- define "rondb.container.waitDatanodes" -}}
 - name: wait-datanodes-dependency
   image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
 {{ include "rondb.ContainerSecurityContext" $ | indent 2 }}
@@ -95,6 +103,32 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
       memory: 100Mi
 {{- end }}
 
+{{- define "rondb.container.waitRestore" -}}
+{{- if $.Values.restoreFromBackup.backupId }}
+- name: wait-restore-backup
+  image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
+  imagePullPolicy: {{ $.Values.imagePullPolicy }}
+  command:
+  - /bin/bash
+  - -c
+  - |
+    echo "Waiting for restore-backup Job to have completed"
+    set -e
+
+    (set -x; kubectl wait \
+      -n {{ .Release.Namespace }} \
+      --for=condition=complete \
+      --timeout={{ .Values.timeoutsMinutes.restoreNativeBackup }}m \
+      job/{{ include "rondb.restoreNativeBackupJobname" . }})          
+
+    echo "Restore Job has completed successfully"
+  resources:
+    limits:
+      cpu: 0.3
+      memory: 30Mi
+{{- end }}
+{{- end }}
+
 {{- define "rondb.apiInitContainer" -}}
 - name: cluster-dependency-check
   image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
@@ -109,12 +143,12 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
     value: {{ include "rondb.mgmdHostname" . }}
   - name: MYSQLD_SERVICE_HOSTNAME
     value: {{ include "rondb.mysqldServiceHostname" . }}
-  - name: MYSQL_BENCH_USER
-    value: {{ .Values.benchmarking.mysqlUsername }}
-  - name: MYSQL_BENCH_PASSWORD
+  - name: MYSQL_CLUSTER_USER
+    value: {{ .Values.mysql.clusterUser }}
+  - name: MYSQL_CLUSTER_PASSWORD
     valueFrom:
       secretKeyRef:
-        key: {{ .Values.benchmarking.mysqlUsername }}
+        key: {{ .Values.mysql.clusterUser }}
         name: {{ $.Values.mysql.credentialsSecretName }}
 {{- end }}
 

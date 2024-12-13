@@ -1,0 +1,298 @@
+{{ if .Values.globalReplication.secondary.enabled -}}
+{{/*
+    TODO: Only start up the replica appliers if the hostnames of the binlog
+        servers are known.
+*/}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.meta.replicaAppliers.statefulSet.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: {{ $.Values.meta.replicaAppliers.headlessClusterIp.name }}
+  replicas: 1
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      rondbService: {{ include "rondb.labels.rondbService.replica-appliers" $ }}
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-relay-logs-dir
+      spec:
+        accessModes: [ReadWriteOnce]
+{{- include "rondb.storageClass.binlogs" $ | indent 8 }}
+        resources:
+          requests:
+            storage: {{ $.Values.resources.requests.storage.relayLogGiB }}
+  # Still in beta mode (Jan 2024)
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Retain
+  template:
+    metadata:
+      # Used to apply labels to all pods created by the Deployment
+      labels:
+        rondbService: {{ include "rondb.labels.rondbService.replica-appliers" $ }}
+    spec:
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+      serviceAccountName: {{ include "rondb.mysqldServiceAccountName" . }}
+      affinity:
+        # Spread the pods across different nodes & zones
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # Preferred on different node
+          - weight: 80
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: rondbService
+                  operator: In
+                  values:
+                  - {{ include "rondb.labels.rondbService.replica-appliers" $ }}
+              topologyKey: kubernetes.io/hostname
+          # Preferred in different zone for HA
+          - weight: 80
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: rondbService
+                  operator: In
+                  values:
+                  - {{ include "rondb.labels.rondbService.replica-appliers" $ }}
+              topologyKey: topology.kubernetes.io/zone
+{{ include "rondb.PodSecurityContext" $ | indent 6 }}
+      initContainers:
+      - name: mysqld-init-datadir
+        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+{{- $startingNodeIdBinlogServers := add 67 (mul $.Values.clusterSize.maxNumMySQLServers $.Values.rondbConfig.MySQLdSlotsPerNode) }}
+{{- $startingNodeId := add $startingNodeIdBinlogServers $.Values.globalReplication.primary.maxNumBinlogServers }}
+
+{{- $maxTotalMySQLds := (include "rondb.maxTotalMySQLds" $ | int) }}
+{{- $clusterServerIdOffset := (mul $.Values.globalReplication.clusterNumber $maxTotalMySQLds) | int -}}
+{{- $replicaApplierServerId := (add 
+        $clusterServerIdOffset
+        $.Values.clusterSize.maxNumMySQLServers
+        $.Values.globalReplication.primary.maxNumBinlogServers
+        1
+) | int }}
+{{ tpl (.Files.Get "files/scripts/mysqld_init.sh") (deepCopy $ | mustMerge (dict
+    "startingNodeId" $startingNodeId
+    "connectionsPerMySQLd" 1
+    "globalServerIds" (list $replicaApplierServerId)
+)) | indent 10 }}
+        # TODO: Try to move over the created my.cnf file to the main container
+        env:
+          # This is actually already baked into the image
+          - name: RONDB_DATA_DIR
+            value: {{ include "rondb.dataDir" $ }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        volumeMounts:
+        - name: mysqld-configs
+          # Using "raw", so that we can sed NodeIds into the file
+          mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
+          subPath: my-replica-appliers.cnf
+        - name: mysql-data-dir
+          mountPath: {{ include "rondb.mysqldDataDir" . }}
+        - name: mysql-relay-logs-dir
+          mountPath: {{ include "rondb.mysqldRelayLogDir" . }}
+{{/*
+    Always wait for data nodes first so that timeouts are more accurate.
+*/}}
+{{ include "rondb.container.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitSingleSetup" . | indent 6 }}
+{{ include "rondb.container.isDnsResolvable" (deepCopy $ | mustMerge (dict
+    "statefulSetName" .Values.meta.replicaAppliers.statefulSet.name
+    "headlessClusterIpName" .Values.meta.replicaAppliers.headlessClusterIp.name
+)) | indent 6 }}
+      containers:
+      - name: mysqld
+        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+          (
+            set -x
+            ls -l {{ include "rondb.mysqldRelayLogDir" . }}
+          )
+
+{{ include "rondb.sedMyCnfFile" (dict 
+    "startingNodeId" $startingNodeId
+    "connectionsPerMySQLd" 1
+    "globalServerIds" (list $replicaApplierServerId)
+) | indent 10 }}
+
+          mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf
+        ports:
+          - containerPort: 3306
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpus.mysqlds }}
+            memory: {{ .Values.resources.limits.memory.mysqldMiB }}Mi
+          requests:
+            cpu: {{ .Values.resources.requests.cpus.mysqlds }}
+            memory: {{ .Values.resources.requests.memory.mysqldMiB }}Mi
+        env:
+          # This is actually already baked into the image
+          - name: RONDB_DATA_DIR
+            value: {{ include "rondb.dataDir" $ }}
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.mysql.credentialsSecretName }}
+                key: root
+          - name: MYSQL_CLUSTER_USER
+            value: {{ .Values.mysql.clusterUser }}
+          - name: MYSQL_CLUSTER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.mysql.credentialsSecretName }}
+                key: {{ .Values.mysql.clusterUser }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+{{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.replicaAppliers.statefulSet.endToEndTls) | indent 8 }}
+        securityContext:
+          capabilities:
+            add:
+              - SYS_NICE
+        volumeMounts:
+        # Only mount single file, otherwise entire directory becomes read-only
+        - name: mysqld-configs
+          # Using "raw", so that we can sed NodeIds into the file
+          mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
+          subPath: my-replica-appliers.cnf
+        - name: mysql-data-dir
+          mountPath: {{ include "rondb.mysqldDataDir" . }}
+        - name: mysql-relay-logs-dir
+          mountPath: {{ include "rondb.mysqldRelayLogDir" . }}
+      # StatefulSets work with PVCs to create a dedicated persistent volume for
+      # each pod replica, ensuring that a pod always re-attaches to the same data
+      # even if it is rescheduled to a different node.
+{{- if $.Values.meta.replicaAppliers.statefulSet.endToEndTls }}
+        - name: tls-certificates
+          mountPath: /etc/tls
+          readOnly: true
+{{- end }}
+      - name: replica-applier-controller
+        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+
+{{ include "rondb.sedMyCnfFile" (dict 
+    "startingNodeId" $startingNodeId
+    "connectionsPerMySQLd" 1
+    "globalServerIds" (list $replicaApplierServerId)
+) | indent 10 }}
+
+          attempt=0
+          max_attempts=30
+          until mysqladmin --defaults-file=$RONDB_DATA_DIR/my.cnf ping --protocol=tcp --silent --connect-timeout=2; do
+              echo "Failed pinging MySQLd on attempt $attempt"
+              sleep 2
+              attempt=$((attempt + 1))
+              if [[ $attempt -gt $max_attempts ]]; then
+                  echo "Failed pinging MySQLd after $max_attempts attempts"
+                  exit 1
+              fi
+          done
+
+          run_applier.sh
+        resources:
+          limits:
+            cpu: 0.1
+            memory: 100Mi
+        env:
+          # This is actually already baked into the image
+          - name: RONDB_DATA_DIR
+            value: {{ include "rondb.dataDir" $ }}
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.mysql.credentialsSecretName }}
+                key: root
+          - name: MYSQL_CLUSTER_USER
+            value: {{ .Values.mysql.clusterUser }}
+          - name: MYSQL_CLUSTER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.mysql.credentialsSecretName }}
+                key: {{ .Values.mysql.clusterUser }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - get_replication_status.sh
+          initialDelaySeconds: 5
+          failureThreshold: 4
+          periodSeconds: 2
+          timeoutSeconds: 2
+        volumeMounts:
+        # Only mount single file, otherwise entire directory becomes read-only
+        - name: mysqld-configs
+          # Using "raw", so that we can sed NodeIds into the file
+          mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
+          subPath: my-replica-appliers.cnf
+        - name: mysqld-configs
+          mountPath: /usr/local/bin/run_applier.sh
+          subPath: run_applier.sh
+        - name: mysqld-configs
+          mountPath: /usr/local/bin/get_binlog_position.sh
+          subPath: get_binlog_position.sh
+        - name: mysqld-configs
+          mountPath: /usr/local/bin/get_replication_status.sh
+          subPath: get_replication_status.sh
+      volumes:
+      - name: mysqld-configs
+        configMap:
+          name: mysqld-configs
+          defaultMode: 0777
+      - name: mysql-data-dir
+        emptyDir: {}
+{{- if $.Values.meta.replicaAppliers.statefulSet.endToEndTls }}
+      # This will be created by the cert-manager via the Certificate CRD
+      # The MySQLd will therefore not start until the certificate is available
+      - name: tls-certificates
+        secret:
+          secretName: {{ $.Values.meta.replicaAppliers.statefulSet.endToEndTls.secretName }}
+          optional: false
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.meta.replicaAppliers.headlessClusterIp.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  # Headless service for individual DNS records for the pods
+  clusterIP: None
+  # So we do not rely on the readiness probe to connect to the MGMd
+  publishNotReadyAddresses: true
+  # Match the spec.template.metadata.labels of the StatefulSet
+  selector:
+    rondbService: {{ include "rondb.labels.rondbService.replica-appliers" $ }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.meta.replicaAppliers.headlessClusterIp.port }}
+      targetPort: 3306
+{{- end }}

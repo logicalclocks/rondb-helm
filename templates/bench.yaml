@@ -38,7 +38,7 @@ spec:
           AUTOBENCH_FILEPATH=$BENCH_DIR/autobench.conf
           cp $RAW_AUTOBENCH_FILEPATH $AUTOBENCH_FILEPATH
           
-          sed -i "/^[ ]*MYSQL_PASSWORD/c\MYSQL_PASSWORD=$MYSQL_BENCH_PASSWORD" $AUTOBENCH_FILEPATH
+          sed -i "/^[ ]*MYSQL_PASSWORD/c\MYSQL_PASSWORD=$MYSQL_CLUSTER_PASSWORD" $AUTOBENCH_FILEPATH
 
           set +e
           bench_run.sh \
@@ -58,10 +58,10 @@ spec:
             cat $BENCH_DIR/final_result.txt
           fi
         env:
-          - name: MYSQL_BENCH_PASSWORD
+          - name: MYSQL_CLUSTER_PASSWORD
             valueFrom:
               secretKeyRef:
-                key: {{ .Values.benchmarking.mysqlUsername }}
+                key: {{ .Values.mysql.clusterUser }}
                 name: {{ $.Values.mysql.credentialsSecretName }}
         resources:
           limits:

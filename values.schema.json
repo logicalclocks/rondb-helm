@@ -155,10 +155,6 @@
                         "externalLoadBalancer": {
                             "$ref": "#/$defs/externalLoadBalancer"
                         },
-                        "credentialsSecretName": {
-                            "type": "string",
-                            "description": "Secret name for mysql users' passwords"
-                        },
                         "exporter": {
                             "type": "object",
                             "description": "Configuration for mysqld exporter",
@@ -170,8 +166,9 @@
                         }
                     },
                     "required": [
-                        "clusterIp",
-                        "headlessClusterIp"
+                        "statefulSet",
+                        "headlessClusterIp",
+                        "clusterIp"
                     ]
                 },
                 "rdrs": {
@@ -243,7 +240,89 @@
                     },
                     "required": [
                         "clusterIpName",
+                        "statefulSet",
                         "headlessClusterIpName"
+                    ]
+                },
+                "binlogServers": {
+                    "type": "object",
+                    "properties": {
+                        "statefulSet": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "endToEndTls": {
+                                    "$ref": "#/$defs/endToEndTls"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "endToEndTls"
+                            ]
+                        },
+                        "headlessClusterIp": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "port": {
+                                    "type": "integer"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "port"
+                            ]
+                        },
+                        "externalLoadBalancers": {
+                            "$ref": "#/$defs/externalLoadBalancer"
+                        }
+                    },
+                    "required": [
+                        "statefulSet",
+                        "headlessClusterIp"
+                    ]
+                },
+                "replicaAppliers": {
+                    "type": "object",
+                    "properties": {
+                        "statefulSet": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "endToEndTls": {
+                                    "$ref": "#/$defs/endToEndTls"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "endToEndTls"
+                            ]
+                        },
+                        "headlessClusterIp": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string"
+                                },
+                                "port": {
+                                    "type": "integer"
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "port"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "statefulSet",
+                        "headlessClusterIp"
                     ]
                 }
             },
@@ -284,12 +363,22 @@
                     "type": "object",
                     "description": "SQL to run *only once* at cluster startup. Try to make these scripts idempotent, in case they are re-run by accident. Do so by e.g. using `IF NOT EXISTS` in the SQL commands."
                 },
+                "supplyOwnSecret": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "If set to false, the Helmchart will auto-generate MySQL passwords. When running Global Replication as a secondary cluster, this should be set to true. Otherwise, the replication of ALTER root password will fail the cluster."
+                },
+                "clusterUser": {
+                    "type": "string",
+                    "description": "The MySQL user for K8s probes, benchmarks and for the standard my.cnf file."
+                },
                 "exporter": {
                     "type": "object",
                     "description": "MySQL exporter configuration",
                     "properties": {
                         "enabled": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "default": false
                         },
                         "username": {
                             "type": "string"
@@ -459,6 +548,14 @@
                                             ],
                                             "default": null,
                                             "description": "Storage class name for the data node disk columns volume"
+                                        },
+                                        "binlogFiles": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "default": null,
+                                            "description": "Storage class name for MySQLd binlog volumes in global replication"
                                         }
                                     }
                                 },
@@ -488,6 +585,16 @@
                                 },
                                 "logGiB": {
                                     "type": "integer",
+                                    "default": 2
+                                },
+                                "binlogGiB": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "default": 2
+                                },
+                                "relayLogGiB": {
+                                    "type": "integer",
+                                    "minimum": 1,
                                     "default": 2
                                 }
                             }
@@ -630,16 +737,13 @@
                     "type": "boolean",
                     "description": "Whether to run a benchmarking job on the cluster"
                 },
-                "mysqlUsername": {
-                    "type": "string",
-                    "description": "The MySQL user to run the benchmarks with. It will automatically be given the necessary privileges on the benchmark databases. This field is required so that benchmarking jobs can be enabled once the cluster is already running."
-                },
                 "type": {
                     "description": "Which benchmarking job to run. 'Multi' refers to multiple MySQLd servers to run against",
                     "enum": [
                         "sysbench",
                         "dbt2_single",
-                        "dbt2_multi"
+                        "dbt2_multi",
+                        "ycsb"
                     ]
                 },
                 "dbt2": {
@@ -677,11 +781,20 @@
                             "description": "Whether to use filters to minimize bandwidth usage. This can be useful in cloud environments where bandwidth is expensive."
                         }
                     }
+                },
+                "ycsb": {
+                    "type": "object",
+                    "description": "Configuration of YCSB benchmarking job",
+                    "properties": {
+                        "schemata": {
+                            "type": "string",
+                            "description": "MySQL table schema to use for YCSB. NOTE: The `ycsb` database is pre-created."
+                        }
+                    }
                 }
             },
             "required": [
                 "enabled",
-                "mysqlUsername",
                 "type"
             ]
         },
@@ -769,6 +882,120 @@
                 "enabled"
             ]
         },
+        "globalReplication": {
+            "type": "object",
+            "properties": {
+                "clusterNumber": {
+                    "type": "number",
+                    "default": 1,
+                    "description": "Determines the offset for global server IDs"
+                },
+                "primary": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Specifies if the primary replication is enabled. This will actually create the binary log servers. Can be activated after an initial start."
+                        },
+                        "numBinlogServers": {
+                            "type": "number",
+                            "default": 2,
+                            "description": "The current number of binlog servers, given global Replication is enabled."
+                        },
+                        "maxNumBinlogServers": {
+                            "type": "number",
+                            "default": 3,
+                            "description": "Don't change this value. Determines how many binlog servers we can scale out to. Used to determine the server IDs for global replication. Even if replication is disabled, potential binlog servers will be written into the config.ini."
+                        },
+                        "expireBinlogsDays": {
+                            "type": "number"
+                        },
+                        "logReplicaUpdates": {
+                            "type": "boolean"
+                        },
+                        "binlogFilename": {
+                            "type": "string",
+                            "default": "binlog"
+                        },
+                        "ignoreDatabases": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "ignoreTables": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": [
+                        "enabled",
+                        "numBinlogServers",
+                        "maxNumBinlogServers",
+                        "expireBinlogsDays",
+                        "logReplicaUpdates"
+                    ],
+                    "additionalProperties": false
+                },
+                "secondary": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "replicateFrom": {
+                            "type": "object",
+                            "description": "RonDB clusters to replicate from. RonDB supports merge-replicating from multiple clusters, but we only support replicating from one cluster",
+                            "properties": {
+                                "clusterNumber": {
+                                    "type": "number",
+                                    "default": 1,
+                                    "description": "A helper to understand from which serverIds to replicate from"
+                                },
+                                "binlogServerHosts": {
+                                    "type": "array",
+                                    "description": "Hostnames of the binlog server to replicate from. The binlog servers have headless ClusterIPs and one LoadBalancer *per* binlog server. If we replicate across different K8s clusters, we can reference the External IPs of the binlog servers' LoadBalancers here.",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "default": []
+                                },
+                                "ignoreDatabases": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "default": []
+                                },
+                                "ignoreTables": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "default": []
+                                }
+                            },
+                            "required": [
+                                "binlogServerHosts"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "enabled",
+                        "replicateFrom"
+                    ]
+                }
+            },
+            "required": [
+                "clusterNumber",
+                "primary"
+            ]
+        },
         "nodeSelector": {
             "type": "object",
             "description": "This ensures that Kubernetes schedules pods only onto nodes that match all the specified labels.",
@@ -827,7 +1054,8 @@
         "clusterSize",
         "resources",
         "rondbConfig",
-        "timeoutsMinutes"
+        "timeoutsMinutes",
+        "globalReplication"
     ],
     "$defs": {
         "secret": {
@@ -861,6 +1089,9 @@
                     "type": "number"
                 },
                 "benchs": {
+                    "type": "number"
+                },
+                "restore": {
                     "type": "number"
                 },
                 "mysqldExporters": {
@@ -965,7 +1196,12 @@
                     "default": null
                 },
                 "annotations": {
-                    "type": "object"
+                    "type": "object",
+                    "description": "Cloud provider load balancer specific annotations."
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "Port to expose the service on"
                 }
             }
         },

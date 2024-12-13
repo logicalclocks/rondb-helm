@@ -4,13 +4,16 @@ inputs:
   namespace:
     description: 'Namespace to collect logs from'
     required: true
+  helm_chart:
+    description: 'Name of Helmchart to collect logs from'
+    default: 'my-rondb'
 
 runs:
   using: 'composite'
   steps:
   - name: Delete RonDB Helmchart
     shell: bash
-    run: helm delete --namespace=${{ inputs.namespace }} $RONDB_CLUSTER_NAME
+    run: helm delete --namespace=${{ inputs.namespace }} ${{ inputs.helm_chart }}
 
   # Can't just use delete Hook, since we want to print the logs of the Pod
   - name: Delete Helm Test Pods

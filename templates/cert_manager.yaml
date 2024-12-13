@@ -1,7 +1,9 @@
 {{ if (or 
     .Values.meta.mysqld.statefulSet.endToEndTls.enabled
+    .Values.meta.binlogServers.statefulSet.endToEndTls.enabled
+    .Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled
     .Values.meta.rdrs.statefulSet.endToEndTls.enabled
-    (and 
+    (and
         .Values.meta.rdrs.ingress.enabled
         .Values.meta.rdrs.ingress.tls.enabled
     )) 

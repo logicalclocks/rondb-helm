@@ -17,6 +17,7 @@ resources:
       mysqlds: 2
       rdrs: 2
       benchs: 2
+      restore: 0.5
     memory:
       ndbmtdsMiB: 2800
       rdrsMiB: 500

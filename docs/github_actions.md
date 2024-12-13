@@ -19,8 +19,9 @@
         --feature-gates="CPUManager=true" \
         --extra-config=kubelet.cpu-manager-policy="static" \
         --extra-config=kubelet.cpu-manager-policy-options="full-pcpus-only=true" \
-        --extra-config=kubelet.kube-reserved="cpu=500m" \
-        --addons=[metrics-server,storage-provisioner-rancher]
+        --extra-config=kubelet.kube-reserved="cpu=500m"
+    minikube addons enable metrics-server
+    minikube addons enable storage-provisioner-rancher
     ```
     * CNI Calico is needed to enable Network Policies.
     * Static CPU Manager is needed to allow fixing data nodes to host CPUs

@@ -31,6 +31,18 @@ meta:
       class: abc
       annotations: *dummyAnnotations
     addSysNiceCapability: true
+  binlogServers:
+    statefulSet:
+      endToEndTls:
+        enabled: true
+    externalLoadBalancers:
+      enabled: true
+      class: bla
+      annotations: *dummyAnnotations
+  replicaAppliers:
+    statefulSet:
+      endToEndTls:
+        enabled: true
   rdrs:
     statefulSet:
       endToEndTls:
@@ -131,3 +143,15 @@ tolerations:
   mgmd: *tolerations
   rdrs: *tolerations
   backup: *tolerations
+globalReplication:
+  primary:
+    enabled: true
+    logReplicaUpdates: true
+    ignoreDatabases: *dummyStringArray
+    ignoreTables: *dummyStringArray
+  secondary:
+    enabled: true
+    replicateFrom:
+      binlogServerHosts: *dummyStringArray
+      ignoreDatabases: *dummyStringArray
+      ignoreTables: *dummyStringArray

@@ -2,6 +2,9 @@ set -e
 
 echo_newline() { echo; echo "$1"; echo; }
 
+{{ $maxTotalMySQLds := (include "rondb.maxTotalMySQLds" $ | int) -}}
+{{ $serverIdOffset := mul $.Values.globalReplication.clusterNumber $maxTotalMySQLds -}}
+
 ###################
 # SED MY.CNF FILE #
 ###################
@@ -13,6 +16,7 @@ cp $RAW_MYCNF_FILEPATH $MYCNF_FILEPATH
 # Take a single empty slot
 sed -i "/ndb-cluster-connection-pool/c\# ndb-cluster-connection-pool=1" $MYCNF_FILEPATH
 sed -i "/ndb-cluster-connection-pool-nodeids/c\# ndb-cluster-connection-pool-nodeids" $MYCNF_FILEPATH
+sed -i "/^[ ]*server-id[ ]*=/c\server-id={{ $serverIdOffset }}" $MYCNF_FILEPATH
 
 ##################################
 # MOVE OVER RESTORE-BACKUP FILES #
@@ -70,7 +74,19 @@ fi
 # Since networking is not permitted for this mysql server, we have to use a socket to connect to it
 # "SET @@SESSION.SQL_LOG_BIN=0;" is required for products like group replication to work properly
 DUMMY_ROOT_PASSWORD=
-function mysql() { command mysql -uroot -hlocalhost --password="$DUMMY_ROOT_PASSWORD" --protocol=socket --socket="$SOCKET" --init-command="SET @@SESSION.SQL_LOG_BIN=0;"; }
+function mysql() {
+    command mysql \
+        -uroot \
+        -hlocalhost \
+        --password="$DUMMY_ROOT_PASSWORD" \
+        --protocol=socket \
+        --socket="$SOCKET" \
+        --init-command="SET @@SESSION.SQL_LOG_BIN=0;";
+}
+
+###########################
+### ALTER ROOT PASSWORD ###
+###########################
 
 echo_newline '[K8s Entrypoint MySQLd] Changing the root user password'
 mysql <<EOF
@@ -81,33 +97,110 @@ EOF
 
 DUMMY_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD
 
+##########################
+### SETUP CLUSTER USER ###
+##########################
+
+echo_newline "[K8s Entrypoint MySQLd] Setting up cluster user '${MYSQL_CLUSTER_USER}'"
+mysql <<EOF
+-- Create user to operate the Helmchart
+CREATE USER IF NOT EXISTS '${MYSQL_CLUSTER_USER}'@'%'
+    IDENTIFIED BY '${MYSQL_CLUSTER_PASSWORD}';
+GRANT NDB_STORED_USER ON *.* TO '${MYSQL_CLUSTER_USER}'@'%';
+FLUSH PRIVILEGES;
+EOF
+
+################################
+### SETUP HELM TEST SCHEMATA ###
+################################
+
+HELM_TEST_DB={{ include "rondb.databases.helmTests" $ | quote }}
+mysql <<EOF
+GRANT ALL PRIVILEGES ON ${HELM_TEST_DB}.* TO '${MYSQL_CLUSTER_USER}'@'%';
+FLUSH PRIVILEGES;
+EOF
+
 ####################################
 ### SETUP BENCHMARKING DATABASES ###
 ####################################
 
-# Benchmarking table; all other tables will be created by the benchmakrs themselves
+# Generally benchmarking databases should be excluded from backups and Global Replication.
+# However, they might still be included in some backups. Hence, we use IF NOT EXISTS.
+
+echo_newline "[K8s Entrypoint MySQLd] Initializing benchmarking schemata"
+
 mysql <<EOF
-CREATE DATABASE IF NOT EXISTS \`dbt2\`;
-CREATE DATABASE IF NOT EXISTS \`ycsb\`;
+-- Benchmarking table; all other tables will be created by the benchmarks themselves
+{{ $databases := include "rondb.databases.benchmarking" . | fromYamlArray -}}
+{{ range $databases -}}
+CREATE DATABASE IF NOT EXISTS \`{{ . }}\`;
+{{ end }}
+
+{{ if $.Values.benchmarking.ycsb.schemata -}}
+-- Create table for YCSB
+{{ $.Values.benchmarking.ycsb.schemata }}
+{{- end }}
+
+-- Grant bench user rights to all bench databases
+GRANT ALL PRIVILEGES ON \`dbt%\`.* TO '${MYSQL_CLUSTER_USER}'@'%';
+GRANT ALL PRIVILEGES ON \`ycsb%\`.* TO '${MYSQL_CLUSTER_USER}'@'%';
+GRANT ALL PRIVILEGES ON \`sysbench%\`.* TO '${MYSQL_CLUSTER_USER}'@'%';
+GRANT ALL PRIVILEGES ON \`sbtest%\`.* TO '${MYSQL_CLUSTER_USER}'@'%';
+FLUSH PRIVILEGES;
 EOF
 
-# shellcheck disable=SC2153
-if [ "$MYSQL_BENCH_USER" ]; then
-    echo_newline "[K8s Entrypoint MySQLd] Initializing benchmarking user $MYSQL_BENCH_USER"
+{{- if .Values.mysql.exporter.enabled }}
+#################################
+### SETUP MYSQL EXPORTER USER ###
+#################################
+echo_newline "[K8s Entrypoint MySQLd] Initializing MySQL exporter user {{ .Values.mysql.exporter.username }}"
 
-        mysql <<EOF
-CREATE USER IF NOT EXISTS '${MYSQL_BENCH_USER}'@'%' IDENTIFIED BY '${MYSQL_BENCH_PASSWORD}';
-
--- Grant MYSQL_BENCH_USER rights to all benchmarking databases
-GRANT NDB_STORED_USER ON *.* TO '${MYSQL_BENCH_USER}'@'%';
-GRANT ALL PRIVILEGES ON \`sysbench%\`.* TO '${MYSQL_BENCH_USER}'@'%';
-GRANT ALL PRIVILEGES ON \`dbt%\`.* TO '${MYSQL_BENCH_USER}'@'%';
-GRANT ALL PRIVILEGES ON \`sbtest%\`.* TO '${MYSQL_BENCH_USER}'@'%';
-GRANT ALL PRIVILEGES ON \`ycsb%\`.* TO '${MYSQL_BENCH_USER}'@'%';
+MYSQL_EXPORTER_USER='{{ .Values.mysql.exporter.username }}'
+mysql <<EOF
+CREATE USER IF NOT EXISTS '${MYSQL_EXPORTER_USER}'@'%'
+    IDENTIFIED BY '${MYSQL_EXPORTER_PASSWORD}'
+    WITH MAX_USER_CONNECTIONS {{ .Values.mysql.exporter.maxUserConnections }};
+GRANT NDB_STORED_USER ON *.* TO '${MYSQL_EXPORTER_USER}'@'%';
+GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '${MYSQL_EXPORTER_USER}'@'%';
+FLUSH PRIVILEGES;
 EOF
-else
-    echo_newline '[K8s Entrypoint MySQLd] Not creating benchmark user. MYSQL_BENCH_USER and MYSQL_BENCH_PASSWORD must be specified to do so.'
-fi
+{{- end }}
+
+#########################################
+### SETUP GLOBAL REPLICATION SCHEMATA ###
+#########################################
+
+HEARTBEAT_DB={{ include "rondb.databases.heartbeat" . }}
+HEARTBEAT_TABLE={{ include "rondb.tables.heartbeat" . }}
+mysql <<EOF
+CREATE DATABASE IF NOT EXISTS ${HEARTBEAT_DB};
+CREATE TABLE IF NOT EXISTS ${HEARTBEAT_DB}.${HEARTBEAT_TABLE} (
+    server_id INT NOT NULL PRIMARY KEY,
+    counter BIGINT UNSIGNED NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) engine NDB;
+
+{{ $ownServerIds := list -}}
+{{ range $i := until $maxTotalMySQLds -}}
+{{- $serverId := add $serverIdOffset $i }}
+INSERT INTO ${HEARTBEAT_DB}.${HEARTBEAT_TABLE} (server_id, counter) VALUES ({{ $serverId }}, 0);
+{{- end }}
+
+GRANT ALL PRIVILEGES ON \`${HEARTBEAT_DB}\`.*
+    TO '${MYSQL_CLUSTER_USER}'@'%' ;
+
+GRANT SELECT ON mysql.ndb_binlog_index TO '${MYSQL_CLUSTER_USER}'@'%';
+GRANT SELECT ON mysql.ndb_apply_status TO '${MYSQL_CLUSTER_USER}'@'%';
+
+-- Allows us to query "SHOW REPLICA STATUS"
+GRANT REPLICATION CLIENT ON *.*
+    TO '${MYSQL_CLUSTER_USER}'@'%';
+
+GRANT REPLICATION SLAVE ON *.* TO '${MYSQL_CLUSTER_USER}'@'%';
+GRANT REPLICATION_SLAVE_ADMIN, RELOAD ON *.* TO '${MYSQL_CLUSTER_USER}'@'%';
+
+FLUSH PRIVILEGES;
+EOF
 
 #################################
 ### SETUP USER-SUPPLIED USERS ###
@@ -130,24 +223,12 @@ FLUSH PRIVILEGES;
 EOF
 {{- end }}
 
-{{- if .Values.mysql.exporter.enabled }}
-####################################
-### SETUP MYSQL EXPORTER USER ###
-####################################
-echo_newline "[K8s Entrypoint MySQLd] Initializing mysql exporter user {{ .Values.mysql.exporter.username }}"
-mysql <<EOF
-CREATE USER IF NOT EXISTS '{{ .Values.mysql.exporter.username }}'@'%' IDENTIFIED BY '${MYSQL_EXPORTER_PASSWORD}' WITH MAX_USER_CONNECTIONS {{ .Values.mysql.exporter.maxUserConnections }};
-GRANT NDB_STORED_USER ON *.* TO '{{ .Values.mysql.exporter.username }}'@'%';
-GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ .Values.mysql.exporter.username }}'@'%';
-EOF
-{{- end }}
 
 ###################################
 ### RUN SQL SCRIPTS FROM BACKUP ###
 ###################################
 
-# TODO: Move sedding logic in backup(?)
-
+# The users.sql will also contain statements such as "CREATE USER `root`@`localhost`.."
 SED_CREATE_TABLE="s/CREATE TABLE( IF NOT EXISTS)? /CREATE TABLE IF NOT EXISTS /g"
 SED_CREATE_USER="s/CREATE USER( IF NOT EXISTS)? /CREATE USER IF NOT EXISTS /g"
 
