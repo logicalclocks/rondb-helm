@@ -1158,18 +1158,21 @@
                 },
                 "certfileName": {
                     "type": "string",
-                    "default": "tls.crt"
+                    "default": "tls.crt",
+                    "description": "Name of the certificate file in the Secret. ONLY overwrite this if you're not using standard TLS Secrets."
                 },
                 "keyfileName": {
                     "type": "string",
-                    "default": "tls.key"
+                    "default": "tls.key",
+                    "description": "Name of the key file in the Secret. ONLY overwrite this if you're not using standard TLS Secrets."
                 },
                 "cafileName": {
                     "type": [
                         "string",
                         "null"
                     ],
-                    "default": "ca.crt"
+                    "default": "ca.crt",
+                    "description": "Name of the CA file in the Secret. ONLY overwrite this if you're not using standard TLS Secrets."
                 }
             },
             "required": [
