@@ -52,12 +52,12 @@ CHANGE REPLICATION SOURCE TO
     SOURCE_LOG_FILE="${BINLOG_FILE}",
     -- The starting position on the source MySQL Server
     SOURCE_LOG_POS=${BINLOG_POSITION},
-{{- if .Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled }}
+{{- if $.Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled }}
     -- WARNING: This is needed if the binlog servers enforce SSL
-    SOURCE_SSL_CERT="/etc/tls/{{ .Values.meta.replicaAppliers.statefulSet.endToEndTls.certfileName }}",
-    SOURCE_SSL_KEY="/etc/tls/{{ .Values.meta.replicaAppliers.statefulSet.endToEndTls.keyfileName }}",
-{{- if .Values.meta.replicaAppliers.statefulSet.endToEndTls.caFilename }}
-    SOURCE_SSL_CA="/etc/tls/{{ .Values.meta.replicaAppliers.statefulSet.endToEndTls.cafileName }}",
+    SOURCE_SSL_CERT="/etc/tls/{{ $.Values.meta.replicaAppliers.statefulSet.endToEndTls.certfileName }}",
+    SOURCE_SSL_KEY="/etc/tls/{{ $.Values.meta.replicaAppliers.statefulSet.endToEndTls.keyfileName }}",
+{{- if $.Values.meta.replicaAppliers.statefulSet.endToEndTls.caFilename }}
+    SOURCE_SSL_CA="/etc/tls/{{ $.Values.meta.replicaAppliers.statefulSet.endToEndTls.cafileName }}",
 {{- end }}
 {{- end }}
 
