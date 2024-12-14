@@ -306,6 +306,7 @@ globalReplication:
     enabled: false
     replicateFrom:
       clusterNumber: 2
+      useTlsConnection: false
       binlogServerHosts: []
       ignoreDatabases: []
       ignoreTables: []

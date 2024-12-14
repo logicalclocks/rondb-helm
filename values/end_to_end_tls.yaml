@@ -15,3 +15,7 @@ meta:
     statefulSet:
       endToEndTls:
         enabled: true
+globalReplication:
+  secondary:
+    replicateFrom:
+      useTlsConnection: true

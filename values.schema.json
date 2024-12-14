@@ -955,6 +955,11 @@
                                     "default": 1,
                                     "description": "A helper to understand from which serverIds to replicate from"
                                 },
+                                "useTlsConnection": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "Enable this for an encrypted replication channel. Important if the binlog server requires TLS connections"
+                                },
                                 "binlogServerHosts": {
                                     "type": "array",
                                     "description": "Hostnames of the binlog server to replicate from. The binlog servers have headless ClusterIPs and one LoadBalancer *per* binlog server. If we replicate across different K8s clusters, we can reference the External IPs of the binlog servers' LoadBalancers here.",

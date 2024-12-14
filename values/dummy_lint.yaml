@@ -152,6 +152,7 @@ globalReplication:
   secondary:
     enabled: true
     replicateFrom:
+      useTlsConnection: true
       binlogServerHosts: *dummyStringArray
       ignoreDatabases: *dummyStringArray
       ignoreTables: *dummyStringArray
