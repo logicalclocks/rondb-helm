@@ -72,16 +72,16 @@ jobs:
           kubectl version --client
           kubectl get nodes
 
+      # Static CPU manager policy will only work if the FeatureGate is enabled
       - name: Create original RonDB cluster
         run: |
           helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --create-namespace \
             --values ./values/minikube/mini.yaml \
-            --set meta.rdrs.statefulSet.endToEndTls.enabled=true \
             --set benchmarking.enabled=true \
-            --set globalReplication.primary.enabled=true \
-            --set globalReplication.primary.numBinlogServers=1 \
+            --set staticCpuManagerPolicy=true \
+            --set meta.rdrs.statefulSet.endToEndTls.enabled=true \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=2 \
             --set clusterSize.minNumRdrs=1 \
