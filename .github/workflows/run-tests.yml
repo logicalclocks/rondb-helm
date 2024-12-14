@@ -78,7 +78,6 @@ jobs:
             --namespace=$K8S_NAMESPACE \
             --create-namespace \
             --values ./values/minikube/mini.yaml \
-            --set meta.mysqld.statefulSet.endToEndTls.enabled=true \
             --set meta.rdrs.statefulSet.endToEndTls.enabled=true \
             --set benchmarking.enabled=true \
             --set globalReplication.primary.enabled=true \
