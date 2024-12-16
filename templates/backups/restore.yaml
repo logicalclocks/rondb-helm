@@ -1,6 +1,6 @@
 # Copyright (c) 2024-2024 Hopsworks. All rights reserved.
 
-{{- if .Values.restoreFromBackup.backupId -}}
+{{ if .Values.restoreFromBackup.backupId -}}
 apiVersion: batch/v1
 kind: Job
 metadata:

@@ -1,6 +1,6 @@
 # Copyright (c) 2024-2024 Hopsworks. All rights reserved.
 
-{{- if or .Values.backups.enabled .Values.restoreFromBackup.backupId }}
+{{ if or .Values.backups.enabled .Values.restoreFromBackup.backupId }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

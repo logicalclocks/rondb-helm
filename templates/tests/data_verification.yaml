@@ -1,6 +1,6 @@
 # Copyright (c) 2024-2024 Hopsworks. All rights reserved.
 
-{{- define "rondb.dataPod" -}}
+{{ define "rondb.dataPod" -}}
 {{/*
 Depending on the input, this template can create both a Pod that
 generates dummy data and a Pod that verifies the data. This can be
