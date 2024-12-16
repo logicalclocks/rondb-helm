@@ -1,3 +1,5 @@
+#!/bin/bash
+
 cat <<'EOF' >/dev/null
 This runs a test suite with the following steps:
 1. [Test: generate data] Setup cluster A, generate data

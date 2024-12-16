@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -e
 
 PRIMARY_NAMESPACE=$1

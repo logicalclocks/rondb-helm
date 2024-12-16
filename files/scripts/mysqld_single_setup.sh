@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -e
 
 echo_newline() { echo; echo "$1"; echo; }
