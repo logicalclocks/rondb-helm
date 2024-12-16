@@ -88,6 +88,7 @@ helm delete --namespace=$RONDB_NAMESPACE my-rondb
 # Remove other related resources (non-namespaced objects not removed here e.g. PriorityClass)
 kubectl delete namespace $RONDB_NAMESPACE --timeout=60s
 
+# If dependencies were set up first, take them down again
 source ./standalone_deps.sh
 destroy_deps
 ```
