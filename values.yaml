@@ -114,13 +114,12 @@ networkPolicy:
     ingressSelectors: []
 imagePullSecrets: []
 imagePullPolicy: IfNotPresent
-# TODO: Consider using Chart.appVersion for tag instead
 images:
   rondb:
     registry: docker.io
     repository: hopsworks
     name: rondb
-    tag: latest
+    tag: 22.10.7-0.7
   toolbox:
     registry: docker.io
     repository: hopsworks
