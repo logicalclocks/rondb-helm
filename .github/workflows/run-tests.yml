@@ -4,6 +4,10 @@ on:
   pull_request:
     # Not running on "closed" - that is taken care of by "push" (if merged)
     types: [opened, synchronize, reopened]
+  push:
+    tags:
+      # Semantic versioning
+      - "[0-9]+.[0-9]+.[0-9]+"
 
 # This cancels any previous job from the same PR if the PR has been updated.
 # This cancel-in-progress only works per PR (thus, two different PRs wont be cancelled).
@@ -15,7 +19,7 @@ concurrency:
 
 jobs:
   lint-test:
-      name: Lint helm charts
+      name: Lint Helm chart
       runs-on: ubuntu-latest
       env:
         TEMPLATE_OUT_DIR: template_out
@@ -62,6 +66,7 @@ jobs:
 
   benchmark-and-stability:
     needs: [lint-test]
+    name: Run benchmark and test stability
     if: github.repository == 'logicalclocks/rondb-helm'
     runs-on: [self-hosted, ARM64]
     env:
