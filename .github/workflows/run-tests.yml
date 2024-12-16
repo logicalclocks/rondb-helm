@@ -266,6 +266,8 @@ jobs:
     steps:
     - name: Checkout main repo
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Helm
       uses: azure/setup-helm@v4
