@@ -36,14 +36,11 @@ _Example S3_: Create an S3 bucket and see this to have access to it: https://git
 ### Run cluster
 
 ```bash
-helm lint
-helm template .
-
 RONDB_NAMESPACE=rondb-default
 kubectl create namespace $RONDB_NAMESPACE
 
 # If periodical backups are enabled, add access to object storage.
-# If using AWS S3:
+# If using AWS S3 without IAM roles:
 kubectl create secret generic aws-credentials \
     --namespace=$RONDB_NAMESPACE \
     --from-literal "key_id=${AWS_ACCESS_KEY_ID}" \
@@ -106,11 +103,13 @@ Ingress towards MySQLds or RDRSs can be tested using the following steps:
     `curl -i --insecure https://rondb.com/0.1.0/ping`
     This should reach the RDRS and return 200.
 5. Connect to MySQLd from host (needs MySQL client installed):
+    ```bash
     mysqladmin -h rondb.com \
         --protocol=tcp \
         --connect-timeout=3 \
         --ssl-mode=REQUIRED \
         ping
+    ```
 
 ## Optimizations
 
