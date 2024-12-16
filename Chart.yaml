@@ -12,6 +12,7 @@ version: 0.1.0
 appVersion: latest
 
 # kubeVersion: A SemVer range of compatible Kubernetes versions (optional)
+kubeVersion: ">= 1.27.0-0"
 
 description: A Helm chart for RonDBCluster
 type: application
