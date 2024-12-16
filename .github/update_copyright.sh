@@ -16,7 +16,7 @@ get_file_hash() {
     sha256sum "$1" | awk '{print $1}'
 }
 
-# Function to add the header after the shebang, if present
+# Function to add the header after the shebang, if present, or replace existing copyright
 add_header_after_shebang() {
     local file="$1"
     # Read the first line to check if it's a shebang
@@ -29,14 +29,14 @@ add_header_after_shebang() {
             echo ""
             echo "$HEADER"
             echo ""
-            tail -n +2 "$file"
+            tail -n +2 "$file" | sed '/^# Copyright (c)/d'
         } >temp && mv temp "$file"
     else
         # Otherwise, just prepend the header with a blank line
         {
             echo "$HEADER"
             echo ""
-            cat "$file"
+            sed '/^# Copyright (c)/d' "$file"
         } >temp && mv temp "$file"
     fi
 }
