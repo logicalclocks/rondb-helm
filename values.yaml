@@ -119,6 +119,7 @@ images:
     registry: docker.io
     repository: hopsworks
     name: rondb
+    # This should always be equivalent to .Chart.AppVersion
     tag: 22.10.7-0.7
   toolbox:
     registry: docker.io
