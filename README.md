@@ -25,13 +25,17 @@ See [TODO](docs/todo.md) for this.
 ### Optional: Set up cloud object storage for backups
 
 Cloud object storage is required for creating backups and restoring from them. Periodical backups can be
-enabled using `--set backups.enabled`. These will be placed into cloud object storage.
+enabled using `--set backups.enabled`. These will be placed into cloud object storage. Restoring from a backup
+can be activated (at cluster start) using `--set restoreFromBackup.backupId=<backup-id>`. This will assume the
+backup is placed in the defined object storage.
 
 _Authentication info:_ When running Kubernetes within a cloud provider (e.g. EKS), authentication can work implicitly via IAM roles.
 This is most secure and one should not have to worry about rotating them. If one is not running in the cloud
 (e.g. Minikube or on-prem K8s clusters), one can create Secrets with object storage credentials.
 
-_Example S3_: Create an S3 bucket and see this to have access to it: https://github.com/awslabs/mountpoint-s3-csi-driver/blob/main/docs/install.md#configure-access-to-s3.
+Examples creating object storage:
+* In-cluster MinIO: Install MinIO controller and run `./test_scripts/setup_minio.sh`
+* S3: Create an S3 bucket and see this to have access to it: https://github.com/awslabs/mountpoint-s3-csi-driver/blob/main/docs/install.md#configure-access-to-s3.
 
 ### Run cluster
 
