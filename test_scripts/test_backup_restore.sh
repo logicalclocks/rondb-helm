@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Copyright (c) 2024-2024 Hopsworks. All rights reserved.
+
 # This is a script to test the backup and restore functionality.
 # It is not actually being used by the CI/CD pipeline, but can be run manually.
 # The CI runs similar code, but is more elaborate (e.g benchmarking, etc).

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Copyright (c) 2024-2024 Hopsworks. All rights reserved.
+
 cat <<'EOF' >/dev/null
 This runs a test suite with the following steps:
 1. [Test: generate data] Setup cluster A, generate data

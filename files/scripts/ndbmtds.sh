@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Copyright (c) 2024-2024 Hopsworks. All rights reserved.
+
 # Requires to calculate Node Id based on Pod name and Node Group
 
 # Equivalent to replication factor of pod

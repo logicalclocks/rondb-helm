@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Copyright (c) 2024-2024 Hopsworks. All rights reserved.
+
 # The configuration database is a binary representation of the cluster's configuration.
 # It is essentially the config.ini including all changes that were applied via the
 # management client (ndb_mgm).

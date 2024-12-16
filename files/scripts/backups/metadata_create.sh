@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Copyright (c) 2024-2024 Hopsworks. All rights reserved.
+
 set -e
 
 BACKUP_DIR=$1

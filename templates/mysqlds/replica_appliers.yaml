@@ -1,3 +1,5 @@
+# Copyright (c) 2024-2024 Hopsworks. All rights reserved.
+
 {{ if .Values.globalReplication.secondary.enabled -}}
 {{/*
     TODO: Only start up the replica appliers if the hostnames of the binlog

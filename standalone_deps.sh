@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Copyright (c) 2024-2024 Hopsworks. All rights reserved.
+
 CERT_MANAGER_URL=https://github.com/cert-manager/cert-manager/releases/download/v1.14.3/cert-manager.yaml
 HELM_NGINX_NAME=ingress-nginx
 HELM_NGINX_INSTANCE_NAME=rondb-ingress-nginx
