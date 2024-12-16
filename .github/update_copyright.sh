@@ -52,7 +52,7 @@ find . -type f \( \
     current_hash=$(get_file_hash "$file")
 
     # Check if the header is already present
-    if ! head -n 1 "$file" | grep -q "$HEADER"; then
+    if ! grep -q "$HEADER" "$file"; then
         # Add the header after the shebang or at the top of the file
         add_header_after_shebang "$file"
         echo "Added header to $file"
