@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2024-2024 Hopsworks. All rights reserved.
+# Copyright (c) 2024-2024 Hopsworks AB. All rights reserved.
 
 # Script to start a MinIO tenant and write values files for backups and restores
 

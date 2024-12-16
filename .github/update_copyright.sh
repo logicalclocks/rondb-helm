@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the copyright header
-HEADER="# Copyright (c) 2024-$(date +%Y) Hopsworks. All rights reserved."
+HEADER="# Copyright (c) 2024-$(date +%Y) Hopsworks AB. All rights reserved."
 
 # File for tracking changes
 TRACK_FILE=".header_check_changes.txt"
