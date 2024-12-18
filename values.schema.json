@@ -418,23 +418,30 @@
                                             "description": "The MySQL database to which the privileges apply.",
                                             "minLength": 1
                                         },
-                                        "tables": {
-                                            "type": "object",
-                                            "description": "A map of tables to their privileges.",
-                                            "additionalProperties": {
-                                                "type": "array",
-                                                "minItems": 1,
-                                                "items": {
-                                                    "type": "string",
-                                                    "description": "Privileges for the specific MySQL table.",
-                                                    "minLength": 1
-                                                }
+                                        "table": {
+                                            "type": "string",
+                                            "description": "The MySQL table to which the privileges apply.",
+                                            "minLength": 1
+                                        },
+                                        "withGrantOption": {
+                                            "type": "boolean",
+                                            "description": "Whether the user has the GRANT OPTION privilege.",
+                                            "default": false
+                                        },
+                                        "privileges": {
+                                            "type": "array",
+                                            "minItems": 1,
+                                            "items": {
+                                                "type": "string",
+                                                "description": "Privileges for the specific MySQL database.table.",
+                                                "minLength": 1
                                             }
                                         }
                                     },
                                     "required": [
                                         "database",
-                                        "tables"
+                                        "table",
+                                        "privileges"
                                     ],
                                     "additionalProperties": false
                                 },

@@ -212,19 +212,24 @@ EOF
 
 {{- range $.Values.mysql.users }}
 MY_PW=${{ include "rondb.mysql.getPasswordEnvVarName" . }}
-mysql <<EOF
-{{- $username := .username }}
-{{- $host := .host }}
-CREATE USER IF NOT EXISTS '{{ $username }}'@'{{ $host }}' IDENTIFIED BY '${MY_PW}';
+{{- $mysqlUser := printf "'%s'@'%s'" .username .host }}
+echo "CREATE USER IF NOT EXISTS {{ $mysqlUser }} IDENTIFIED BY '${MY_PW}';" | mysql
 {{- range .privileges }}
-{{- $database := .database }}
-{{- range $tableName, $privileges := .tables }}
-GRANT {{ $privileges | join ", " }} ON {{ $database }}.{{ $tableName }} TO '{{ $username }}'@'{{ $host }}';
-GRANT NDB_STORED_USER ON {{ $database }}.{{ $tableName }} TO '{{ $username }}'@'{{ $host }}';
+{{- $databaseTable := printf "%s.%s" .database .table }}
+mysql <<EOF
+GRANT {{ .privileges | join ", " }} 
+    ON {{ $databaseTable }}
+    TO {{ $mysqlUser }}
+{{- if .withGrantOption}}
+    WITH GRANT OPTION
+{{- end }}
+;
+GRANT NDB_STORED_USER
+    ON {{ $databaseTable }}
+    TO {{ $mysqlUser }};
 FLUSH PRIVILEGES;
-{{- end }}
-{{- end }}
 EOF
+{{- end }}
 {{- end }}
 
 

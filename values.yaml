@@ -150,9 +150,9 @@ mysql:
     host: "%"
     privileges:
       - database: "*"
-        tables:
-          "*":
-            - "ALL"
+        table: "*"
+        withGrantOption: true
+        privileges: ["ALL"]
 clusterSize:
   activeDataReplicas: 1
   numNodeGroups: 1
