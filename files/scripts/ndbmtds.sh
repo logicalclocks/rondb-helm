@@ -17,6 +17,9 @@ echo "[K8s Entrypoint ndbmtd] Running Node Id: $NODE_ID"
 MGM_CONNECTSTRING=$MGMD_HOST:1186
 
 # Activating node slots is idempotent; it can however take some seconds
+# Important to run this in main container. If a probe kills the container,
+# this script will deactivate the node id. But only the main container will be
+# restarted. This is because Stateful Sets only support `restartPolicy: Always`.
 (
     set -e
     echo "Activating node id $NODE_ID via MGM client"
