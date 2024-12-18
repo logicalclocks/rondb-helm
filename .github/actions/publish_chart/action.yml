@@ -40,7 +40,7 @@ runs:
         git fetch origin gh-pages
         git checkout gh-pages
 
-    - name: Copy chart to to repo
+    - name: Copy chart to repo
       shell: bash
       run: |
         mkdir -p charts
