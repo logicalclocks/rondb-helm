@@ -56,7 +56,9 @@ handle_sigterm() {
     done
 }
 
-# We'll stop the data node by deactivating it insetad of shutting it down
+# We'll stop the data node by deactivating it insetad of shutting it down.
+# This will NOT be triggered if the data node fails due to an error.
+# It WILL be triggered if the liveness probe fails or the Pod is updated/deleted/re-scheduled.
 trap handle_sigterm SIGTERM
 
 # Creating symlinks to the persistent volume
