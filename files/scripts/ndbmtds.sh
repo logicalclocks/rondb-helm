@@ -26,6 +26,8 @@ MGM_CONNECTSTRING=$MGMD_HOST:1186
     ndb_mgm --ndb-connectstring=$MGM_CONNECTSTRING -e "$NODE_ID activate"
 )
 
+# This is already run in the initContainer; doing this here as a sanity check.
+# A main container restart should not change the Pod's IP address.
 {{ include "rondb.resolveOwnIp" $ }}
 
 handle_sigterm() {

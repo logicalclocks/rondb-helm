@@ -89,22 +89,25 @@ done
     node might unnecessarily restart due to this.
 */}}
 {{ define "rondb.resolveOwnIp" -}}
-echo "Making sure own hostname resolves to the correct IP"
+echo "Making sure Pod's FQDN resolves to the correct IP"
 
 # Get the Pod's current IP
-current_ip=$(hostname -i)
-echo "Current IP: $current_ip"
-echo "Hostname: $(hostname)"
+POD_FQDN=$(hostname -f)
+POD_IP=$(hostname -i)
+echo "Pod's FQDN: $POD_FQDN"
+echo "Pod's IP: $POD_IP"
 
-# Check if the DNS resolves to the current IP
+# Wait until the FQDN resolves to the Pod's IP
 while true; do
-    resolved_ip=$(getent hosts $(hostname) | awk '{ print $1 }')
-    if [ "$resolved_ip" == "$current_ip" ]; then
-        echo "DNS resolved to the correct IP: $resolved_ip"
-        break
-    else
-        echo "Waiting for DNS to update. Current IP: $current_ip, Resolved IP: $resolved_ip"
-        sleep 1
-    fi
+  result=$(nslookup $POD_FQDN)
+  echo "$result"
+  RESOLVED_IP=$(echo "$result" | awk '/^Address: / { print $2 }' | head -n 1)
+  if [ "$RESOLVED_IP" = "$POD_IP" ]; then
+    echo "The Pod's resolved FQDN and its IP address match."
+    break
+  else
+    echo "Mismatch in IP addresses. DNS resolution incorrect."
+    sleep 1
+  fi
 done
 {{- end }}

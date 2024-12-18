@@ -237,6 +237,11 @@ spec:
             echo "Waiting for $MGMD_HOST to be resolvable..."
             sleep $(((RANDOM % 2)+2))
           done
+
+          # This is necessary for MGMd to accept the data node.
+          # Placing this in initContainer because a main-container restart
+          # will not change the Pod's IP address.
+{{ include "rondb.resolveOwnIp" $ | indent 10 }}
       containers:
       - name: ndbmtd
         image: {{ include "image_address" (dict "image" $.Values.images.rondb) }}
