@@ -24,7 +24,7 @@
     minikube addons enable storage-provisioner-rancher
     ```
     * CNI Calico is needed to enable Network Policies.
-    * Static CPU Manager is needed to allow fixing data nodes to host CPUs
+    * Static CPU Manager is needed to allow fixing data nodes to host CPUs; this is an optimization that can be taken advantage of with `staticCpuManagerPolicy=true` in the values file.
 2. Install infra:
     - Cert-manager:
         ```bash
