@@ -3,35 +3,7 @@ entries:
   rondb:
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2024-12-18T11:38:19.2932745Z"
-    description: A Helm chart for RonDBCluster
-    digest: 5a3bfdccc09d8d34d27b5109e17066ae65bba643784c9d2c41732ebb89eeb0e8
-    home: https://www.rondb.com
-    icon: https://uploads-ssl.webflow.com/6013cab68382f702f5481fa8/621f2f69a834b6df8d52cf75_Logo%20-%20Yellow%2C%20on%20black%20BG%404x.png
-    keywords:
-    - RonDB
-    - Database
-    - Distributed
-    - LATS
-    - MySQL
-    - Hopsworks
-    kubeVersion: '>= 1.27.0-0'
-    maintainers:
-    - email: vincent.lohse@hopsworks.ai
-      name: Vincent Lohse
-      url: https://github.com/olapiv
-    name: rondb
-    sources:
-    - https://github.com/logicalclocks/rondb
-    - https://github.com/logicalclocks/rondb-docker
-    - https://github.com/logicalclocks/rondb-helm
-    type: application
-    urls:
-    - https://logicalclocks.github.io/rondb-helm/charts/rondb-0.1.0.tgz
-    version: 0.1.0
-  - apiVersion: v2
-    appVersion: 22.10.7-0.7
-    created: "2024-12-18T11:38:19.288875755Z"
+    created: "2024-12-18T12:55:10.607108+01:00"
     description: A Helm chart for RonDBCluster
     digest: 208d8f5c4d605d9bf65bc109b465797fa6b41ea501b38ab6284d00be95b85943
     home: https://www.rondb.com
@@ -57,4 +29,4 @@ entries:
     urls:
     - https://logicalclocks.github.io/rondb-helm/charts/rondb-0.1.0-dev.tgz
     version: 0.1.0-dev
-generated: "2024-12-18T11:38:19.2853494Z"
+generated: "2024-12-18T12:55:10.604692+01:00"
