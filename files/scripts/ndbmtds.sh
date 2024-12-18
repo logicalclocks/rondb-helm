@@ -4,7 +4,7 @@
 
 # Requires to calculate Node Id based on Pod name and Node Group
 
-# Equivalent to replication factor of pod
+# Equivalent to replication factor of Pod
 POD_ID=$(echo $POD_NAME | grep -o '[0-9]\+$')
 
 echo "[K8s Entrypoint ndbmtd] Running Pod ID: $POD_ID in Node Group: $NODE_GROUP"
@@ -15,6 +15,15 @@ NODE_ID=$(($NODE_ID_OFFSET+$POD_ID+1))
 echo "[K8s Entrypoint ndbmtd] Running Node Id: $NODE_ID"
 
 MGM_CONNECTSTRING=$MGMD_HOST:1186
+
+# Activating node slots is idempotent; it can however take some seconds
+(
+    set -e
+    echo "Activating node id $NODE_ID via MGM client"
+    ndb_mgm --ndb-connectstring=$MGM_CONNECTSTRING -e "$NODE_ID activate"
+)
+
+{{ include "rondb.resolveOwnIp" $ }}
 
 handle_sigterm() {
     echo "[K8s Entrypoint ndbmtd] SIGTERM received, deactivating node id $NODE_ID via MGM client"

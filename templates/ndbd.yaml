@@ -229,12 +229,6 @@ spec:
         env:
         - name: MGMD_HOST
           value: {{ include "rondb.mgmdHostname" $ }}
-        - name: NODE_GROUP
-          value: {{ $nodeGroup | quote }}
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
         command:
         - /bin/bash
         - -c
@@ -242,34 +236,6 @@ spec:
           until nslookup $MGMD_HOST; do
             echo "Waiting for $MGMD_HOST to be resolvable..."
             sleep $(((RANDOM % 2)+2))
-          done
-
-{{ include "rondb.nodeId" $ | indent 10 }}
-
-          # Activating node slots is idempotent anyways
-          # Activating can take some seconds anyways, hence the code afterwards is helpful
-          set -e
-          echo "Activating node id $NODE_ID via MGM client"
-          ndb_mgm --ndb-connectstring=$MGMD_HOST:1186 -e "$NODE_ID activate"
-          set +e
-
-          echo "Making sure the pod hostname resolves to the correct IP address before connecting to the MGMd"
-          POD_IP=$(hostname -i)
-          echo "POD_IP: $POD_IP"
-          POD_DNS_NAME="node-group-{{ $nodeGroup }}-$POD_ID.ndbmtd-ng-{{ $nodeGroup }}.{{ $.Release.Namespace }}.svc.cluster.local"
-
-          while true; do
-              # Use nslookup to resolve the DNS name to an IP
-              nslookup $POD_DNS_NAME
-              RESOLVED_IP=$(nslookup $POD_DNS_NAME | awk '/^Address: / { print $2 }' | head -n 1)
-
-              if [ "$RESOLVED_IP" = "$POD_IP" ]; then
-                  echo "The pod's resolved hostname and its IP address match."
-                  exit 0;
-              else
-                  echo "Mismatch in IP addresses. DNS resolution incorrect."
-                  sleep 1
-              fi
           done
       containers:
       - name: ndbmtd
@@ -280,8 +246,6 @@ spec:
         - /bin/bash
         - -c
         - |
-{{ include "rondb.resolveOwnIp" $ | indent 10 }}
-
 {{ tpl ($.Files.Get "files/scripts/ndbmtds.sh") $ | indent 10 }}
         ports:
           - containerPort: 11860
