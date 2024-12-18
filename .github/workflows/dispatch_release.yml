@@ -22,3 +22,4 @@ jobs:
       with:
         chart_version: "dev"
         allow_overwrite: "true"
+        gh_token: ${{ secrets.GITHUB_TOKEN }}

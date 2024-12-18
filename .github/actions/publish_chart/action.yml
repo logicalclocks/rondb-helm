@@ -8,6 +8,9 @@ inputs:
     description: 'Whether to allow overwriting released Charts; this should only be allowed for dev versions'
     default: "false"
     required: true
+  gh_token:
+    description: 'GitHub token'
+    required: true
 
 runs:
   using: 'composite'
@@ -22,7 +25,7 @@ runs:
       with:
           version: '3.13.3'
       env:
-        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        GITHUB_TOKEN: ${{ inputs.gh_token }}
 
     - name: Configure Git
       shell: bash
@@ -68,4 +71,4 @@ runs:
         git commit -m "Release RonDB Helm chart ${{ inputs.chart_version }}"
         git push origin gh-pages
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.gh_token }}
