@@ -18,16 +18,7 @@ runs:
   # Can't just use delete Hook, since we want to print the logs of the Pod
   - name: Delete Helm Test Pods
     shell: bash
-    run: |
-      PODS=$(kubectl get pods -n ${{ inputs.namespace }} -o json | jq -r '.items[] | select(.metadata.annotations["helm.sh/hook"] == "test") | .metadata.name')
-      if [ -z "$PODS" ]; then
-        echo "No Pods with annotation 'helm.sh/hook=test' found in namespace ${{ inputs.namespace }}"
-        exit 0
-      fi
-
-      for POD in $PODS; do
-        kubectl delete pod -n ${{ inputs.namespace }} $POD
-      done
+    run: ./.github/delete_test_pods.sh ${{ inputs.namespace }}
 
   - name: Wait for resource deletions
     shell: bash
