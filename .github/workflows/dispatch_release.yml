@@ -1,0 +1,24 @@
+name: Helm chart development release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Publish Helm chart
+    if: github.repository == 'logicalclocks/rondb-helm'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout main repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Publish Helm chart
+      if: always()
+      uses: ./.github/actions/publish_chart
+      with:
+        chart_version: "dev"
+        allow_overwrite: "true"
