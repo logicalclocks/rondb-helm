@@ -2,7 +2,7 @@
 
 # Copyright (c) 2024-2024 Hopsworks AB. All rights reserved.
 
-$NAMESPACE=$1
+NAMESPACE=$1
 
 PODS=$(kubectl get pods -n $NAMESPACE -o json | jq -r '.items[] | select(.metadata.annotations["helm.sh/hook"] == "test") | .metadata.name')
 if [ -z "$PODS" ]; then
