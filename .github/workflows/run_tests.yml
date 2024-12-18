@@ -89,6 +89,7 @@ jobs:
             --values ./values/minikube/mini.yaml \
             --set benchmarking.enabled=true \
             --set staticCpuManagerPolicy=true \
+            --set terminationGracePeriodSeconds=40 \
             --set meta.rdrs.statefulSet.endToEndTls.enabled=true \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=2 \
@@ -119,7 +120,45 @@ jobs:
           MIN_STABLE_MINUTES: 1
         run: bash .github/test_deploy_stability.sh
 
-      # Check that data has been created correctly
+      # Check that data has not been lost
+      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
+      
+      - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
+
+      - name: Scale data node replicas
+        run: |
+          helm upgrade -i $RONDB_CLUSTER_NAME \
+            --namespace=$K8S_NAMESPACE \
+            --reuse-values \
+            --set clusterSize.activeDataReplicas=2 \
+            .
+
+      - name: Test deploy stability
+        shell: bash
+        timeout-minutes: 6
+        env:
+          SLEEP_SECONDS: 10
+          MIN_STABLE_MINUTES: 1
+        run: bash .github/test_deploy_stability.sh
+
+      - name: Rolling upgrade of data nodes
+        run: |
+          helm upgrade -i $RONDB_CLUSTER_NAME \
+            --namespace=$K8S_NAMESPACE \
+            --reuse-values \
+            --set resources.limits.cpus.ndbmtds=3 \
+            .
+
+      - name: Test deploy stability
+        shell: bash
+        timeout-minutes: 6
+        env:
+          SLEEP_SECONDS: 10
+          MIN_STABLE_MINUTES: 1
+        run: bash .github/test_deploy_stability.sh
+
+      # Check again that data is still there
+      - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
 
       - name: Collect logs
