@@ -141,6 +141,7 @@ jobs:
           MIN_STABLE_MINUTES: 1
         run: bash .github/test_deploy_stability.sh
 
+      # Arbitrary ndbmtd change without changing the config.ini
       - name: Rolling upgrade of data nodes
         run: |
           helm upgrade -i $RONDB_CLUSTER_NAME \
