@@ -94,6 +94,7 @@ echo "Making sure own hostname resolves to the correct IP"
 # Get the Pod's current IP
 current_ip=$(hostname -i)
 echo "Current IP: $current_ip"
+echo "Hostname: $(hostname)"
 
 # Check if the DNS resolves to the current IP
 while true; do
