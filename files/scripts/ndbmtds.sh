@@ -16,7 +16,7 @@ echo "[K8s Entrypoint ndbmtd] Running Node Id: $NODE_ID"
 
 MGM_CONNECTSTRING=$MGMD_HOST:1186
 
-# Activating node slots is idempotent; it can however take some seconds
+# Activating node slots is idempotent; it can however take some seconds.
 # Important to run this in main container. If a probe kills the container,
 # this script will deactivate the node id. But only the main container will be
 # restarted. This is because Stateful Sets only support `restartPolicy: Always`.
@@ -58,7 +58,7 @@ handle_sigterm() {
     done
 }
 
-# We'll stop the data node by deactivating it insetad of shutting it down.
+# We'll stop the data node by deactivating it instead of shutting it down.
 # This will NOT be triggered if the data node fails due to an error.
 # It WILL be triggered if the liveness probe fails or the Pod is updated/deleted/re-scheduled.
 trap handle_sigterm SIGTERM
