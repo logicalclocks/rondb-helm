@@ -8,18 +8,6 @@
 - Create backups & restore from backups
 - Global Replication
 
-## Backups
-
-See [Backups](docs/backups.md) for this.
-
-## CI (GitHub Actions)
-
-See [CI](docs/github_actions.md) for this.
-
-## TODO
-
-See [TODO](docs/todo.md) for this.
-
 ## Quickstart
 
 ### Optional: Set up cloud object storage for backups
@@ -93,6 +81,10 @@ source ./standalone_deps.sh
 destroy_deps
 ```
 
+## Backups
+
+See [Backups](docs/backups.md) for this.
+
 ## Global Replication
 
 See [Global Replication](docs/global_replication.md) for this.
@@ -134,6 +126,14 @@ minikube start \
 
 Then in the values file, set `.Values.staticCpuManagerPolicy=true`.
 
+## CI (GitHub Actions)
+
+See [CI](docs/github_actions.md) for this.
+
 ## Internal startup
 
 See [Internal startup steps](docs/internal_startup.md) for this.
+
+## TODO
+
+See [TODO](docs/todo.md) for this.
