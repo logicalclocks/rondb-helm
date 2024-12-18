@@ -1,4 +1,4 @@
-name: Helm chart development release
+name: Publish dev chart (dispatch)
 
 on:
   workflow_dispatch:

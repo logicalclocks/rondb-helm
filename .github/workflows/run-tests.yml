@@ -1,4 +1,4 @@
-name: run-tests
+name: Integration tests
 
 on:
   pull_request:
