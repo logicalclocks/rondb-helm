@@ -16,10 +16,14 @@ jobs:
       with:
         fetch-depth: 0
 
+    - run: |
+        CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+        echo "CHART_VERSION=$CHART_VERSION" >> $GITHUB_ENV
+
     - name: Publish Helm chart
-      if: always()
       uses: ./.github/actions/publish_chart
       with:
-        chart_version: "dev"
+        # Helm doesn't support just using "dev"/"latest" as a version
+        chart_version: "${{ env.CHART_VERSION }}-dev"
         allow_overwrite: "true"
         gh_token: ${{ secrets.GITHUB_TOKEN }}
