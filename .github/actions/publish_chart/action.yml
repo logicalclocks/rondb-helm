@@ -40,6 +40,8 @@ runs:
     - name: Checkout gh-pages branch
       shell: bash
       run: |
+        # Stash first since we changed Chart.yaml
+        git stash
         git fetch origin gh-pages
         git checkout gh-pages
 
