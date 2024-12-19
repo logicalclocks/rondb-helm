@@ -20,11 +20,12 @@ MGM_CONNECTSTRING=$MGMD_HOST:1186
 # Important to run this in main container. If a probe kills the container,
 # this script will deactivate the node id. But only the main container will be
 # restarted. This is because Stateful Sets only support `restartPolicy: Always`.
-(
-    set -e
-    echo "Activating node id $NODE_ID via MGM client"
-    ndb_mgm --ndb-connectstring=$MGM_CONNECTSTRING -e "$NODE_ID activate"
-)
+echo "[K8s Entrypoint ndbmtd] Activating node id $NODE_ID via MGM client"
+while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" -e "$NODE_ID activate"; do
+    echo "[K8s Entrypoint ndbmtd] Activation failed. Retrying..."
+    sleep $NODE_GROUP
+done
+echo "[K8s Entrypoint ndbmtd] Activated node id $NODE_ID via MGM client"
 
 # This is already run in the initContainer; doing this here as a sanity check.
 # A main container restart should not change the Pod's IP address.
@@ -38,14 +39,7 @@ handle_sigterm() {
     # a majority. HOWEVER, since we are using a RollingUpdate strategy, only one
     # data node (per node group) will be killed at once.
 
-    while true; do
-        ndb_mgm --ndb-connectstring=$MGM_CONNECTSTRING -e "$NODE_ID deactivate"
-        exit_status=$?
-        
-        if [ $exit_status -eq 0 ]; then
-            echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client"
-            break
-        fi
+    while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" -e "$NODE_ID deactivate"; do
         echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client was unsuccessful. Retrying..."
 
         # We can be successful in shutting down the node, but unsuccessful in deactivating
@@ -54,6 +48,7 @@ handle_sigterm() {
         # only run one change at a time.
         sleep $NODE_GROUP
     done
+    echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client"
 }
 
 # We'll stop the data node by deactivating it instead of shutting it down.
