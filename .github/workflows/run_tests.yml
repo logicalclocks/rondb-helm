@@ -65,7 +65,7 @@ jobs:
 
   benchmark-and-stability:
     needs: [lint-test]
-    name: Run benchmark and test stability
+    name: Benchmarking, scaling and stability
     if: github.repository == 'logicalclocks/rondb-helm'
     runs-on: [self-hosted, ARM64]
     env:
