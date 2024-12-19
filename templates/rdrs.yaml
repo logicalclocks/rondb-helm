@@ -39,7 +39,8 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
 {{- include "rondb.affinity.preferred.ndbdAZs" $ | indent 10 }}
       initContainers:
-{{ include "rondb.container.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitDatanodes" $ | indent 6 }}
+{{ include "rondb.container.isDnsResolvable" $ | indent 6 }}
       containers:
       - name: rdrs
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
@@ -49,6 +50,8 @@ spec:
           - /bin/bash
           - -c
           - |
+          # This is already done in the init container, so having this
+          # here is just a sanity check if the main container is restarted.
 {{ include "rondb.resolveOwnIp" $ | indent 12 }}
 
             rdrs -config={{ include "rondb.dataDir" $ }}/rest_api.json

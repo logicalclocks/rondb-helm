@@ -109,10 +109,7 @@ spec:
 */}}
 {{ include "rondb.container.waitDatanodes" . | indent 6 }}
 {{ include "rondb.container.waitSingleSetup" . | indent 6 }}
-{{ include "rondb.container.isDnsResolvable" (deepCopy $ | mustMerge (dict
-    "statefulSetName" .Values.meta.replicaAppliers.statefulSet.name
-    "headlessClusterIpName" .Values.meta.replicaAppliers.headlessClusterIp.name
-)) | indent 6 }}
+{{ include "rondb.container.isDnsResolvable" $ | indent 6 }}
       containers:
       - name: mysqld
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}

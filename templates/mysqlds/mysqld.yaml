@@ -94,10 +94,7 @@ spec:
 */}}
 {{ include "rondb.container.waitDatanodes" . | indent 6 }}
 {{ include "rondb.container.waitSingleSetup" . | indent 6 }}
-{{ include "rondb.container.isDnsResolvable" (deepCopy $ | mustMerge (dict
-    "statefulSetName" $.Values.meta.mysqld.statefulSet.name
-    "headlessClusterIpName" $.Values.meta.mysqld.headlessClusterIp.name
-)) | indent 6 }}
+{{ include "rondb.container.isDnsResolvable" $ | indent 6 }}
       containers:
       - name: mysqld
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
@@ -114,6 +111,8 @@ spec:
     "globalServerIds" $serverIds
 ) | indent 10 }}
 
+          # This is already done in the init container, so having this
+          # here is just a sanity check if the main container is restarted.
 {{ include "rondb.resolveOwnIp" $ | indent 10 }}
 
           mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf

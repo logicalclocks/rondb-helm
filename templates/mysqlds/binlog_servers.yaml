@@ -132,10 +132,7 @@ spec:
     It is always safer to not have any MySQLds running when restoring from backup.
 */}}
 {{ include "rondb.container.waitRestore" $ | indent 6 }}
-{{ include "rondb.container.isDnsResolvable" (deepCopy $ | mustMerge (dict
-    "statefulSetName" .Values.meta.binlogServers.statefulSet.name
-    "headlessClusterIpName" .Values.meta.binlogServers.headlessClusterIp.name
-)) | indent 6 }}
+{{ include "rondb.container.isDnsResolvable" $ | indent 6 }}
       containers:
       - name: binlog-server
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}

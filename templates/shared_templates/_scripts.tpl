@@ -89,13 +89,17 @@ done
     node might unnecessarily restart due to this.
 */}}
 {{ define "rondb.resolveOwnIp" -}}
-echo "Making sure Pod's FQDN resolves to the correct IP"
+############################################
+# CHECK POD'S FQDN IS CORRECTLY RESOLVABLE #
+############################################
+
+echo "[K8s Entrypoint] Making sure Pod's FQDN resolves to the correct IP"
 
 # Get the Pod's current IP
 POD_FQDN=$(hostname -f)
 POD_IP=$(hostname -i)
-echo "Pod's FQDN: $POD_FQDN"
-echo "Pod's IP: $POD_IP"
+echo "[K8s Entrypoint] Pod's FQDN: $POD_FQDN"
+echo "[K8s Entrypoint] Pod's IP: $POD_IP"
 
 # Wait until the FQDN resolves to the Pod's IP
 while true; do
@@ -103,10 +107,10 @@ while true; do
   echo "$result"
   RESOLVED_IP=$(echo "$result" | awk '/^Address: / { print $2 }' | head -n 1)
   if [ "$RESOLVED_IP" = "$POD_IP" ]; then
-    echo "The Pod's resolved FQDN and its IP address match."
+    echo "[K8s Entrypoint] The Pod's resolved FQDN and its IP address match."
     break
   else
-    echo "Mismatch in IP addresses. DNS resolution incorrect."
+    echo "[K8s Entrypoint] Mismatch in IP addresses. DNS resolution incorrect."
     sleep 1
   fi
 done

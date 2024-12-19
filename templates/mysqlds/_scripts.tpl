@@ -73,31 +73,3 @@ echo && echo "[K8s Entrypoint MySQLd] Initializing MySQLd" && echo
 
 echo && echo "[K8s Entrypoint MySQLd] Successfully initialized MySQLd" && echo
 {{- end }}
-
-{{- define "rondb.checkDnsResolvable" -}}
-set -e
-
-###############################
-# CHECK OUR DNS IS RESOLVABLE #
-###############################
-
-{{ include "rondb.define_MYSQLD_NR" . }}
-
-# We need this, otherwise the MGMd will not recognise our IP address
-# when we try to connect at startup.
-{{- $ownHostname := print
-    (.statefulSetName | required "statefulSetName is required")
-    "-$MYSQLD_NR."
-    (.headlessClusterIpName | required "headlessClusterIpName is required")
-    "."
-    (.namespace | required "namespace is required")
-    ".svc.cluster.local"
-}}
-OWN_HOSTNAME={{ $ownHostname | quote}}
-until nslookup $OWN_HOSTNAME; do
-    echo "[K8s Entrypoint MySQLd] Waiting for $OWN_HOSTNAME to be resolvable..."
-    sleep $(((RANDOM % 2) + 2))
-done
-
-echo "[K8s Entrypoint MySQLd] $OWN_HOSTNAME is resolvable..."
-{{- end }}

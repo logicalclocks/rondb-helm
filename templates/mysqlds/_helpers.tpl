@@ -95,16 +95,7 @@
   - /bin/bash
   - -c
   - |
-{{ include "rondb.checkDnsResolvable" (dict
-    "namespace" $.Release.Namespace
-    "statefulSetName" .statefulSetName
-    "headlessClusterIpName" .headlessClusterIpName
-) | indent 6 }}
-  env:
-  - name: POD_NAME
-    valueFrom:
-      fieldRef:
-        fieldPath: metadata.name
+{{ include "rondb.resolveOwnIp" $ | indent 6}}
   resources:
     limits:
       cpu: 0.3
