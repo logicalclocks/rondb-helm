@@ -120,10 +120,10 @@ jobs:
           SLEEP_SECONDS: 10
           MIN_STABLE_MINUTES: 1
         run: bash .github/test_deploy_stability.sh
+      - run: kubectl -n $K8S_NAMESPACE get pods
 
       # Check that data has not been lost
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
-      
       - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
 
       # Avoid pro-longed stability check because of MySQLd HPA.
@@ -144,6 +144,7 @@ jobs:
           SLEEP_SECONDS: 10
           MIN_STABLE_MINUTES: 1
         run: bash .github/test_deploy_stability.sh
+      - run: kubectl -n $K8S_NAMESPACE get pods
 
       # Arbitrary ndbmtd change without changing the config.ini
       - name: Rolling upgrade of data nodes
@@ -161,6 +162,7 @@ jobs:
           SLEEP_SECONDS: 10
           MIN_STABLE_MINUTES: 1
         run: bash .github/test_deploy_stability.sh
+      - run: kubectl -n $K8S_NAMESPACE get pods
 
       # Check again that data is still there
       - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
