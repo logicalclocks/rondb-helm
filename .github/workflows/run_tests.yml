@@ -125,11 +125,14 @@ jobs:
       
       - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
 
+      # Avoid pro-longed stability check because of MySQLd HPA.
+      # Can't scale down MySQLds because of config.ini.
       - name: Scale data node replicas
         run: |
           helm upgrade -i $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --reuse-values \
+            --set clusterSize.minNumMySQLServers=2 \
             --set clusterSize.activeDataReplicas=2 \
             .
 
