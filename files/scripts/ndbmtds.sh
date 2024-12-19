@@ -35,10 +35,8 @@ handle_sigterm() {
 
     # Even when not deactivating nodes, having too many nodes die at once can cause
     # the arbitration to kill the cluster. The living node will not be able to form
-    # a majority.
-    {{- $secondsPerReplica := div $.Values.terminationGracePeriodSeconds 3 }}
-    SLEEP_TIME=$(($POD_ID*{{ $secondsPerReplica }}))
-    sleep $SLEEP_TIME
+    # a majority. HOWEVER, since we are using a RollingUpdate strategy, only one
+    # data node (per node group) will be killed at once.
 
     while true; do
         ndb_mgm --ndb-connectstring=$MGM_CONNECTSTRING -e "$NODE_ID deactivate"
