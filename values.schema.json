@@ -771,11 +771,11 @@
                         },
                         "runSingle": {
                             "type": "string",
-                            "description": "Table with columns: NUM_MYSQL_SERVERS | NUM_WAREHOUSES | NUM_TERMINALS"
+                            "description": "Table with columns: NUM_MYSQL_SERVERS, NUM_WAREHOUSES, NUM_TERMINALS"
                         },
                         "runMulti": {
                             "type": "string",
-                            "description": "Table with columns: NUM_MYSQL_SERVERS | NUM_WAREHOUSES | NUM_TERMINALS"
+                            "description": "Table with columns: NUM_MYSQL_SERVERS, NUM_WAREHOUSES, NUM_TERMINALS"
                         }
                     }
                 },
