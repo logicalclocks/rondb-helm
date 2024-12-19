@@ -231,7 +231,7 @@ spec:
     port: {{ .Values.meta.mysqld.clusterIp.port }}
     targetPort: 3306
 ---
-{{ if not (eq .Values.clusterSize.minNumMySQLServers .Values.clusterSize.maxNumMySQLServers) }}
+{{ if not (eq (.Values.clusterSize.minNumMySQLServers | int) (.Values.clusterSize.maxNumMySQLServers | int)) }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
