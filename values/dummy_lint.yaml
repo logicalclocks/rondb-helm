@@ -20,6 +20,9 @@ meta:
   mgmd:
     headlessClusterIp:
       annotations: *dummyAnnotations
+  ndbmtd:
+    statefulSet:
+      podAnnotations: *dummyAnnotations
   mysqld:
     statefulSet:
       endToEndTls:
