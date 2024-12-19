@@ -3,6 +3,7 @@ import pandas as pd
 
 # Flatten JSON properties
 
+
 def flatten_properties(properties, parent_key=""):
     """
     Flatten the properties of a JSON schema into a list of dictionaries
@@ -17,12 +18,14 @@ def flatten_properties(properties, parent_key=""):
         default = value.get("default", "")
 
         # Add the current property
-        items.append({
-            "Field Path": field_path,
-            "Type": field_type,
-            "Description": description,
-            "Default": default,
-        })
+        items.append(
+            {
+                "Field Path": field_path,
+                "Type": field_type,
+                "Description": description,
+                "Default": default,
+            }
+        )
 
         # If this property has nested properties, recurse into them
         if "properties" in value:
@@ -30,6 +33,7 @@ def flatten_properties(properties, parent_key=""):
             items.extend(nested_items)
 
     return items
+
 
 # Load values.schema.json
 with open("values.schema.json", "r") as f:
@@ -43,7 +47,7 @@ flattened_properties = flatten_properties(properties)
 df = pd.DataFrame(flattened_properties)
 
 # Sort the DataFrame by 'Field Path'
-df = df.sort_values(['Field Path'])
+df = df.sort_values(["Field Path"])
 
 # Generate Markdown table
 markdown_table = df.to_markdown(index=False)
