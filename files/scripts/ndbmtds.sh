@@ -23,7 +23,7 @@ MGM_CONNECTSTRING=$MGMD_HOST:1186
 echo "[K8s Entrypoint ndbmtd] Activating node id $NODE_ID via MGM client"
 while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" --connect-retries=1 -e "$NODE_ID activate"; do
     echo "[K8s Entrypoint ndbmtd] Activation failed. Retrying..." >&2
-    sleep $NODE_GROUP
+    sleep $((NODE_GROUP + 2))
 done
 echo "[K8s Entrypoint ndbmtd] Activated node id $NODE_ID via MGM client"
 
@@ -46,7 +46,7 @@ handle_sigterm() {
         # it. So far this can be the case if multiple node groups are shutting down at the
         # same time. This is probably due to the fact that the configuration database can
         # only run one change at a time.
-        sleep $NODE_GROUP
+        sleep $((NODE_GROUP + 2))
     done
     echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client"
 }

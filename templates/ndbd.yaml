@@ -266,7 +266,7 @@ spec:
           echo "[K8s Entrypoint ndbmtd] Activating node id $NODE_ID via MGM client"
           while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" --connect-retries=1 -e "$NODE_ID activate"; do
             echo "[K8s Entrypoint ndbmtd] Activation failed. Retrying..." >&2
-            sleep $NODE_GROUP
+            sleep $((NODE_GROUP + 2))
           done
           echo "[K8s Entrypoint ndbmtd] Activated node id $NODE_ID via MGM client"
       containers:
