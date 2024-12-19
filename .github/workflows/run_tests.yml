@@ -150,7 +150,7 @@ jobs:
           helm upgrade -i $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --reuse-values \
-            --set resources.limits.cpus.ndbmtds=3 \
+            --set meta.ndbmtd.statefulSet.podAnnotations.hello=world \
             .
 
       - name: Test deploy stability

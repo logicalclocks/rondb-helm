@@ -7,6 +7,9 @@ meta:
       name: headless-mgmds
       port: 1186
       annotations: {}
+  ndbmtd:
+    statefulSet:
+      podAnnotations: {}
   mysqld:
     statefulSet:
       name: mysqlds

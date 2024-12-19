@@ -87,6 +87,11 @@ spec:
       labels:
         rondbService: {{ include "rondb.labels.rondbService.ndbmtd" $ }}
         nodeGroup: {{ $nodeGroup | quote }}
+      # This is an easy way to restart data nodes without changing specs.
+      annotations:
+{{- range $k, $v := $.Values.meta.ndbmtd.statefulSet.podAnnotations }}
+        {{ $k | quote }}: {{ $v | quote }}
+{{- end }}
     spec:
 {{- include "rondb.imagePullSecrets" $ | indent 6 }}
 {{- include "rondb.PodSecurityContext" $ | indent 6 }}
