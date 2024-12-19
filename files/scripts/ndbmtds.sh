@@ -21,7 +21,7 @@ MGM_CONNECTSTRING=$MGMD_HOST:1186
 # this script will deactivate the node id. But only the main container will be
 # restarted. This is because Stateful Sets only support `restartPolicy: Always`.
 echo "[K8s Entrypoint ndbmtd] Activating node id $NODE_ID via MGM client"
-while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" -e "$NODE_ID activate"; do
+while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" --connect-retries=1 -e "$NODE_ID activate"; do
     echo "[K8s Entrypoint ndbmtd] Activation failed. Retrying..." >&2
     sleep $NODE_GROUP
 done
@@ -39,7 +39,7 @@ handle_sigterm() {
     # a majority. HOWEVER, since we are using a RollingUpdate strategy, only one
     # data node (per node group) will be killed at once.
 
-    while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" -e "$NODE_ID deactivate"; do
+    while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" --connect-retries=1 -e "$NODE_ID deactivate"; do
         echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client was unsuccessful. Retrying..." >&2
 
         # We can be successful in shutting down the node, but unsuccessful in deactivating
