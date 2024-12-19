@@ -91,6 +91,7 @@ jobs:
             --set staticCpuManagerPolicy=true \
             --set terminationGracePeriodSeconds=40 \
             --set meta.rdrs.statefulSet.endToEndTls.enabled=true \
+            --set clusterSize.numNodeGroups=2 \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=2 \
             --set clusterSize.minNumRdrs=1 \
