@@ -1,5 +1,5 @@
 isMultiNodeCluster: false
-terminationGracePeriodSeconds: 10
+terminationGracePeriodSeconds: 25
 
 clusterSize:
   activeDataReplicas: 1

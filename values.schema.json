@@ -12,7 +12,7 @@
         },
         "terminationGracePeriodSeconds": {
             "type": "integer",
-            "description": "TerminationGracePeriodSeconds for data nodes. Important for scaling down data node replicas.",
+            "description": "TerminationGracePeriodSeconds for data nodes. For debugging. When removing the *entire* cluster, taking down data nodes will hang, since they try to contact the MGMd on shutdown. Hence, this is a way of shortening this wait.",
             "default": 60,
             "minimum": 10
         },
