@@ -234,6 +234,12 @@ spec:
         env:
         - name: MGMD_HOST
           value: {{ include "rondb.mgmdHostname" $ }}
+        - name: NODE_GROUP
+          value: {{ $nodeGroup | quote }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         command:
         - /bin/bash
         - -c
@@ -247,6 +253,22 @@ spec:
           # Placing this in initContainer because a main-container restart
           # will not change the Pod's IP address.
 {{ include "rondb.resolveOwnIp" $ | indent 10 }}
+
+          # Since the main container *deactivates* the nodes, it is important
+          # that the main container also activates the nodes. This is because StatefulSets
+          # will always try to restart a container (if it fails) and not the entire Pod.
+          # Hence, this is just placed here to accelerate the activation in main container
+          # so that the startupProbe is more accurate. The command is idempotent.
+          MGM_CONNECTSTRING=$MGMD_HOST:1186
+
+{{ include "rondb.nodeId" $ | indent 10 }}
+
+          echo "[K8s Entrypoint ndbmtd] Activating node id $NODE_ID via MGM client"
+          while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" -e "$NODE_ID activate"; do
+            echo "[K8s Entrypoint ndbmtd] Activation failed. Retrying..." >&2
+            sleep $NODE_GROUP
+          done
+          echo "[K8s Entrypoint ndbmtd] Activated node id $NODE_ID via MGM client"
       containers:
       - name: ndbmtd
         image: {{ include "image_address" (dict "image" $.Values.images.rondb) }}
