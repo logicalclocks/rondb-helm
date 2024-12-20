@@ -78,7 +78,10 @@ runs:
       shell: bash
       run: |
         cat ./README_intro.md > ./README.md
-        echo "" >> ./README.md
+        echo >> ./README.md
+        echo "Chart version ${{ inputs.chart_version }}" >> ./README.md
+        echo "See commit history for previous values.yaml schemata" >> ./README.md
+        echo >> ./README.md
         cat ${{ inputs.VALUES_README_FILE }} >> ./README.md
 
     - name: Commit and Push to gh-pages
