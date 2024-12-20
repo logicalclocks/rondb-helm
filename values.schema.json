@@ -251,7 +251,6 @@
                                         "prometheus.io/port": "4406",
                                         "prometheus.io/scheme": "https",
                                         "prometheus.io/scrape": "true"
-                                  
                                     }
                                 }
                             },
@@ -465,9 +464,11 @@
                     "type": "object",
                     "description": "SQL to run *only once* at cluster startup. Try to make these scripts idempotent, in case they are re-run by accident. Do so by e.g. using `IF NOT EXISTS` in the SQL commands.",
                     "default": {},
-                    "examples": [{
-                        "createMyUser": "CREATE USER foo IF NOT EXISTS;"
-                    }]
+                    "examples": [
+                        {
+                            "createMyUser": "CREATE USER foo IF NOT EXISTS;"
+                        }
+                    ]
                 },
                 "supplyOwnSecret": {
                     "type": "boolean",
@@ -614,7 +615,7 @@
                     "type": "integer",
                     "minimum": 1,
                     "description": "The maximum amount of MySQL servers we will auto-scale to. It is represented as number of slots in RonDB's config.ini. Changing this will only take effect if the ConfigMap for config.ini is updated and the MGMd is restarted.",
-                    "default": 3
+                    "default": 5
                 },
                 "minNumRdrs": {
                     "type": "integer",
@@ -645,10 +646,65 @@
                     "description": "Kubernetes resource limits",
                     "properties": {
                         "cpus": {
-                            "$ref": "#/$defs/cpuResources"
+                            "type": "object",
+                            "description": "CPU resources per RonDB service type",
+                            "properties": {
+                                "mgmds": {
+                                    "type": "number",
+                                    "default": 0.2
+                                },
+                                "ndbmtds": {
+                                    "type": "number",
+                                    "default": 2
+                                },
+                                "mysqlds": {
+                                    "type": "number",
+                                    "default": 2
+                                },
+                                "rdrs": {
+                                    "type": "number",
+                                    "default": 2
+                                },
+                                "benchs": {
+                                    "type": "number",
+                                    "default": 2
+                                },
+                                "restore": {
+                                    "type": "number",
+                                    "default": 1
+                                },
+                                "mysqldExporters": {
+                                    "type": "number",
+                                    "default": 0.2
+                                }
+                            }
                         },
                         "memory": {
-                            "$ref": "#/$defs/memoryResources"
+                            "type": "object",
+                            "description": "Memory resources per RonDB service type",
+                            "properties": {
+                                "ndbmtdsMiB": {
+                                    "type": "number",
+                                    "default": 4500
+                                },
+                                "mysqldMiB": {
+                                    "type": "number",
+                                    "description": "This can usually be kept at the default independent of the load",
+                                    "default": 1400
+                                },
+                                "rdrsMiB": {
+                                    "type": "number",
+                                    "default": 500
+                                },
+                                "benchsMiB": {
+                                    "type": "number",
+                                    "default": 500
+                                },
+                                "mysqldExportersMiB": {
+                                    "type": "number",
+                                    "default": 100
+                                }
+                            }
                         }
                     }
                 },
@@ -657,10 +713,53 @@
                     "description": "Kubernetes resource requests; Note that data nodes will only apply limits, not requests",
                     "properties": {
                         "cpus": {
-                            "$ref": "#/$defs/cpuResources"
+                            "type": "object",
+                            "description": "CPU resources per RonDB service type",
+                            "properties": {
+                                "mgmds": {
+                                    "type": "number",
+                                    "default": 0.2
+                                },
+                                "mysqlds": {
+                                    "type": "number",
+                                    "default": 1
+                                },
+                                "rdrs": {
+                                    "type": "number",
+                                    "default": 1
+                                },
+                                "benchs": {
+                                    "type": "number",
+                                    "default": 1
+                                },
+                                "mysqldExporters": {
+                                    "type": "number",
+                                    "default": 0.02
+                                }
+                            }
                         },
                         "memory": {
-                            "$ref": "#/$defs/memoryResources"
+                            "type": "object",
+                            "description": "Memory resources per RonDB service type",
+                            "properties": {
+                                "mysqldMiB": {
+                                    "type": "number",
+                                    "description": "This can usually be kept at the default independent of the load",
+                                    "default": 650
+                                },
+                                "rdrsMiB": {
+                                    "type": "number",
+                                    "default": 100
+                                },
+                                "benchsMiB": {
+                                    "type": "number",
+                                    "default": 100
+                                },
+                                "mysqldExportersMiB": {
+                                    "type": "number",
+                                    "default": 50
+                                }
+                            }
                         },
                         "storage": {
                             "type": "object",
@@ -745,31 +844,52 @@
             "description": "Configurations for RonDB's config.ini. Memory configurations are in binary SI units (i.e. 1G = 1GiB = 1024MiB).",
             "properties": {
                 "MaxNoOfTables": {
-                    "type": ["integer", "null"],
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "default": null
                 },
                 "MaxNoOfAttributes": {
-                    "type": ["integer", "null"],
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "default": null
                 },
                 "MaxNoOfTriggers": {
-                    "type": ["integer", "null"],
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "default": null
                 },
                 "TransactionMemory": {
-                    "type": ["string", "null"],
+                    "type": [
+                        "string",
+                        "null"
+                    ],
                     "default": null
                 },
                 "SharedGlobalMemory": {
-                    "type": ["string", "null"],
+                    "type": [
+                        "string",
+                        "null"
+                    ],
                     "default": null
                 },
                 "ReservedConcurrentOperations": {
-                    "type": ["integer", "null"],
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "default": null
                 },
                 "MaxNoOfConcurrentOperations": {
-                    "type": ["integer", "null"],
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
                     "default": null
                 },
                 "MySQLdSlotsPerNode": {
@@ -809,7 +929,10 @@
                     "default": -1
                 },
                 "DiskPageBufferMemory": {
-                    "type": ["string", "null"],
+                    "type": [
+                        "string",
+                        "null"
+                    ],
                     "description": "DiskPageBufferMemory are used by disk columns. This is the page cache that contains disk pages when they are in memory. By default it is not defined.",
                     "default": null
                 },
@@ -1273,7 +1396,10 @@
                     "default": "AWS"
                 },
                 "endpoint": {
-                    "type": ["string", "null"],
+                    "type": [
+                        "string",
+                        "null"
+                    ],
                     "default": null
                 },
                 "bucketName": {
@@ -1397,7 +1523,7 @@
                         "string",
                         "null"
                     ],
-                    "default": "ca.crt",
+                    "default": null,
                     "description": "Name of the CA file in the Secret. ONLY overwrite this if you're not using standard TLS Secrets."
                 }
             },
@@ -1447,6 +1573,7 @@
                 },
                 "matchExpressions": {
                     "type": "array",
+                    "default": [],
                     "items": {
                         "type": "object",
                         "properties": {
