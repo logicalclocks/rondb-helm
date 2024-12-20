@@ -11,6 +11,10 @@ inputs:
   gh_token:
     description: 'GitHub token'
     required: true
+  VALUES_README_FILE:
+    description: 'File containing values.schema.json as Markdown'
+    default: 'values.schema.md'
+    required: false
 
 runs:
   using: 'composite'
@@ -19,6 +23,9 @@ runs:
       shell: bash
       run: |
         sed -i "s/^version:.*/version: ${{ inputs.chart_version }}/" Chart.yaml
+
+    - shell: bash
+      run: python3 generate_readme.py ${{ inputs.VALUES_README_FILE }}
 
     - name: Set up Helm
       uses: azure/setup-helm@v4
@@ -65,11 +72,19 @@ runs:
       shell: bash
       run: helm repo index . --url https://logicalclocks.github.io/rondb-helm/
 
+    - name: Write README.md including values table
+      shell: bash
+      run: |
+        cat ./README_intro.md > ./README.md
+        echo "" >> ./README.md
+        cat ${{ inputs.VALUES_README_FILE }} >> ./README.md
+
     - name: Commit and Push to gh-pages
       shell: bash
       run: |
         git add ./charts/*
         git add index.yaml
+        git add README.md
         git commit -m "Release RonDB Helm chart ${{ inputs.chart_version }}"
         git push origin gh-pages
       env:
