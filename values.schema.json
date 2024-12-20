@@ -517,7 +517,10 @@
                             "host": {
                                 "type": "string",
                                 "description": "The host from which the MySQL user can connect.",
-                                "minLength": 1
+                                "minLength": 1,
+                                "examples": [
+                                    "%"
+                                ]
                             },
                             "privileges": {
                                 "type": "array",
@@ -527,12 +530,18 @@
                                         "database": {
                                             "type": "string",
                                             "description": "The MySQL database to which the privileges apply.",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "examples": [
+                                                "*"
+                                            ]
                                         },
                                         "table": {
                                             "type": "string",
                                             "description": "The MySQL table to which the privileges apply.",
-                                            "minLength": 1
+                                            "minLength": 1,
+                                            "examples": [
+                                                "*"
+                                            ]
                                         },
                                         "withGrantOption": {
                                             "type": "boolean",
@@ -545,7 +554,11 @@
                                             "items": {
                                                 "type": "string",
                                                 "description": "Privileges for the specific MySQL database.table.",
-                                                "minLength": 1
+                                                "minLength": 1,
+                                                "examples": [
+                                                    "ALL",
+                                                    "SELECT"
+                                                ]
                                             }
                                         }
                                     },
