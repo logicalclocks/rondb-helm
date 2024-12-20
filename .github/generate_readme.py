@@ -1,9 +1,9 @@
 import json
 import pandas as pd
+import argparse
+
 
 # Flatten JSON properties
-
-
 def flatten_properties(properties, parent_key=""):
     """
     Flatten the properties of a JSON schema into a list of dictionaries
@@ -35,6 +35,15 @@ def flatten_properties(properties, parent_key=""):
     return items
 
 
+# Set up argument parser
+parser = argparse.ArgumentParser(
+    description="Generate a Markdown table from a JSON schema file."
+)
+parser.add_argument(
+    "--output", type=str, required=True, help="Path to the output Markdown file."
+)
+args = parser.parse_args()
+
 # Load values.schema.json
 with open("values.schema.json", "r") as f:
     schema = json.load(f)
@@ -53,7 +62,7 @@ df = df.sort_values(["Field Path"])
 markdown_table = df.to_markdown(index=False)
 
 # Save the Markdown table to a file
-with open("schema_table.md", "w") as f:
+with open(args.output, "w") as f:
     f.write(markdown_table)
 
-print("Markdown table generated and saved to 'schema_table.md'.")
+print(f"Markdown table generated and saved to '{args.output}'.")

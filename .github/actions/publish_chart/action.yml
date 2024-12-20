@@ -11,6 +11,7 @@ inputs:
   gh_token:
     description: 'GitHub token'
     required: true
+  # Using this as env variable
   VALUES_README_FILE:
     description: 'File containing values.schema.json as Markdown'
     default: 'values.schema.md'
@@ -25,7 +26,7 @@ runs:
         sed -i "s/^version:.*/version: ${{ inputs.chart_version }}/" Chart.yaml
 
     - shell: bash
-      run: python3 generate_readme.py ${{ inputs.VALUES_README_FILE }}
+      run: python3 generate_readme.py --output ${{ inputs.VALUES_README_FILE }}
 
     - name: Set up Helm
       uses: azure/setup-helm@v4
