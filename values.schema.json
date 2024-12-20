@@ -1,6 +1,24 @@
 {
     "$schema": "https://json-schema.org/draft-07/schema#",
     "properties": {
+        "imagePullPolicy": {
+            "type": "string",
+            "description": "The Kubernetes image pull policy",
+            "default": "IfNotPresent"
+        },
+        "imagePullSecrets": {
+            "type": "array",
+            "default": [],
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the Secret"
+                    }
+                }
+            }
+        },
         "isMultiNodeCluster": {
             "type": "boolean",
             "description": "Whether the Kubernetes cluster has multiple nodes; this will affect affinities and add requirements to scheduling.",
@@ -42,6 +60,7 @@
                         },
                         "ingressSelectors": {
                             "type": "array",
+                            "default": [],
                             "items": {
                                 "type": "object",
                                 "properties": {
@@ -66,6 +85,7 @@
                         },
                         "ingressSelectors": {
                             "type": "array",
+                            "default": [],
                             "items": {
                                 "type": "object",
                                 "properties": {
@@ -216,9 +236,28 @@
                 "rdrs": {
                     "type": "object",
                     "properties": {
-                        "clusterIpName": {
-                            "type": "string",
-                            "default": "rdrs"
+                        "clusterIp": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "default": "rdrs"
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "default": {
+                                        "consul.hashicorp.com/service-name": "rdrs",
+                                        "prometheus.io/path": "/metrics",
+                                        "prometheus.io/port": "4406",
+                                        "prometheus.io/scheme": "https",
+                                        "prometheus.io/scrape": "true"
+                                  
+                                    }
+                                }
+                            },
+                            "required": [
+                                "name"
+                            ]
                         },
                         "statefulSet": {
                             "type": "object",
@@ -296,7 +335,7 @@
                         }
                     },
                     "required": [
-                        "clusterIpName",
+                        "clusterIp",
                         "statefulSet",
                         "headlessClusterIpName"
                     ]
@@ -461,7 +500,8 @@
                 "credentialsSecretName": {
                     "type": "string",
                     "description": "Secret name for MySQL users' passwords",
-                    "minLength": 1
+                    "minLength": 1,
+                    "default": "mysql-passwords"
                 },
                 "users": {
                     "type": "array",
@@ -926,7 +966,7 @@
                 "restoreNativeBackup": {
                     "type": "integer",
                     "description": "This does not include *downloading* the native backups. IMPORTANT; Restoring native backups is NOT done in parallel yet",
-                    "default": 30
+                    "default": 120
                 }
             },
             "required": [
@@ -957,6 +997,9 @@
                         "s3"
                     ],
                     "default": "s3"
+                },
+                "s3": {
+                    "$ref": "#/$defs/s3"
                 },
                 "excludeDatabases": {
                     "description": "Which databases to exclude from the native backup",
@@ -1002,35 +1045,7 @@
                     "default": "s3"
                 },
                 "s3": {
-                    "type": "object",
-                    "properties": {
-                        "provider": {
-                            "type": "string",
-                            "default": "AWS"
-                        },
-                        "endpoint": {
-                            "type": ["string", "null"],
-                            "default": null
-                        },
-                        "bucketName": {
-                            "type": "string",
-                            "default": "rondb-helm"
-                        },
-                        "region": {
-                            "type": "string",
-                            "default": "eu-north-1"
-                        },
-                        "serverSideEncryption": {
-                            "type": "string",
-                            "default": "aws:kms"
-                        },
-                        "keyCredentialsSecret": {
-                            "$ref": "#/$defs/secret"
-                        },
-                        "secretCredentialsSecret": {
-                            "$ref": "#/$defs/secret"
-                        }
-                    }
+                    "$ref": "#/$defs/s3"
                 }
             },
             "required": [
@@ -1112,7 +1127,7 @@
                             "properties": {
                                 "clusterNumber": {
                                     "type": "number",
-                                    "default": 1,
+                                    "default": 2,
                                     "description": "A helper to understand from which serverIds to replicate from"
                                 },
                                 "useTlsConnection": {
@@ -1237,6 +1252,37 @@
                 }
             }
         },
+        "s3": {
+            "type": "object",
+            "properties": {
+                "provider": {
+                    "type": "string",
+                    "default": "AWS"
+                },
+                "endpoint": {
+                    "type": ["string", "null"],
+                    "default": null
+                },
+                "bucketName": {
+                    "type": "string",
+                    "default": "rondb-helm"
+                },
+                "region": {
+                    "type": "string",
+                    "default": "eu-north-1"
+                },
+                "serverSideEncryption": {
+                    "type": "string",
+                    "default": "aws:kms"
+                },
+                "keyCredentialsSecret": {
+                    "$ref": "#/$defs/secret"
+                },
+                "secretCredentialsSecret": {
+                    "$ref": "#/$defs/secret"
+                }
+            }
+        },
         "cpuResources": {
             "type": "object",
             "description": "CPU resources per RonDB service type",
@@ -1295,7 +1341,8 @@
                     "description": "Where image is hosted. Omit for local registry (E.g. use `minikube image load rondb:latest`)"
                 },
                 "repository": {
-                    "type": "string"
+                    "type": "string",
+                    "defaault": "hopsworks"
                 },
                 "name": {
                     "type": "string"
@@ -1379,7 +1426,11 @@
             "type": "object",
             "properties": {
                 "matchLabels": {
-                    "type": "object"
+                    "type": "object",
+                    "default": {},
+                    "examples": {
+                        "app": "rondb"
+                    }
                 },
                 "matchExpressions": {
                     "type": "array",
