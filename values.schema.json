@@ -16,6 +16,15 @@
             "default": 60,
             "minimum": 10
         },
+        "priorityClass": {
+            "type": "string"
+        },
+        "enableSecurityContext": {
+            "type": "boolean"
+        },
+        "serviceAccountAnnotations": {
+            "type": "object"
+        },
         "networkPolicy": {
             "type": "object",
             "properties": {
@@ -84,6 +93,9 @@
                                 "name": {
                                     "type": "string"
                                 },
+                                "port": {
+                                    "type": "integer"
+                                },
                                 "annotations": {
                                     "type": "object"
                                 }
@@ -97,6 +109,19 @@
                         "statefulSetName",
                         "headlessClusterIp"
                     ]
+                },
+                "ndbmtd": {
+                    "type": "object",
+                    "properties": {
+                        "statefulSet": {
+                            "type": "object",
+                            "properties": {
+                                "podAnnotations": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
                 },
                 "mysqld": {
                     "type": "object",
@@ -124,9 +149,6 @@
                                 },
                                 "port": {
                                     "type": "integer"
-                                },
-                                "annotations": {
-                                    "type": "object"
                                 }
                             },
                             "required": [
@@ -163,6 +185,9 @@
                                     "type": "integer"
                                 }
                             }
+                        },
+                        "addSysNiceCapability": {
+                            "type": "boolean"
                         }
                     },
                     "required": [
