@@ -13,7 +13,11 @@ def flatten_properties(properties, parent_key=""):
 
     for key, value in properties.items():
         field_path = f"{parent_key}.{key}" if parent_key else key
-        field_type = value.get("type", "")
+        # Check if enum is present (instead of type)
+        if "enum" in value:
+            field_type = f"enum: [{', '.join(value['enum'])}]"
+        else:
+            field_type = value.get("type", "")
         description = value.get("description", "")
         default = value.get("default", "")
 
