@@ -1,5 +1,20 @@
 # Helmchart RonDB
 
+## About RonDB
+
+[RonDB](https://docs.rondb.com) is a fork of MySQL NDB Cluster, one of the storage engines supported by the MySQL server. It is a distributed, shared-nothing storage engine with capabilities for:
+
+- in-memory & on-disk columns
+- up to 1 PiB storage
+- online horizontal & vertical storage scaling
+- online horizontal & vertical compute scaling (MySQL servers)
+
+Being supported by the MySQL server, RonDB is inherently ACID compliant. In-memory data is regularly persisted to disk via a REDO log and checkpoints. RonDB is open-source, written in C++.
+
+## Chart host
+
+This Helmchart is hosted on [GH Pages](https://logicalclocks.github.io/rondb-helm/).
+
 ## Capabilities
 
 - Create custom-size, cross-AZ cluster
