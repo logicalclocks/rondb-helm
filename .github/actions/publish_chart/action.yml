@@ -25,7 +25,8 @@ runs:
       run: |
         sed -i "s/^version:.*/version: ${{ inputs.chart_version }}/" Chart.yaml
 
-    - shell: bash
+    - name: Create a Markdown table from values.schema.json
+      shell: bash
       run: python3 .github/values_json_to_markdown.py --output ${{ inputs.VALUES_README_FILE }}
 
     - name: Set up Helm
