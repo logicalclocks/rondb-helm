@@ -96,10 +96,12 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "headless-mgmds"
                                 },
                                 "port": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "default": 1186
                                 },
                                 "annotations": {
                                     "type": "object",
@@ -137,7 +139,8 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "mysqlds"
                                 },
                                 "endToEndTls": {
                                     "$ref": "#/$defs/endToEndTls"
@@ -152,10 +155,12 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "headless-mysqlds"
                                 },
                                 "port": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "default": 3306
                                 }
                             },
                             "required": [
@@ -167,10 +172,12 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "mysqld"
                                 },
                                 "port": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "default": 3306
                                 },
                                 "annotations": {
                                     "type": "object",
@@ -217,7 +224,8 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "rdrs"
                                 },
                                 "endToEndTls": {
                                     "$ref": "#/$defs/endToEndTls"
@@ -300,7 +308,8 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "mysqld-binlog-servers"
                                 },
                                 "endToEndTls": {
                                     "$ref": "#/$defs/endToEndTls"
@@ -315,10 +324,12 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "headless-binlog-servers"
                                 },
                                 "port": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "default": 3306
                                 }
                             },
                             "required": [
@@ -342,7 +353,8 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "mysqld-replica-appliers"
                                 },
                                 "endToEndTls": {
                                     "$ref": "#/$defs/endToEndTls"
@@ -357,10 +369,12 @@
                             "type": "object",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "headless-replica-appliers"
                                 },
                                 "port": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "default": 3306
                                 }
                             },
                             "required": [
@@ -423,7 +437,8 @@
                 },
                 "clusterUser": {
                     "type": "string",
-                    "description": "The MySQL user for K8s probes, benchmarks and for the standard my.cnf file."
+                    "description": "The MySQL user for K8s probes, benchmarks and for the standard my.cnf file.",
+                    "default": "helm"
                 },
                 "exporter": {
                     "type": "object",
@@ -779,6 +794,7 @@
                         "mgmds": {
                             "type": "array",
                             "maxItems": 1,
+                            "default": [],
                             "items": {
                                 "type": "object",
                                 "properties": {
@@ -993,7 +1009,8 @@
                             "default": "AWS"
                         },
                         "endpoint": {
-                            "type": ["string", "null"]
+                            "type": ["string", "null"],
+                            "default": null
                         },
                         "bucketName": {
                             "type": "string",
@@ -1033,7 +1050,8 @@
                     "properties": {
                         "enabled": {
                             "type": "boolean",
-                            "description": "Specifies if the primary replication is enabled. This will actually create the binary log servers. Can be activated after an initial start."
+                            "description": "Specifies if the primary replication is enabled. This will actually create the binary log servers. Can be activated after an initial start.",
+                            "default": false
                         },
                         "numBinlogServers": {
                             "type": "number",
@@ -1292,7 +1310,8 @@
             "properties": {
                 "enabled": {
                     "description": "Whether to use end-to-end encryption for Pods. This is recommended for high-security use cases. For MySQLds this is especially recommended since they use raw TCP connections and thereby by-pass TLS Ingress-rules. Otherwise, Ingress-TCP can also be configured directly via the Ingress controller (not in this Helmchart).",
-                    "enabled": "boolean"
+                    "enabled": "boolean",
+                    "default": false
                 },
                 "secretName": {
                     "type": "string",
