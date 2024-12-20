@@ -3,7 +3,8 @@
     "properties": {
         "isMultiNodeCluster": {
             "type": "boolean",
-            "description": "Whether the Kubernetes cluster has multiple nodes; this will affect affinities and add requirements to scheduling."
+            "description": "Whether the Kubernetes cluster has multiple nodes; this will affect affinities and add requirements to scheduling.",
+            "default": true
         },
         "staticCpuManagerPolicy": {
             "type": "boolean",
@@ -17,13 +18,16 @@
             "minimum": 10
         },
         "priorityClass": {
-            "type": "string"
+            "type": "string",
+            "default": "rondb-high-priority"
         },
         "enableSecurityContext": {
-            "type": "boolean"
+            "type": "boolean",
+            "default": true
         },
         "serviceAccountAnnotations": {
-            "type": "object"
+            "type": "object",
+            "default": {}
         },
         "networkPolicy": {
             "type": "object",
@@ -85,7 +89,8 @@
                     "type": "object",
                     "properties": {
                         "statefulSetName": {
-                            "type": "string"
+                            "type": "string",
+                            "default": "mgmds"
                         },
                         "headlessClusterIp": {
                             "type": "object",
@@ -97,7 +102,8 @@
                                     "type": "integer"
                                 },
                                 "annotations": {
-                                    "type": "object"
+                                    "type": "object",
+                                    "default": {}
                                 }
                             },
                             "required": [
@@ -117,7 +123,8 @@
                             "type": "object",
                             "properties": {
                                 "podAnnotations": {
-                                    "type": "object"
+                                    "type": "object",
+                                    "default": {}
                                 }
                             }
                         }
@@ -166,7 +173,8 @@
                                     "type": "integer"
                                 },
                                 "annotations": {
-                                    "type": "object"
+                                    "type": "object",
+                                    "default": {}
                                 }
                             },
                             "required": [
@@ -182,12 +190,14 @@
                             "description": "Configuration for mysqld exporter",
                             "properties": {
                                 "metricsPort": {
-                                    "type": "integer"
+                                    "type": "integer",
+                                    "default": 9104
                                 }
                             }
                         },
                         "addSysNiceCapability": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "default": true
                         }
                     },
                     "required": [
@@ -200,7 +210,8 @@
                     "type": "object",
                     "properties": {
                         "clusterIpName": {
-                            "type": "string"
+                            "type": "string",
+                            "default": "rdrs"
                         },
                         "statefulSet": {
                             "type": "object",
@@ -218,7 +229,8 @@
                             ]
                         },
                         "headlessClusterIpName": {
-                            "type": "string"
+                            "type": "string",
+                            "default": "rdrs-cluster-ip"
                         },
                         "externalLoadBalancer": {
                             "$ref": "#/$defs/externalLoadBalancer"
@@ -228,35 +240,47 @@
                             "description": "Configuration of Ingress for RDRS",
                             "properties": {
                                 "enabled": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "default": false
                                 },
                                 "class": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "default": "nginx"
                                 },
                                 "useDefaultBackend": {
                                     "type": "boolean",
-                                    "description": "Whether to use the RDRS as a default backend for the Ingress; this makes it reachable without specifying a subdomain; i.e. an IP can be used instead."
+                                    "description": "Whether to use the RDRS as a default backend for the Ingress; this makes it reachable without specifying a subdomain; i.e. an IP can be used instead.",
+                                    "default": true
                                 },
                                 "dnsNames": {
                                     "type": "array",
                                     "items": {
                                         "type": "string",
                                         "description": "DNS names used for Ingress rules. These will also be used in the TLS certificate."
-                                    }
+                                    },
+                                    "default": [],
+                                    "examples": [
+                                        "rondb.com"
+                                    ]
                                 },
                                 "tls": {
                                     "type": "object",
                                     "properties": {
                                         "enabled": {
                                             "type": "boolean",
-                                            "description": "WARN: Nginx-ingress will always use encryption even if this is disabled. By enabling this, we simply have more control over the TLS Secret. The TLS Secrets are placed onto the Ingress controller instance. Ingress TLS is currently only supported with cert-manager (RonDB-standalone)"
+                                            "description": "WARN: Nginx-ingress will always use encryption even if this is disabled. By enabling this, we simply have more control over the TLS Secret. The TLS Secrets are placed onto the Ingress controller instance. Ingress TLS is currently only supported with cert-manager (RonDB-standalone)",
+                                            "default": true
                                         },
                                         "ipAddresses": {
                                             "type": "array",
                                             "items": {
                                                 "type": "string",
                                                 "description": "This will work if the a default backend is activated for the Ingress. A value here can be the external IP of the Ingress Controller"
-                                            }
+                                            },
+                                            "default": [],
+                                            "examples": [
+                                                "127.0.0.1"
+                                            ]
                                         }
                                     }
                                 }
@@ -410,10 +434,12 @@
                             "default": false
                         },
                         "username": {
-                            "type": "string"
+                            "type": "string",
+                            "default": "exporter"
                         },
                         "maxUserConnections": {
-                            "type": "integer"
+                            "type": "integer",
+                            "default": 3
                         }
                     }
                 },
@@ -651,47 +677,58 @@
             "description": "Configurations for RonDB's config.ini. Memory configurations are in binary SI units (i.e. 1G = 1GiB = 1024MiB).",
             "properties": {
                 "MaxNoOfTables": {
-                    "type": "integer"
+                    "type": ["integer", "null"],
+                    "default": null
                 },
                 "MaxNoOfAttributes": {
-                    "type": "integer"
+                    "type": ["integer", "null"],
+                    "default": null
                 },
                 "MaxNoOfTriggers": {
-                    "type": "integer"
+                    "type": ["integer", "null"],
+                    "default": null
                 },
                 "TransactionMemory": {
-                    "type": "string"
+                    "type": ["string", "null"],
+                    "default": null
                 },
                 "SharedGlobalMemory": {
-                    "type": "string"
+                    "type": ["string", "null"],
+                    "default": null
                 },
                 "ReservedConcurrentOperations": {
-                    "type": "integer"
+                    "type": ["integer", "null"],
+                    "default": null
                 },
                 "MaxNoOfConcurrentOperations": {
-                    "type": "integer"
+                    "type": ["integer", "null"],
+                    "default": null
                 },
                 "MySQLdSlotsPerNode": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 4
+                    "maximum": 4,
+                    "default": 4
                 },
                 "RdrsSlotsPerNode": {
                     "type": "integer",
+                    "description": "The number of cluster connections we support via the RDRS",
                     "minimum": 1,
                     "maximum": 1,
-                    "description": "The number of cluster connections we support via the RDRS"
+                    "default": 1
                 },
                 "RdrsMetadataSlotsPerNode": {
                     "type": "integer",
+                    "description": "We use additional cluster connections for metadata",
                     "minimum": 1,
                     "maximum": 1,
-                    "description": "We use additional cluster connections for metadata"
+                    "default": 1
                 },
                 "EmptyApiSlots": {
                     "type": "integer",
+                    "description": "We need at least 1 for the MySQLd setup job. Otherwise this is for services that are not handled here, e.g. HopsFS",
                     "minimum": 1,
-                    "description": "We need at least 1 for the MySQLd setup job. Otherwise this is for services that are not handled here, e.g. HopsFS"
+                    "default": 8
                 },
                 "NdbmtdMemoryOverheadMiB": {
                     "type": "integer",
@@ -704,16 +741,19 @@
                     "default": -1
                 },
                 "DiskPageBufferMemory": {
-                    "type": "string",
-                    "description": "DiskPageBufferMemory are used by disk columns. This is the page cache that contains disk pages when they are in memory. By default it is not defined."
+                    "type": ["string", "null"],
+                    "description": "DiskPageBufferMemory are used by disk columns. This is the page cache that contains disk pages when they are in memory. By default it is not defined.",
+                    "default": null
                 },
                 "TransactionInactiveTimeout": {
                     "type": "integer",
-                    "description": "Milliseconds that application waits before executing another part of transaction"
+                    "description": "Milliseconds that application waits before executing another part of transaction",
+                    "default": 15000
                 },
                 "TransactionDeadlockDetectionTimeout": {
                     "type": "integer",
-                    "description": "Time transaction can spend executing within data node"
+                    "description": "Time transaction can spend executing within data node",
+                    "default": 1500
                 }
             },
             "required": [
@@ -776,7 +816,8 @@
                         "string",
                         "null"
                     ],
-                    "description": "User-provided TLS Secret. This can be used by the cert-manager as a base to sign further certificates. If not supplied, cert-manager will use a self-signed CA certificate."
+                    "description": "User-provided TLS Secret. This can be used by the cert-manager as a base to sign further certificates. If not supplied, cert-manager will use a self-signed CA certificate.",
+                    "default": null
                 }
             }
         },
@@ -887,7 +928,8 @@
                         "integer",
                         "null"
                     ],
-                    "minimum": 1
+                    "minimum": 1,
+                    "default": null
                 },
                 "pathPrefix": {
                     "description": "Prefix of RonDB backup in the configured bucket",
@@ -903,6 +945,7 @@
                 "excludeDatabases": {
                     "description": "Which databases to exclude from the native backup",
                     "type": "array",
+                    "default": [],
                     "items": {
                         "type": "string"
                     }
@@ -910,6 +953,7 @@
                 "excludeTables": {
                     "description": "Which tables to exclude from the native backup. Use the format: database.table",
                     "type": "array",
+                    "default": [],
                     "items": {
                         "type": "string"
                     }
@@ -998,14 +1042,16 @@
                         },
                         "maxNumBinlogServers": {
                             "type": "number",
-                            "default": 3,
+                            "default": 2,
                             "description": "Don't change this value. Determines how many binlog servers we can scale out to. Used to determine the server IDs for global replication. Even if replication is disabled, potential binlog servers will be written into the config.ini."
                         },
                         "expireBinlogsDays": {
-                            "type": "number"
+                            "type": "number",
+                            "default": 1.5
                         },
                         "logReplicaUpdates": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "default": false
                         },
                         "binlogFilename": {
                             "type": "string",
@@ -1301,7 +1347,8 @@
                 },
                 "annotations": {
                     "type": "object",
-                    "description": "Cloud provider load balancer specific annotations."
+                    "description": "Cloud provider load balancer specific annotations.",
+                    "default": {}
                 },
                 "port": {
                     "type": "integer",
