@@ -27,7 +27,7 @@ backupRemote
 
 {{- define "rondb.rdrsServiceHostname" -}}
 {{ printf "%s.%s.svc.cluster.local"
-        $.Values.meta.rdrs.clusterIpName
+        $.Values.meta.rdrs.clusterIp.name
         $.Release.Namespace
 }}
 {{- end -}}

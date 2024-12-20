@@ -79,14 +79,15 @@ meta:
         certfileName: tls.crt
         keyfileName: tls.key
         cafileName: null
-    clusterIpName: rdrs
+    clusterIp:
+      name: rdrs
+      annotations:
+        consul.hashicorp.com/service-name: rdrs
+        prometheus.io/path: /metrics
+        prometheus.io/port: '4406'
+        prometheus.io/scheme: https
+        prometheus.io/scrape: 'true'
     headlessClusterIpName: rdrs-cluster-ip
-    annotations:
-      consul.hashicorp.com/service-name: rdrs
-      prometheus.io/path: "/metrics"
-      prometheus.io/port: "4406"
-      prometheus.io/scheme: "https"
-      prometheus.io/scrape: "true"
     externalLoadBalancer:
       name: rdrs-external
       enabled: false
