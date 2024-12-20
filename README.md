@@ -13,7 +13,7 @@ Being supported by the MySQL server, RonDB is inherently ACID compliant. In-memo
 
 ## Chart host
 
-This Helmchart is hosted on [GH Pages](https://logicalclocks.github.io/rondb-helm/).
+This Helmchart is hosted on [GitHub Pages](https://logicalclocks.github.io/rondb-helm/). See the `gh_pages` branch of this repository for the source code.
 
 ## Capabilities
 
@@ -160,6 +160,8 @@ Let's say our Chart.yaml now has version `0.1.0`. We have not released this vers
    1. `git tag v0.1.0` on the main branch (the same version as in the Chart.yaml, plus prepending a `v`)
    2. `git push origin tag v0.1.0`; this will trigger a Helm chart release with version `0.1.0`
 4. Bump the version in the Chart.yaml to `0.1.1`
+
+The released Helmchart will be visible on the `gh_pages` branch of this repository.
 
 ## TODO
 
