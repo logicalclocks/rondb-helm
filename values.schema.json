@@ -386,7 +386,11 @@
             "properties": {
                 "sqlInitContent": {
                     "type": "object",
-                    "description": "SQL to run *only once* at cluster startup. Try to make these scripts idempotent, in case they are re-run by accident. Do so by e.g. using `IF NOT EXISTS` in the SQL commands."
+                    "description": "SQL to run *only once* at cluster startup. Try to make these scripts idempotent, in case they are re-run by accident. Do so by e.g. using `IF NOT EXISTS` in the SQL commands.",
+                    "default": {},
+                    "examples": [{
+                        "createMyUser": "CREATE USER foo IF NOT EXISTS;"
+                    }]
                 },
                 "supplyOwnSecret": {
                     "type": "boolean",
@@ -420,6 +424,7 @@
                 },
                 "users": {
                     "type": "array",
+                    "default": [],
                     "items": {
                         "type": "object",
                         "properties": {
@@ -497,29 +502,35 @@
                 "activeDataReplicas": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 3
+                    "maximum": 3,
+                    "default": 2
                 },
                 "numNodeGroups": {
                     "type": "integer",
-                    "minimum": 1
+                    "minimum": 1,
+                    "default": 1
                 },
                 "minNumMySQLServers": {
                     "type": "integer",
                     "minimum": 1,
-                    "description": "A minimum amount of MySQL servers"
+                    "description": "A minimum amount of MySQL servers",
+                    "default": 1
                 },
                 "maxNumMySQLServers": {
                     "type": "integer",
                     "minimum": 1,
-                    "description": "The maximum amount of MySQL servers we will auto-scale to. It is represented as number of slots in RonDB's config.ini. Changing this will only take effect if the ConfigMap for config.ini is updated and the MGMd is restarted."
+                    "description": "The maximum amount of MySQL servers we will auto-scale to. It is represented as number of slots in RonDB's config.ini. Changing this will only take effect if the ConfigMap for config.ini is updated and the MGMd is restarted.",
+                    "default": 3
                 },
                 "minNumRdrs": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 0,
+                    "default": 1
                 },
                 "maxNumRdrs": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 0,
+                    "default": 2
                 }
             },
             "required": [
@@ -775,7 +786,8 @@
             "properties": {
                 "enabled": {
                     "type": "boolean",
-                    "description": "Whether to run a benchmarking job on the cluster"
+                    "description": "Whether to run a benchmarking job on the cluster",
+                    "default": false
                 },
                 "type": {
                     "description": "Which benchmarking job to run. 'Multi' refers to multiple MySQLd servers to run against",
@@ -784,7 +796,8 @@
                         "dbt2_single",
                         "dbt2_multi",
                         "ycsb"
-                    ]
+                    ],
+                    "default": "sysbench"
                 },
                 "dbt2": {
                     "type": "object",
@@ -792,15 +805,18 @@
                     "properties": {
                         "numWarehouses": {
                             "type": "integer",
-                            "minimum": 1
+                            "minimum": 1,
+                            "default": 4
                         },
                         "runSingle": {
                             "type": "string",
-                            "description": "Table with columns: NUM_MYSQL_SERVERS, NUM_WAREHOUSES, NUM_TERMINALS"
+                            "description": "Table with columns: NUM_MYSQL_SERVERS, NUM_WAREHOUSES, NUM_TERMINALS",
+                            "default": "\n# NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS\n1 1 1\n1 2 1\n1 4 1\n1 4 2"
                         },
                         "runMulti": {
                             "type": "string",
-                            "description": "Table with columns: NUM_MYSQL_SERVERS, NUM_WAREHOUSES, NUM_TERMINALS"
+                            "description": "Table with columns: NUM_MYSQL_SERVERS, NUM_WAREHOUSES, NUM_TERMINALS",
+                            "default": "\n# NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS\n2 1 1\n2 2 1\n2 2 2"
                         }
                     }
                 },
@@ -810,10 +826,12 @@
                     "properties": {
                         "threadCountsToRun": {
                             "type": "string",
-                            "description": "Semi-colon-separated list of thread counts to run"
+                            "description": "Semi-colon-separated list of thread counts to run",
+                            "default": "1;2;4;8;12;16;24;32;64"
                         },
                         "rows": {
-                            "type": "integer"
+                            "type": "integer",
+                            "default": 100000
                         },
                         "minimizeBandwidth": {
                             "type": "boolean",
@@ -828,7 +846,8 @@
                     "properties": {
                         "schemata": {
                             "type": "string",
-                            "description": "MySQL table schema to use for YCSB. NOTE: The `ycsb` database is pre-created."
+                            "description": "MySQL table schema to use for YCSB. NOTE: The `ycsb` database is pre-created.",
+                            "default": "CREATE TABLE IF NOT EXISTS ycsb.usertable (YCSB_KEY VARCHAR(255) PRIMARY KEY, FIELD0 varbinary(4096));"
                         }
                     }
                 }
@@ -911,11 +930,46 @@
                     "type": "string",
                     "default": "rondb_backup"
                 },
+                "schedule": {
+                    "description": "Cron schedule for backups",
+                    "type": "string",
+                    "default": "0 3 * * mon"
+                },
                 "objectStorageProvider": {
                     "enum": [
                         "s3"
                     ],
                     "default": "s3"
+                },
+                "s3": {
+                    "type": "object",
+                    "properties": {
+                        "provider": {
+                            "type": "string",
+                            "default": "AWS"
+                        },
+                        "endpoint": {
+                            "type": ["string", "null"]
+                        },
+                        "bucketName": {
+                            "type": "string",
+                            "default": "rondb-helm"
+                        },
+                        "region": {
+                            "type": "string",
+                            "default": "eu-north-1"
+                        },
+                        "serverSideEncryption": {
+                            "type": "string",
+                            "default": "aws:kms"
+                        },
+                        "keyCredentialsSecret": {
+                            "$ref": "#/$defs/secret"
+                        },
+                        "secretCredentialsSecret": {
+                            "$ref": "#/$defs/secret"
+                        }
+                    }
                 }
             },
             "required": [
@@ -959,12 +1013,14 @@
                         },
                         "ignoreDatabases": {
                             "type": "array",
+                            "default": [],
                             "items": {
                                 "type": "string"
                             }
                         },
                         "ignoreTables": {
                             "type": "array",
+                            "default": [],
                             "items": {
                                 "type": "string"
                             }
