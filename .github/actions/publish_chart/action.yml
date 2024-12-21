@@ -82,8 +82,7 @@ runs:
       run: |
         cat ./README_intro.md > ./README.md
         echo >> ./README.md
-        echo "Chart version ${{ inputs.chart_version }}" >> ./README.md
-        echo "See commit history for previous values.yaml schemata" >> ./README.md
+        echo "Chart version is ${{ inputs.chart_version }}. See commit history for previous values.yaml schemata" >> ./README.md
         echo >> ./README.md
         cat ${{ inputs.VALUES_README_FILE }} >> ./README.md
 
