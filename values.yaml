@@ -1,6 +1,9 @@
 # Copyright (c) 2024-2024 Hopsworks AB. All rights reserved.
 
-# This file is auto-generated from the values.schema.json file
+# This file is auto-generated from the values.schema.json file.
+# The file is also used to generate the GitHub Pages documentation.
+# Schema JSON files allow defining restrictions, enums and references.
+# Use script .github/json_to_yaml.py to generate this file.
 backups:
   enabled: false
   objectStorageProvider: s3
