@@ -310,6 +310,10 @@
                                     "type": "boolean",
                                     "default": false
                                 },
+                                "name": {
+                                    "type": "string",
+                                    "default": "rdrs-external"
+                                },
                                 "class": {
                                     "type": [
                                         "string",
