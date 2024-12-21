@@ -1,65 +1,6 @@
-isMultiNodeCluster: true
-
-clusterSize:
-  activeDataReplicas: 1
-  numNodeGroups: 1
-  minNumMySQLServers: 5
-  maxNumMySQLServers: 5
-  minNumRdrs: 1
-  maxNumRdrs: 1
-
-resources:
-  limits:
-    cpus:
-      mgmds: 0.2
-      ndbmtds: 8
-      mysqlds: 12
-      rdrs: 2
-      benchs: 2
-    memory:
-      ndbmtdsMiB: 16000
-      rdrsMiB: 800
-      benchsMiB: 800
-  requests:
-    cpus:
-      mgmds: 0.2
-      mysqlds: 12
-      rdrs: 2
-      benchs: 1
-    memory:
-      rdrsMiB: 100
-      benchsMiB: 100
-    storage:
-      diskColumnGiB: 16
-      redoLogGiB: 64
-      undoLogsGiB: 64
-
-rondbConfig:
-  MaxNoOfTables: 768
-  MaxNoOfAttributes: 8000
-  MaxNoOfTriggers: 4000
-  TransactionMemory: 400M
-  SharedGlobalMemory: 400M
-  ReservedConcurrentOperations: 50000
-  MaxNoOfConcurrentOperations: 200000
-
 benchmarking:
   dbt2:
     numWarehouses: 64
-    runSingle: |
-      # NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
-      1                    1               1
-      1                    2               1
-      1                    4               1
-      1                    6               1
-      1                    8               1
-      1                    12              1
-      1                    16              1
-      1                    24              1
-      1                    32              1
-      1                    48              1
-      1                    64              1
-      1                    64              2
     runMulti: |
       # NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
       2                    1               1
@@ -74,6 +15,61 @@ benchmarking:
       2                    48              1
       2                    64              1
       2                    64              2
+    runSingle: |
+      # NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
+      1                    1               1
+      1                    2               1
+      1                    4               1
+      1                    6               1
+      1                    8               1
+      1                    12              1
+      1                    16              1
+      1                    24              1
+      1                    32              1
+      1                    48              1
+      1                    64              1
+      1                    64              2
   sysbench:
-    threadCountsToRun: "1;2;4;8;12;16;24;32;48;64;96;128;160;192;224;256"
     rows: 1000000
+    threadCountsToRun: 1;2;4;8;12;16;24;32;48;64;96;128;160;192;224;256
+clusterSize:
+  activeDataReplicas: 1
+  maxNumMySQLServers: 5
+  maxNumRdrs: 1
+  minNumMySQLServers: 5
+  minNumRdrs: 1
+  numNodeGroups: 1
+isMultiNodeCluster: true
+resources:
+  limits:
+    cpus:
+      benchs: 2
+      mgmds: 0.2
+      mysqlds: 12
+      ndbmtds: 8
+      rdrs: 2
+    memory:
+      benchsMiB: 800
+      ndbmtdsMiB: 16000
+      rdrsMiB: 800
+  requests:
+    cpus:
+      benchs: 1
+      mgmds: 0.2
+      mysqlds: 12
+      rdrs: 2
+    memory:
+      benchsMiB: 100
+      rdrsMiB: 100
+    storage:
+      diskColumnGiB: 16
+      redoLogGiB: 64
+      undoLogsGiB: 64
+rondbConfig:
+  MaxNoOfAttributes: 8000
+  MaxNoOfConcurrentOperations: 200000
+  MaxNoOfTables: 768
+  MaxNoOfTriggers: 4000
+  ReservedConcurrentOperations: 50000
+  SharedGlobalMemory: 400M
+  TransactionMemory: 400M

@@ -1,13 +1,13 @@
+globalReplication:
+  secondary:
+    replicateFrom:
+      useTlsConnection: true
 meta:
-  mysqld:
-    statefulSet:
-      endToEndTls:
-        enabled: true
   binlogServers:
     statefulSet:
       endToEndTls:
         enabled: true
-  replicaAppliers:
+  mysqld:
     statefulSet:
       endToEndTls:
         enabled: true
@@ -15,7 +15,7 @@ meta:
     statefulSet:
       endToEndTls:
         enabled: true
-globalReplication:
-  secondary:
-    replicateFrom:
-      useTlsConnection: true
+  replicaAppliers:
+    statefulSet:
+      endToEndTls:
+        enabled: true

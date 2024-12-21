@@ -1,65 +1,61 @@
-isMultiNodeCluster: false
-terminationGracePeriodSeconds: 25
-
-clusterSize:
-  activeDataReplicas: 1
-  numNodeGroups: 1
-  minNumMySQLServers: 1
-  maxNumMySQLServers: 1
-  minNumRdrs: 0
-  maxNumRdrs: 0
-
-resources:
-  limits:
-    cpus:
-      mgmds: 0.2
-      ndbmtds: 2
-      mysqlds: 2
-      rdrs: 2
-      benchs: 2
-      restore: 0.5
-    memory:
-      ndbmtdsMiB: 2800
-      rdrsMiB: 500
-      benchsMiB: 100
-  requests:
-    cpus:
-      mgmds: 0.2
-      mysqlds: 0.5
-      rdrs: 0.5
-      benchs: 1
-    memory:
-      rdrsMiB: 100
-      benchsMiB: 100
-    storage:
-      diskColumnGiB: 2
-      redoLogGiB: 2
-      undoLogsGiB: 2
-
-rondbConfig:
-  MaxNoOfTables: 128
-  MaxNoOfAttributes: 4000
-  MaxNoOfTriggers: 1000
-  TransactionMemory: 150M
-  SharedGlobalMemory: 150M
-  ReservedConcurrentOperations: 20000
-  MaxNoOfConcurrentOperations: 100000
-  NdbmtdMemoryOverheadMiB: 700
-  EmptyApiSlots: 2
-  MySQLdSlotsPerNode: 4
-
 benchmarking:
   dbt2:
     numWarehouses: 2
+    runMulti: |
+      # NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
+      2                    1               1
+      2                    1               2
     runSingle: |
       # NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
       1                    1               1
       1                    2               1
       1                    2               2
-    runMulti: |
-      # NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
-      2                    1               1
-      2                    1               2
   sysbench:
-    threadCountsToRun: "1;2;4;8;12;16"
     rows: 100000
+    threadCountsToRun: 1;2;4;8;12;16
+clusterSize:
+  activeDataReplicas: 1
+  maxNumMySQLServers: 1
+  maxNumRdrs: 0
+  minNumMySQLServers: 1
+  minNumRdrs: 0
+  numNodeGroups: 1
+isMultiNodeCluster: false
+resources:
+  limits:
+    cpus:
+      benchs: 2
+      mgmds: 0.2
+      mysqlds: 2
+      ndbmtds: 2
+      rdrs: 2
+      restore: 0.5
+    memory:
+      benchsMiB: 100
+      ndbmtdsMiB: 2800
+      rdrsMiB: 500
+  requests:
+    cpus:
+      benchs: 1
+      mgmds: 0.2
+      mysqlds: 0.5
+      rdrs: 0.5
+    memory:
+      benchsMiB: 100
+      rdrsMiB: 100
+    storage:
+      diskColumnGiB: 2
+      redoLogGiB: 2
+      undoLogsGiB: 2
+rondbConfig:
+  EmptyApiSlots: 2
+  MaxNoOfAttributes: 4000
+  MaxNoOfConcurrentOperations: 100000
+  MaxNoOfTables: 128
+  MaxNoOfTriggers: 1000
+  MySQLdSlotsPerNode: 4
+  NdbmtdMemoryOverheadMiB: 700
+  ReservedConcurrentOperations: 20000
+  SharedGlobalMemory: 150M
+  TransactionMemory: 150M
+terminationGracePeriodSeconds: 25
