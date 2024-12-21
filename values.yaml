@@ -39,11 +39,8 @@ benchmarking:
     threadCountsToRun: 1;2;4;8;12;16;24;32;64
   type: sysbench
   ycsb:
-    schemata: |
-      CREATE TABLE IF NOT EXISTS ycsb.usertable (
-          YCSB_KEY VARCHAR(255) PRIMARY KEY,
-          FIELD0 varbinary(4096)
-      );
+    schemata: CREATE TABLE IF NOT EXISTS ycsb.usertable (YCSB_KEY VARCHAR(255) PRIMARY
+      KEY, FIELD0 varbinary(4096));
 clusterSize:
   activeDataReplicas: 2
   maxNumMySQLServers: 5
