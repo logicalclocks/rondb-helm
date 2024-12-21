@@ -28,8 +28,7 @@ runs:
     - name: Create a Markdown table from values.schema.json
       shell: bash
       run: |
-        pip3 install tabulate  # Needed for pandas
-        pip3 install pandas
+        pip3 install -r .github/requirements.txt
         python3 .github/values_json_to_markdown.py --output ${{ inputs.VALUES_README_FILE }}
 
     - name: Set up Helm
