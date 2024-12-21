@@ -38,7 +38,8 @@ runs:
 
         # values.schema.json is treated as the single source of truth (also for the docs)
         if [ "$current_hash" != "$updated_hash" ]; then
-          echo "The values.yaml does not represent the values.schema.json file, please run .github/json_to_yaml.py"
+          echo "::error The values.yaml does not represent the values.schema.json file, please run .github/json_to_yaml.py"
+          echo "::notice Don't forget to add copyrights after running the script (use .github/update_copyright.sh)"
           exit 1
         fi
 
