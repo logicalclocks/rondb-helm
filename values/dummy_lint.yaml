@@ -16,58 +16,97 @@ dummyStringArray: &dummyStringArray
 #################
 # ACTUAL VALUES #
 #################
+backups:
+  enabled: true
+  s3:
+    endpoint: rondb.com
+benchmarking:
+  enabled: true
+  sysbench:
+    minimizeBandwidth: true
+enableSecurityContext: true
+globalReplication:
+  primary:
+    enabled: true
+    ignoreDatabases: *dummyStringArray
+    ignoreTables: *dummyStringArray
+    logReplicaUpdates: true
+  secondary:
+    enabled: true
+    replicateFrom:
+      binlogServerHosts: *dummyStringArray
+      ignoreDatabases: *dummyStringArray
+      ignoreTables: *dummyStringArray
+      useTlsConnection: true
+imagePullSecrets:
+- name: secret
+isMultiNodeCluster: true
 meta:
+  binlogServers:
+    externalLoadBalancers:
+      annotations: *dummyAnnotations
+      class: bla
+      enabled: true
+    statefulSet:
+      endToEndTls:
+        enabled: true
   mgmd:
     headlessClusterIp:
       annotations: *dummyAnnotations
+  mysqld:
+    addSysNiceCapability: true
+    externalLoadBalancer:
+      annotations: *dummyAnnotations
+      class: abc
+      enabled: true
+    service:
+      annotations: *dummyAnnotations
+    statefulSet:
+      endToEndTls:
+        enabled: true
   ndbmtd:
     statefulSet:
       podAnnotations: *dummyAnnotations
-  mysqld:
-    statefulSet:
-      endToEndTls:
-        enabled: true
-    service:
-      annotations: *dummyAnnotations
-    externalLoadBalancer:
-      enabled: true
-      class: abc
-      annotations: *dummyAnnotations
-    addSysNiceCapability: true
-  binlogServers:
-    statefulSet:
-      endToEndTls:
-        enabled: true
-    externalLoadBalancers:
-      enabled: true
-      class: bla
-      annotations: *dummyAnnotations
-  replicaAppliers:
-    statefulSet:
-      endToEndTls:
-        enabled: true
   rdrs:
-    statefulSet:
-      endToEndTls:
-        enabled: true
     annotations: *dummyAnnotations
     externalLoadBalancer:
-      enabled: true
-      class: abc
       annotations: *dummyAnnotations
-    ingress:
+      class: abc
       enabled: true
+    ingress:
       class: nginx
-      useDefaultBackend: true
       dnsNames: *dummyStringArray
+      enabled: true
       tls:
         enabled: true
         ipAddresses:
         - 127.0.0.1
-staticCpuManagerPolicy: true
-isMultiNodeCluster: true
-enableSecurityContext: true
-serviceAccountAnnotations: *dummyAnnotations
+      useDefaultBackend: true
+    statefulSet:
+      endToEndTls:
+        enabled: true
+  replicaAppliers:
+    statefulSet:
+      endToEndTls:
+        enabled: true
+mysql:
+  exporter:
+    enabled: true
+  sqlInitContent:
+    ycsbTable: |
+      CREATE TABLE IF NOT EXISTS ycsb.usertable (
+          YCSB_KEY VARCHAR(255) PRIMARY KEY,
+          FIELD0 varbinary(4096)
+      );
+  users:
+  - host: '%'
+    privileges:
+    - database: '*'
+      privileges:
+      - ALL
+      table: '*'
+      withGrantOption: true
+    username: importantuser
 networkPolicy:
   mgmds:
     enabled: true
@@ -79,84 +118,44 @@ networkPolicy:
     ingressSelectors:
     - podSelector:
         matchLabels: *dummyLabels
-imagePullSecrets:
-- name: secret
-mysql:
-  sqlInitContent: 
-    ycsbTable: |
-      CREATE TABLE IF NOT EXISTS ycsb.usertable (
-          YCSB_KEY VARCHAR(255) PRIMARY KEY,
-          FIELD0 varbinary(4096)
-      );
-  exporter:
-    enabled: true
-  users:
-  - username: importantuser
-    host: "%"
-    privileges:
-      - database: "*"
-        table: "*"
-        withGrantOption: true
-        privileges: ["ALL"]
+nodeSelector:
+  backup: &nodeSelector
+    node: RonDB
+  mgmd: *nodeSelector
+  mysqld: *nodeSelector
+  ndbmtd: *nodeSelector
+  rdrs: *nodeSelector
+rdrs:
+  externalMetadataCluster:
+    mgmds:
+    - ip: 1.1.1.1
+      port: 1186
 resources:
   requests:
     storage:
       classes:
         default: bla
         diskColumns: foo
-rondbConfig:
-  InitialTablespaceSizeGiB: 1
-rdrs:
-  externalMetadataCluster:
-    mgmds:
-    - ip: 1.1.1.1
-      port: 1186
-tls:
-  caSecretName: some-secret
-benchmarking:
-  enabled: true
-  sysbench:
-    minimizeBandwidth: true
 restoreFromBackup:
   backupId: 1
-  objectStorageProvider: s3
   excludeDatabases: *dummyStringArray
   excludeTables: *dummyStringArray
+  objectStorageProvider: s3
   s3:
     endpoint: rondb.com
-backups:
-  enabled: true
-  s3:
-    endpoint: rondb.com
-
-nodeSelector:
-  mysqld: &nodeSelector
-    node: RonDB
-  ndbmtd: *nodeSelector
-  mgmd: *nodeSelector
-  rdrs: *nodeSelector
-  backup: *nodeSelector
-
+rondbConfig:
+  InitialTablespaceSizeGiB: 1
+serviceAccountAnnotations: *dummyAnnotations
+staticCpuManagerPolicy: true
+tls:
+  caSecretName: some-secret
 tolerations:
-  mysqld: &tolerations
-  - key: "node"
-    operator: "Equal"
-    value: "RonDB"
-    effect: "NoSchedule" 
-  ndbmtd: *tolerations
+  backup: &tolerations
+  - effect: NoSchedule
+    key: node
+    operator: Equal
+    value: RonDB
   mgmd: *tolerations
+  mysqld: *tolerations
+  ndbmtd: *tolerations
   rdrs: *tolerations
-  backup: *tolerations
-globalReplication:
-  primary:
-    enabled: true
-    logReplicaUpdates: true
-    ignoreDatabases: *dummyStringArray
-    ignoreTables: *dummyStringArray
-  secondary:
-    enabled: true
-    replicateFrom:
-      useTlsConnection: true
-      binlogServerHosts: *dummyStringArray
-      ignoreDatabases: *dummyStringArray
-      ignoreTables: *dummyStringArray
