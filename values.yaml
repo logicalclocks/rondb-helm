@@ -282,14 +282,22 @@ restoreFromBackup:
       name: aws-credentials
     serverSideEncryption: aws:kms
 rondbConfig:
+  DiskPageBufferMemory: null
   EmptyApiSlots: 8
   InitialTablespaceSizeGiB: -1
+  MaxNoOfAttributes: null
+  MaxNoOfConcurrentOperations: null
+  MaxNoOfTables: null
+  MaxNoOfTriggers: null
   MySQLdSlotsPerNode: 4
   NdbmtdMemoryOverheadMiB: 1024
   RdrsMetadataSlotsPerNode: 1
   RdrsSlotsPerNode: 1
+  ReservedConcurrentOperations: null
+  SharedGlobalMemory: null
   TransactionDeadlockDetectionTimeout: 1500
   TransactionInactiveTimeout: 15000
+  TransactionMemory: null
 serviceAccountAnnotations: {}
 staticCpuManagerPolicy: false
 terminationGracePeriodSeconds: 60
