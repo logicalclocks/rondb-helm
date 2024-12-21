@@ -27,7 +27,7 @@ helm delete my-rondb
 
 ## Values options
 
-This has been auto-generated from the  file.
+This has been auto-generated from the `values.schema.json` file.
 
 Chart version is **0.2.0-dev**. See commit history for previous schemata.
 
