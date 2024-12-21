@@ -1,6 +1,7 @@
 import json
 import yaml
-
+import jsonref
+import sys
 
 # Use this script to transform the values.schema.json file into a values.yaml file.
 
@@ -41,17 +42,22 @@ def extract_defaults(schema, parent_is_array=False, parent_key=""):
     return defaults
 
 
-# Load JSON schema
+# Load the JSON schema with references
 with open("values.schema.json", "r") as f:
     json_schema = json.load(f)
 
+# Automatically resolve references
+resolved_schema = jsonref.replace_refs(json_schema)
+
 # Extract defaults
-defaults = extract_defaults(json_schema)
+defaults = extract_defaults(resolved_schema)
 
 # Save to YAML
-comment = "# This file is auto-generated from the values.schema.json file\n"
 with open("values.yaml", "w") as f:
-    f.write(comment)  # Write the comment to the file
+    f.write("# This file is auto-generated from the values.schema.json file.\n")
+    f.write("# The file is also used to generate the GitHub Pages documentation.\n")
+    f.write("# Schema JSON files allow defining restrictions, enums and references.\n")
+    f.write(f"# Use script {sys.argv[0]} to generate this file.\n")
     yaml.dump(defaults, f, default_flow_style=False)  # Append the YAML content
 
 print("Defaults extracted and saved to values.yaml.")
