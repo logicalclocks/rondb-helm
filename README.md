@@ -170,7 +170,7 @@ We use the `values.schema.json` as a single source of truth. It is used to gener
 The docs are updated automatically, but run the following to update the `values.yaml` file:
 
 ```bash
-python -m venv venv && source venv/bin/activate
+python3 -m venv venv && source venv/bin/activate
 pip3 install -r .github/requirements.txt
 python3 .github/json_to_yaml.py
 ./.github/update_copyright.sh
