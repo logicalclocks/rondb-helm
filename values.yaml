@@ -167,13 +167,11 @@ meta:
     headlessClusterIpName: rdrs-cluster-ip
     ingress:
       class: nginx
-      dnsNames:
-      - rondb.com
+      dnsNames: []
       enabled: false
       tls:
         enabled: true
-        ipAddresses:
-        - 127.0.0.1
+        ipAddresses: []
       useDefaultBackend: true
     statefulSet:
       endToEndTls:
