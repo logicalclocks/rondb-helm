@@ -1530,6 +1530,7 @@
         "globalReplication"
     ],
     "$defs": {
+        "$comment": "NOTE: All fields in this SCHEMA file need defaults, since auto-generate the values.yaml file with this. Hence, only reference objects that have generic defaults.",
         "s3": {
             "type": "object",
             "properties": {
