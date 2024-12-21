@@ -46,10 +46,10 @@
 {{- with $endToEndTls := $.Values.meta.rdrs.statefulSet.endToEndTls }}
 {{- if $endToEndTls.enabled }}
             "EnableTLS": true,
-            "CertificateFile": "/etc/tls/{{ $endToEndTls.certfileName }}",
-            "PrivateKeyFile": "/etc/tls/{{ $endToEndTls.keyfileName }}",
-{{- if $endToEndTls.cafileName }}
-            "RootCACertFile": "/etc/tls/{{ $endToEndTls.cafileName }}",
+            "CertificateFile": "/etc/tls/{{ $endToEndTls.filenames.cert }}",
+            "PrivateKeyFile": "/etc/tls/{{ $endToEndTls.filenames.key }}",
+{{- if $endToEndTls.filenames.ca }}
+            "RootCACertFile": "/etc/tls/{{ $endToEndTls.filenames.ca }}",
 {{- end }}
 {{- else }}
             "EnableTLS": false,

@@ -108,10 +108,11 @@ meta:
       port: 3306
     statefulSet:
       endToEndTls:
-        cafileName: null
-        certfileName: tls.crt
         enabled: false
-        keyfileName: tls.key
+        filenames:
+          ca: null
+          cert: tls.crt
+          key: tls.key
         secretName: binlog-end-to-end-tls
         supplyOwnSecret: false
       name: mysqld-binlog-servers
@@ -140,10 +141,11 @@ meta:
       port: 3306
     statefulSet:
       endToEndTls:
-        cafileName: null
-        certfileName: tls.crt
         enabled: false
-        keyfileName: tls.key
+        filenames:
+          ca: null
+          cert: tls.crt
+          key: tls.key
         secretName: mysqld-end-to-end-tls
         supplyOwnSecret: false
       name: mysqlds
@@ -175,10 +177,11 @@ meta:
       useDefaultBackend: true
     statefulSet:
       endToEndTls:
-        cafileName: null
-        certfileName: tls.crt
         enabled: false
-        keyfileName: tls.key
+        filenames:
+          ca: null
+          cert: tls.crt
+          key: tls.key
         secretName: rdrs-end-to-end-tls
         supplyOwnSecret: false
       name: rdrs
@@ -188,10 +191,11 @@ meta:
       port: 3306
     statefulSet:
       endToEndTls:
-        cafileName: null
-        certfileName: tls.crt
         enabled: false
-        keyfileName: tls.key
+        filenames:
+          ca: null
+          cert: tls.crt
+          key: tls.key
         secretName: replica-applier-end-to-end-tls
         supplyOwnSecret: false
       name: mysqld-replica-appliers

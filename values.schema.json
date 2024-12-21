@@ -163,7 +163,33 @@
                                     "default": "mysqlds"
                                 },
                                 "endToEndTls": {
-                                    "$ref": "#/$defs/endToEndTls"
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "description": "Whether to use end-to-end encryption for MySQLd Pods. This is recommended for high-security use cases. For MySQLds this is especially recommended since they use raw TCP connections and thereby by-pass TLS Ingress-rules. Otherwise, Ingress-TCP can also be configured directly via the Ingress controller (not in this Helmchart).",
+                                            "enabled": "boolean",
+                                            "default": false
+                                        },
+                                        "secretName": {
+                                            "type": "string",
+                                            "description": "Name of the TLS Secret",
+                                            "default": "mysqld-end-to-end-tls"
+                                        },
+                                        "supplyOwnSecret": {
+                                            "enabled": "boolean",
+                                            "default": false,
+                                            "description": "Whether the Helmchart user will create a TLS Secret outside of this Helmchart. Otherwise we rely on cert-manager to create one."
+                                        },
+                                        "filenames": {
+                                            "$ref": "#/$defs/tlsFilenames"
+                                        }
+                                    },
+                                    "required": [
+                                        "enabled",
+                                        "secretName",
+                                        "supplyOwnSecret",
+                                        "filenames"
+                                    ]
                                 }
                             },
                             "required": [
@@ -294,7 +320,33 @@
                                     "default": "rdrs"
                                 },
                                 "endToEndTls": {
-                                    "$ref": "#/$defs/endToEndTls"
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "description": "Whether to use end-to-end encryption for RDRS Pods. This is recommended for high-security use cases.",
+                                            "enabled": "boolean",
+                                            "default": false
+                                        },
+                                        "secretName": {
+                                            "type": "string",
+                                            "description": "Name of the TLS Secret",
+                                            "default": "rdrs-end-to-end-tls"
+                                        },
+                                        "supplyOwnSecret": {
+                                            "enabled": "boolean",
+                                            "default": false,
+                                            "description": "Whether the Helmchart user will create a TLS Secret outside of this Helmchart. Otherwise we rely on cert-manager to create one."
+                                        },
+                                        "filenames": {
+                                            "$ref": "#/$defs/tlsFilenames"
+                                        }
+                                    },
+                                    "required": [
+                                        "enabled",
+                                        "secretName",
+                                        "supplyOwnSecret",
+                                        "filenames"
+                                    ]
                                 }
                             },
                             "required": [
@@ -401,7 +453,33 @@
                                     "default": "mysqld-binlog-servers"
                                 },
                                 "endToEndTls": {
-                                    "$ref": "#/$defs/endToEndTls"
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "description": "Whether to use end-to-end encryption for MySQL binlog server Pods. This is recommended for high-security use cases. For MySQLds this is especially recommended since they use raw TCP connections and thereby by-pass TLS Ingress-rules. Otherwise, Ingress-TCP can also be configured directly via the Ingress controller (not in this Helmchart).",
+                                            "enabled": "boolean",
+                                            "default": false
+                                        },
+                                        "secretName": {
+                                            "type": "string",
+                                            "description": "Name of the TLS Secret",
+                                            "default": "binlog-end-to-end-tls"
+                                        },
+                                        "supplyOwnSecret": {
+                                            "enabled": "boolean",
+                                            "default": false,
+                                            "description": "Whether the Helmchart user will create a TLS Secret outside of this Helmchart. Otherwise we rely on cert-manager to create one."
+                                        },
+                                        "filenames": {
+                                            "$ref": "#/$defs/tlsFilenames"
+                                        }
+                                    },
+                                    "required": [
+                                        "enabled",
+                                        "secretName",
+                                        "supplyOwnSecret",
+                                        "filenames"
+                                    ]
                                 }
                             },
                             "required": [
@@ -474,7 +552,33 @@
                                     "default": "mysqld-replica-appliers"
                                 },
                                 "endToEndTls": {
-                                    "$ref": "#/$defs/endToEndTls"
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "description": "Whether to use end-to-end encryption for MySQL replica applier Pods. This is recommended for high-security use cases. For MySQLds this is especially recommended since they use raw TCP connections and thereby by-pass TLS Ingress-rules. Otherwise, Ingress-TCP can also be configured directly via the Ingress controller (not in this Helmchart).",
+                                            "enabled": "boolean",
+                                            "default": false
+                                        },
+                                        "secretName": {
+                                            "type": "string",
+                                            "description": "Name of the TLS Secret",
+                                            "default": "replica-applier-end-to-end-tls"
+                                        },
+                                        "supplyOwnSecret": {
+                                            "enabled": "boolean",
+                                            "default": false,
+                                            "description": "Whether the Helmchart user will create a TLS Secret outside of this Helmchart. Otherwise we rely on cert-manager to create one."
+                                        },
+                                        "filenames": {
+                                            "$ref": "#/$defs/tlsFilenames"
+                                        }
+                                    },
+                                    "required": [
+                                        "enabled",
+                                        "secretName",
+                                        "supplyOwnSecret",
+                                        "filenames"
+                                    ]
                                 }
                             },
                             "required": [
@@ -1598,34 +1702,20 @@
                 }
             }
         },
-        "endToEndTls": {
+        "tlsFilenames": {
             "type": "object",
             "properties": {
-                "enabled": {
-                    "description": "Whether to use end-to-end encryption for Pods. This is recommended for high-security use cases. For MySQLds this is especially recommended since they use raw TCP connections and thereby by-pass TLS Ingress-rules. Otherwise, Ingress-TCP can also be configured directly via the Ingress controller (not in this Helmchart).",
-                    "enabled": "boolean",
-                    "default": false
-                },
-                "secretName": {
-                    "type": "string",
-                    "description": "Name of the TLS Secret"
-                },
-                "supplyOwnSecret": {
-                    "enabled": "boolean",
-                    "default": false,
-                    "description": "Whether the Helmchart user will create a TLS Secret outside of this Helmchart. Otherwise we rely on cert-manager to create one."
-                },
-                "certfileName": {
+                "cert": {
                     "type": "string",
                     "default": "tls.crt",
                     "description": "Name of the certificate file in the Secret. ONLY overwrite this if you're not using standard TLS Secrets."
                 },
-                "keyfileName": {
+                "key": {
                     "type": "string",
                     "default": "tls.key",
                     "description": "Name of the key file in the Secret. ONLY overwrite this if you're not using standard TLS Secrets."
                 },
-                "cafileName": {
+                "ca": {
                     "type": [
                         "string",
                         "null"
@@ -1635,11 +1725,8 @@
                 }
             },
             "required": [
-                "enabled",
-                "secretName",
-                "supplyOwnSecret",
-                "certfileName",
-                "keyfileName"
+                "cert",
+                "key"
             ]
         },
         "selector": {
