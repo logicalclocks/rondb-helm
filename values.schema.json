@@ -1304,12 +1304,12 @@
                         "runSingle": {
                             "type": "string",
                             "description": "Table with columns: NUM_MYSQL_SERVERS, NUM_WAREHOUSES, NUM_TERMINALS",
-                            "default": "\n# NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS\n1 1 1\n1 2 1\n1 4 1\n1 4 2"
+                            "default": "# NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS\n1 1 1\n1 2 1\n1 4 1\n1 4 2"
                         },
                         "runMulti": {
                             "type": "string",
                             "description": "Table with columns: NUM_MYSQL_SERVERS, NUM_WAREHOUSES, NUM_TERMINALS",
-                            "default": "\n# NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS\n2 1 1\n2 2 1\n2 2 2"
+                            "default": "# NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS\n2 1 1\n2 2 1\n2 2 2"
                         }
                     }
                 },
