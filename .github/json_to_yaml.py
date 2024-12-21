@@ -49,7 +49,9 @@ with open("values.schema.json", "r") as f:
 defaults = extract_defaults(json_schema)
 
 # Save to YAML
-with open("values_sorted.yaml", "w") as f:
-    yaml.dump(defaults, f, default_flow_style=False)
+comment = "# This file is auto-generated from the values.schema.json file\n"
+with open("values.yaml", "w") as f:
+    f.write(comment)  # Write the comment to the file
+    yaml.dump(defaults, f, default_flow_style=False)  # Append the YAML content
 
 print("Defaults extracted and saved to values.yaml.")
