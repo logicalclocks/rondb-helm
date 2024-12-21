@@ -206,15 +206,7 @@ mysql:
     username: exporter
   sqlInitContent: {}
   supplyOwnSecret: false
-  users:
-  - host: '%'
-    privileges:
-    - database: '*'
-      privileges:
-      - ALL
-      table: '*'
-      withGrantOption: true
-    username: hopsworksroot
+  users: []
 networkPolicy:
   mgmds:
     enabled: true
