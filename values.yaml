@@ -25,12 +25,12 @@ benchmarking:
   dbt2:
     numWarehouses: 4
     runMulti: |-
-      NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
+      # NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
       2 1 1
       2 2 1
       2 2 2
     runSingle: |-
-      NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
+      # NUM_MYSQL_SERVERS  NUM_WAREHOUSES  NUM_TERMINALS
       1 1 1
       1 2 1
       1 4 1
