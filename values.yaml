@@ -254,17 +254,17 @@ resources:
       mysqldMiB: 650
       rdrsMiB: 100
     storage:
-      binlogGiB: 2
+      binlogGiB: 4
       classes:
         binlogFiles: null
         default: null
         diskColumns: null
       diskColumnGiB: 2
       logGiB: 2
-      redoLogGiB: 2
+      redoLogGiB: 4
       relayLogGiB: 2
       slackGiB: 1
-      undoLogsGiB: 2
+      undoLogsGiB: 4
 restoreFromBackup:
   backupId: null
   excludeDatabases: []

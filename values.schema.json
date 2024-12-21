@@ -949,20 +949,23 @@
                                 },
                                 "diskColumnGiB": {
                                     "type": "integer",
-                                    "default": 64,
+                                    "description": "This depends on how much data the user is expecting to place on disk",
+                                    "default": 2,
                                     "minimum": 1
                                 },
                                 "redoLogGiB": {
                                     "type": "integer",
-                                    "default": 64,
+                                    "description": "64GiB is recommended for optimal performance",
+                                    "default": 4,
                                     "minimum": 2,
                                     "maximum": 64
                                 },
                                 "undoLogsGiB": {
                                     "type": "integer",
-                                    "default": 64,
+                                    "maximum": 128,
+                                    "default": 4,
                                     "minimum": 1,
-                                    "maximum": 128
+                                    "description": "64GiB is recommended for good performance"
                                 },
                                 "slackGiB": {
                                     "type": "integer",
@@ -977,8 +980,9 @@
                                 },
                                 "binlogGiB": {
                                     "type": "integer",
+                                    "description": "Keep in mind that this size needs to survive the retention period of the binlog files",
                                     "minimum": 1,
-                                    "default": 2
+                                    "default": 4
                                 },
                                 "relayLogGiB": {
                                     "type": "integer",
