@@ -97,7 +97,9 @@ runs:
       run: |
         cat ./README_intro.md > ./README.md
         echo >> ./README.md
-        echo "Chart version is ${{ inputs.chart_version }}. See commit history for previous values.yaml schemata" >> ./README.md
+        echo "This has been auto-generated from the `values.schema.json` file." >> ./README.md
+        echo >> ./README.md
+        echo "Chart version is **${{ inputs.chart_version }}**. See commit history for previous schemata." >> ./README.md
         echo >> ./README.md
         cat ${{ inputs.VALUES_README_FILE }} >> ./README.md
 
