@@ -45,7 +45,7 @@ benchmarking:
           FIELD0 varbinary(4096)
       );
 clusterSize:
-  activeDataReplicas: 1
+  activeDataReplicas: 2
   maxNumMySQLServers: 5
   maxNumRdrs: 2
   minNumMySQLServers: 1
