@@ -1562,7 +1562,10 @@
                     "default": "eu-north-1"
                 },
                 "serverSideEncryption": {
-                    "type": "string",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
                     "default": "aws:kms"
                 },
                 "keyCredentialsSecret": {
