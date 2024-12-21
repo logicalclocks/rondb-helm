@@ -428,7 +428,7 @@
                         },
                         "externalLoadBalancers": {
                             "type": "object",
-                            "description": "One LoadBalancer per binlog server",
+                            "description": "One LoadBalancer per binlog server; Creating an (alternative) Ingress per binlog server is difficult",
                             "properties": {
                                 "enabled": {
                                     "type": "boolean",
@@ -533,6 +533,7 @@
                         },
                         "tag": {
                             "type": "string",
+                            "description": "The version of RonDB to use; This should always be equivalent to .Chart.AppVersion",
                             "default": "22.10.7-0.7"
                         }
                     }
@@ -1252,7 +1253,7 @@
                 },
                 "restoreNativeBackup": {
                     "type": "integer",
-                    "description": "This does not include *downloading* the native backups. IMPORTANT; Restoring native backups is NOT done in parallel yet",
+                    "description": "This does not include *downloading* the native backups. IMPORTANT; Restoring native backups is NOT done in parallel yet; TODO: Make this dependent on amount of data",
                     "default": 120
                 }
             },
@@ -1562,9 +1563,11 @@
                     "default": "eu-north-1"
                 },
                 "serverSideEncryption": {
-                    "type": [
-                        "string",
-                        "null"
+                    "enum": [
+                        "aws:kms",
+                        "aws:kms:dsse",
+                        "AES256",
+                        null
                     ],
                     "default": "aws:kms"
                 },
