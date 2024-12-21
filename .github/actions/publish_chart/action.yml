@@ -33,7 +33,7 @@ runs:
       run: |
         current_hash=$(sha256sum values.yaml | awk '{print $1}')
         python3 .github/json_to_yaml.py
-        ./.github/update_copyright.sh
+        ./.github/update_copyright.sh || true
         updated_hash=$(sha256sum values.yaml | awk '{print $1}')
 
         # values.schema.json is treated as the single source of truth (also for the docs)
