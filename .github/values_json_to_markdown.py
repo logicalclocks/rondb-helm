@@ -1,6 +1,7 @@
 import json
 import pandas as pd
 import argparse
+import jsonref
 
 
 # Flatten JSON properties
@@ -15,6 +16,7 @@ def flatten_properties(properties, parent_key=""):
         field_path = f"{parent_key}.{key}" if parent_key else key
         # Check if enum is present (instead of type)
         if "enum" in value:
+            value["enum"] = [f'null' if not x else x for x in value["enum"]]
             field_type = f"enum: [{', '.join(value['enum'])}]"
         else:
             field_type = value.get("type", "")
@@ -52,8 +54,11 @@ args = parser.parse_args()
 with open("values.schema.json", "r") as f:
     schema = json.load(f)
 
+# Automatically resolve references
+resolved_schema = jsonref.replace_refs(schema)
+
 # Get the flattened properties
-properties = schema.get("properties", {})
+properties = resolved_schema.get("properties", {})
 flattened_properties = flatten_properties(properties)
 
 # Convert to a DataFrame for easier Markdown generation
