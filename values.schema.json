@@ -217,6 +217,10 @@
                                     "type": "boolean",
                                     "default": false
                                 },
+                                "name": {
+                                    "type": "string",
+                                    "default": "mysqld-external"
+                                },
                                 "class": {
                                     "type": [
                                         "string",
