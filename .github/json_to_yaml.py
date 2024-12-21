@@ -5,6 +5,7 @@ import sys
 
 # Use this script to transform the values.schema.json file into a values.yaml file.
 
+some_defaults_not_found = False
 
 def extract_defaults(schema, parent_is_array=False, parent_key=""):
     """Recursively extract default values from a JSON schema."""
@@ -27,6 +28,9 @@ def extract_defaults(schema, parent_is_array=False, parent_key=""):
         if not defaults and "type" in schema:
             if not parent_is_array:
                 print(f"Warning: No default value found for '{parent_key}'")
+                global some_defaults_not_found
+                some_defaults_not_found = True
+
             # Handle default values for primitive types.
             if "null" in schema["type"]:
                 defaults = None
@@ -43,7 +47,8 @@ def extract_defaults(schema, parent_is_array=False, parent_key=""):
 
 
 # Load the JSON schema with references
-with open("values.schema.json", "r") as f:
+schema_file = "values.schema.json"
+with open(schema_file, "r") as f:
     json_schema = json.load(f)
 
 # Automatically resolve references
@@ -62,7 +67,8 @@ class LiteralDumper(yaml.Dumper):
 
 
 # Save to YAML
-with open("values.yaml", "w") as f:
+output_file = "values.yaml"
+with open(output_file, "w") as f:
     f.write("# This file is auto-generated from the values.schema.json file.\n")
     f.write("# The file is also used to generate the GitHub Pages documentation.\n")
     f.write("# Schema JSON files allow defining restrictions, enums and references.\n")
@@ -76,4 +82,8 @@ with open("values.yaml", "w") as f:
         indent=2,
     )
 
-print("Defaults extracted and saved to values.yaml.")
+if some_defaults_not_found:
+    print(f"Some default values were not found in {schema_file}. Check the output for warnings.")
+    sys.exit(1)
+else:
+    print(f"Defaults extracted from {schema_file} and saved to {output_file}.")
