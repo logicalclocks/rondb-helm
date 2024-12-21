@@ -40,7 +40,7 @@ runs:
         echo "$RESOURCES"
         
         if [ "$ELAPSED_TIME" -ge "$TIMEOUT" ]; then
-          echo "Timeout reached after $((TIMEOUT / 60)) minutes. Some resources were not deleted.";
+          echo "::error Timeout reached after $((TIMEOUT / 60)) minutes. Some resources were not deleted.";
           exit 1;
         fi
         sleep 3;

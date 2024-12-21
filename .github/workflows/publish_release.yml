@@ -29,7 +29,7 @@ jobs:
         echo "Current branch: $branch"
         # Exit if branch is not main
         if [ "$branch" != "main" ]; then
-          echo "Branch is not main, exiting"
+          echo "::error Branch is not main, exiting"
           exit 1
         fi
 
@@ -38,7 +38,7 @@ jobs:
         TAG=$(echo ${{ github.ref_name }} | sed 's/v//')
         CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
         if [ "$TAG" != "$CHART_VERSION" ]; then
-          echo "Tag $TAG does not match Chart.yaml version $CHART_VERSION"
+          echo "::error Tag $TAG does not match Chart.yaml version $CHART_VERSION"
           exit 1
         fi
         echo "CHART_VERSION=$CHART_VERSION" >> $GITHUB_ENV
