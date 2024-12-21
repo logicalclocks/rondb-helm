@@ -25,11 +25,26 @@ runs:
       run: |
         sed -i "s/^version:.*/version: ${{ inputs.chart_version }}/" Chart.yaml
 
-    - name: Create a Markdown table from values.schema.json
+    - shell: bash
+      run: pip3 install -r .github/requirements.txt
+
+    - name: Check if values.schema.json == values.yaml
       shell: bash
       run: |
-        pip3 install -r .github/requirements.txt
-        python3 .github/values_json_to_markdown.py --output ${{ inputs.VALUES_README_FILE }}
+        current_hash=$(sha256sum values.yaml | awk '{print $1}')
+        python3 .github/json_to_yaml.py
+        ./.github/update_copyright.sh
+        updated_hash=$(sha256sum values.yaml | awk '{print $1}')
+
+        # values.schema.json is treated as the single source of truth (also for the docs)
+        if [ "$current_hash" != "$updated_hash" ]; then
+          echo "The values.yaml does not represent the values.schema.json file, please run .github/json_to_yaml.py"
+          exit 1
+        fi
+
+    - name: Create a Markdown table from values.schema.json
+      shell: bash
+      run: python3 .github/values_json_to_markdown.py --output ${{ inputs.VALUES_README_FILE }}
 
     - name: Set up Helm
       uses: azure/setup-helm@v4
