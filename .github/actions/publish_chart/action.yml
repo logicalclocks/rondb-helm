@@ -42,6 +42,7 @@ runs:
           echo "::notice Don't forget to add copyrights after running the script (use .github/update_copyright.sh)"
           exit 1
         fi
+        echo "values.yaml is up-to-date with values.schema.json"
 
     - name: Create a Markdown table from values.schema.json
       shell: bash
