@@ -210,7 +210,31 @@
                             ]
                         },
                         "externalLoadBalancer": {
-                            "$ref": "#/$defs/externalLoadBalancer"
+                            "type": "object",
+                            "description": "Configuration for load balancer service to be used for external access",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "class": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "default": null
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "description": "Cloud provider load balancer specific annotations.",
+                                    "default": {}
+                                },
+                                "port": {
+                                    "type": "integer",
+                                    "description": "Port to expose the service on",
+                                    "default": 3306
+                                }
+                            }
                         },
                         "exporter": {
                             "type": "object",
@@ -279,7 +303,26 @@
                             "default": "rdrs-cluster-ip"
                         },
                         "externalLoadBalancer": {
-                            "$ref": "#/$defs/externalLoadBalancer"
+                            "type": "object",
+                            "description": "Configuration for load balancer service to be used for external access",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "class": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "default": null
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "description": "Cloud provider load balancer specific annotations.",
+                                    "default": {}
+                                }
+                            }
                         },
                         "ingress": {
                             "type": "object",
@@ -376,7 +419,31 @@
                             ]
                         },
                         "externalLoadBalancers": {
-                            "$ref": "#/$defs/externalLoadBalancer"
+                            "type": "object",
+                            "description": "One LoadBalancer per binlog server",
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "class": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ],
+                                    "default": null
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "description": "Cloud provider load balancer specific annotations.",
+                                    "default": {}
+                                },
+                                "port": {
+                                    "type": "integer",
+                                    "description": "Port to expose the service on",
+                                    "default": 3306
+                                }
+                            }
                         }
                     },
                     "required": [
@@ -1534,32 +1601,6 @@
                 "certfileName",
                 "keyfileName"
             ]
-        },
-        "externalLoadBalancer": {
-            "type": "object",
-            "description": "Configuration for load balancer service to be used for external access to RDRS",
-            "properties": {
-                "enabled": {
-                    "type": "boolean",
-                    "default": false
-                },
-                "class": {
-                    "type": [
-                        "string",
-                        "null"
-                    ],
-                    "default": null
-                },
-                "annotations": {
-                    "type": "object",
-                    "description": "Cloud provider load balancer specific annotations.",
-                    "default": {}
-                },
-                "port": {
-                    "type": "integer",
-                    "description": "Port to expose the service on"
-                }
-            }
         },
         "selector": {
             "type": "object",
