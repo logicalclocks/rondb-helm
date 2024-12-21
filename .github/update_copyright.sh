@@ -47,7 +47,7 @@ find . -type f \( \
     -iname "*.yml" -o \
     -iname "*.sh" -o \
     -iname "*.py" \
-    \) ! -path "./values/*" ! -path "./.github/*" | while read file; do
+    \) ! -path "./values/*" ! -path "./.github/*" ! -path "./venv/**" | while read file; do
     # Get the current file hash
     current_hash=$(get_file_hash "$file")
 
