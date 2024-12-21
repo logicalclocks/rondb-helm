@@ -1598,55 +1598,6 @@
                 }
             }
         },
-        "cpuResources": {
-            "type": "object",
-            "description": "CPU resources per RonDB service type",
-            "properties": {
-                "mgmds": {
-                    "type": "number"
-                },
-                "ndbmtds": {
-                    "type": "number"
-                },
-                "mysqlds": {
-                    "type": "number"
-                },
-                "rdrs": {
-                    "type": "number"
-                },
-                "benchs": {
-                    "type": "number"
-                },
-                "restore": {
-                    "type": "number"
-                },
-                "mysqldExporters": {
-                    "type": "number"
-                }
-            }
-        },
-        "memoryResources": {
-            "type": "object",
-            "description": "Memory resources per RonDB service type",
-            "properties": {
-                "ndbmtdsMiB": {
-                    "type": "number"
-                },
-                "mysqldMiB": {
-                    "type": "number",
-                    "description": "This can usually be kept at the default independent of the load"
-                },
-                "rdrsMiB": {
-                    "type": "number"
-                },
-                "benchsMiB": {
-                    "type": "number"
-                },
-                "mysqldExportersMiB": {
-                    "type": "number"
-                }
-            }
-        },
         "endToEndTls": {
             "type": "object",
             "properties": {
