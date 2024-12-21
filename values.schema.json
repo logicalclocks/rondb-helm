@@ -513,16 +513,88 @@
             "description": "Information for Docker images used in the cluster",
             "properties": {
                 "rondb": {
-                    "$ref": "#/$defs/image"
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "default": "docker.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "default": "hopsworks"
+                        },
+                        "name": {
+                            "type": "string",
+                            "default": "rondb"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "default": "22.10.7-0.7"
+                        }
+                    }
                 },
                 "toolbox": {
-                    "$ref": "#/$defs/image"
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "default": "docker.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "default": "hopsworks"
+                        },
+                        "name": {
+                            "type": "string",
+                            "default": "hwutils"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "default": "0.7"
+                        }
+                    }
                 },
                 "dataValidation": {
-                    "$ref": "#/$defs/image"
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "default": "docker.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "name": {
+                            "type": "string",
+                            "default": "python"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "default": "3.12-slim"
+                        }
+                    }
                 },
                 "mysqldExporter": {
-                    "$ref": "#/$defs/image"
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "default": "docker.hops.works"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "default": "hopsworks"
+                        },
+                        "name": {
+                            "type": "string",
+                            "default": "mysqld_exporter"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "default": "0.11.2"
+                        }
+                    }
                 }
             },
             "required": [
@@ -1543,26 +1615,6 @@
                 },
                 "mysqldExportersMiB": {
                     "type": "number"
-                }
-            }
-        },
-        "image": {
-            "type": "object",
-            "description": "Docker image",
-            "properties": {
-                "registry": {
-                    "type": "string",
-                    "description": "Where image is hosted. Omit for local registry (E.g. use `minikube image load rondb:latest`)"
-                },
-                "repository": {
-                    "type": "string",
-                    "defaault": "hopsworks"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "tag": {
-                    "type": "string"
                 }
             }
         },
