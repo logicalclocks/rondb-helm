@@ -52,12 +52,28 @@ resolved_schema = jsonref.replace_refs(json_schema)
 # Extract defaults
 defaults = extract_defaults(resolved_schema)
 
+
+class LiteralDumper(yaml.Dumper):
+    def represent_scalar(self, tag, value, style=None):
+        # Check if the value contains newlines
+        if isinstance(value, str) and "\n" in value:
+            style = "|"
+        return super().represent_scalar(tag, value, style)
+
+
 # Save to YAML
 with open("values.yaml", "w") as f:
     f.write("# This file is auto-generated from the values.schema.json file.\n")
     f.write("# The file is also used to generate the GitHub Pages documentation.\n")
     f.write("# Schema JSON files allow defining restrictions, enums and references.\n")
     f.write(f"# Use script {sys.argv[0]} to generate this file.\n")
-    yaml.dump(defaults, f, default_flow_style=False)  # Append the YAML content
+    yaml.dump(
+        defaults,
+        f,
+        Dumper=LiteralDumper,
+        default_flow_style=False,
+        allow_unicode=True,
+        indent=2,
+    )
 
 print("Defaults extracted and saved to values.yaml.")
