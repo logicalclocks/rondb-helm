@@ -1530,20 +1530,6 @@
         "globalReplication"
     ],
     "$defs": {
-        "secret": {
-            "type": "object",
-            "description": "",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Name of the secret"
-                },
-                "key": {
-                    "type": "string",
-                    "description": "Key in the secret"
-                }
-            }
-        },
         "s3": {
             "type": "object",
             "properties": {
@@ -1576,10 +1562,38 @@
                     "default": "aws:kms"
                 },
                 "keyCredentialsSecret": {
-                    "$ref": "#/$defs/secret"
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Name of the Secret",
+                            "minLength": 1,
+                            "default": "aws-credentials"
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": "Key in the Secret",
+                            "minLength": 1,
+                            "default": "key_id"
+                        }
+                    }
                 },
                 "secretCredentialsSecret": {
-                    "$ref": "#/$defs/secret"
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Name of the Secret",
+                            "minLength": 1,
+                            "default": "aws-credentials"
+                        },
+                        "key": {
+                            "type": "string",
+                            "description": "Key in the Secret",
+                            "minLength": 1,
+                            "default": "access_key"
+                        }
+                    }
                 }
             }
         },
