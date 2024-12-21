@@ -163,7 +163,18 @@ Let's say our Chart.yaml now has version `0.1.0`. We have not released this vers
 
 The released Helmchart will be visible on the `gh_pages` branch of this repository.
 
-**IMPORTANT**: Try keeping `values.schema.json` up to date with the `values.yaml` file. It used to generate the Markdown docs on [GitHub Pages](https://logicalclocks.github.io/rondb-helm/).
+### Generating values.yaml file
+
+We use the `values.schema.json` as a single source of truth. It is used to generate both the `values.yaml` file and the Markdown docs on [GitHub Pages](https://logicalclocks.github.io/rondb-helm/). **Publishing will fail** if the `values.yaml` file is not updated.
+
+The docs are updated automatically, but run the following to update the `values.yaml` file:
+
+```bash
+python -m venv venv && source venv/bin/activate
+pip3 install -r .github/requirements.txt
+python3 .github/json_to_yaml.py
+./.github/update_copyright.sh
+```
 
 ## TODO
 
