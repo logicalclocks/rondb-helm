@@ -1,232 +1,24 @@
 # Copyright (c) 2024-2024 Hopsworks AB. All rights reserved.
 
-meta:
-  mgmd:
-    statefulSetName: mgmds
-    headlessClusterIp:
-      name: headless-mgmds
-      port: 1186
-      annotations: {}
-  ndbmtd:
-    statefulSet:
-      podAnnotations: {}
-  mysqld:
-    statefulSet:
-      name: mysqlds
-      endToEndTls:
-        enabled: false
-        secretName: mysqld-end-to-end-tls
-        supplyOwnSecret: false
-        certfileName: tls.crt
-        keyfileName: tls.key
-        cafileName: null
-    clusterIp:
-      name: mysqld
-      port: 3306
-      annotations: {}
-    headlessClusterIp:
-      name: headless-mysqlds
-      port: 3306
-    externalLoadBalancer:
-      name: mysqld-external
-      enabled: false
-      class: null
-      annotations: {}
-      port: 3306
-    exporter:
-      metricsPort: 9104
-    addSysNiceCapability: true
-  binlogServers:
-    statefulSet:
-      name: mysqld-binlog-servers
-      endToEndTls:
-        enabled: false
-        secretName: binlog-end-to-end-tls
-        supplyOwnSecret: false
-        certfileName: tls.crt
-        keyfileName: tls.key
-        cafileName: null
-    headlessClusterIp:
-      name: headless-binlog-servers
-      port: 3306
-    # One LoadBalancer per binlog server; Creating an Ingress per binlog server is difficult
-    externalLoadBalancers:
-      namePrefix: binlog-server
-      enabled: true
-      class: null
-      annotations: {}
-      port: 3306
-  replicaAppliers:
-    statefulSet:
-      name: mysqld-replica-appliers
-      endToEndTls:
-        enabled: false
-        secretName: replica-applier-end-to-end-tls
-        supplyOwnSecret: false
-        certfileName: tls.crt
-        keyfileName: tls.key
-        cafileName: null
-    headlessClusterIp:
-      name: headless-replica-appliers
-      port: 3306
-  rdrs:
-    statefulSet:
-      name: rdrs
-      endToEndTls:
-        enabled: false
-        secretName: rdrs-end-to-end-tls
-        supplyOwnSecret: false
-        certfileName: tls.crt
-        keyfileName: tls.key
-        cafileName: null
-    clusterIp:
-      name: rdrs
-      annotations:
-        consul.hashicorp.com/service-name: rdrs
-        prometheus.io/path: /metrics
-        prometheus.io/port: '4406'
-        prometheus.io/scheme: https
-        prometheus.io/scrape: 'true'
-    headlessClusterIpName: rdrs-cluster-ip
-    externalLoadBalancer:
-      name: rdrs-external
-      enabled: false
-      class: null
-      annotations: {}
-    ingress:
-      enabled: false
-      class: nginx
-      useDefaultBackend: true
-      dnsNames:
-      - rondb.com
-      tls:
-        enabled: true
-        ipAddresses:
-        - 127.0.0.1
-staticCpuManagerPolicy: false
-isMultiNodeCluster: true
-terminationGracePeriodSeconds: 60
-priorityClass: rondb-high-priority
-enableSecurityContext: true
-serviceAccountAnnotations: {}
-networkPolicy:
-  mgmds:
-    enabled: true
-    ingressSelectors: []
-  ndbmtds:
-    enabled: true
-    ingressSelectors: []
-imagePullSecrets: []
-imagePullPolicy: IfNotPresent
-images:
-  rondb:
-    registry: docker.io
-    repository: hopsworks
-    name: rondb
-    # This should always be equivalent to .Chart.AppVersion
-    tag: 22.10.7-0.7
-  toolbox:
-    registry: docker.io
-    repository: hopsworks
-    name: hwutils
-    tag: "0.7"
-  dataValidation:
-    registry: docker.io
-    repository: ""
-    name: python
-    tag: 3.12-slim
-  mysqldExporter:
-    registry: docker.hops.works
-    repository: hopsworks
-    name: mysqld_exporter
-    tag: 0.11.2
-mysql:
-  credentialsSecretName: "mysql-passwords"
-  clusterUser: "helm"
-  sqlInitContent: {}
-  supplyOwnSecret: false
-  exporter:
-    enabled: false
-    username: "exporter"
-    maxUserConnections: 3
-  users:
-  - username: hopsworksroot
-    host: "%"
-    privileges:
-      - database: "*"
-        table: "*"
-        withGrantOption: true
-        privileges: ["ALL"]
-clusterSize:
-  activeDataReplicas: 1
-  numNodeGroups: 1
-  minNumMySQLServers: 1
-  maxNumMySQLServers: 5
-  minNumRdrs: 1
-  maxNumRdrs: 2
-resources:
-  limits:
-    cpus:
-      mgmds: 0.2
-      ndbmtds: 2
-      mysqlds: 2
-      rdrs: 2
-      benchs: 2
-      restore: 1
-      mysqldExporters: 0.2
-    memory:
-      ndbmtdsMiB: 4500
-      rdrsMiB: 500
-      mysqldMiB: 1400
-      benchsMiB: 500
-      mysqldExportersMiB: 100
-  requests:
-    cpus:
-      mgmds: 0.2
-      mysqlds: 1
-      rdrs: 1
-      benchs: 1
-      mysqldExporters: 0.02
-    memory:
-      rdrsMiB: 100
-      mysqldMiB: 650
-      benchsMiB: 100
-      mysqldExportersMiB: 50
-    storage:
-      classes:
-        default: null
-        diskColumns: null
-        binlogFiles: null
-      diskColumnGiB: 2
-      redoLogGiB: 2
-      undoLogsGiB: 2
-      slackGiB: 1
-      logGiB: 2
-      binlogGiB: 2
-      relayLogGiB: 2
-rondbConfig:
-  EmptyApiSlots: 8
-  MySQLdSlotsPerNode: 4
-  RdrsSlotsPerNode: 1
-  RdrsMetadataSlotsPerNode: 1
-  NdbmtdMemoryOverheadMiB: 1024
-  InitialTablespaceSizeGiB: -1
-  TransactionInactiveTimeout: 15000
-  TransactionDeadlockDetectionTimeout: 1500
-rdrs:
-  externalMetadataCluster:
-    slotsPerNode: 1
-    mgmds: []
-tls:
-  caSecretName: null
-# Using minutes for easier template addition
-timeoutsMinutes:
-  singleSetupMySQLds: 5
-  # TODO: Make this dependent on amount of data
-  restoreNativeBackup: 120
-benchmarking:
+# This file is auto-generated from the values.schema.json file
+backups:
   enabled: false
-  type: "sysbench"
+  objectStorageProvider: s3
+  pathPrefix: rondb_backup
+  s3:
+    bucketName: rondb-helm
+    endpoint: null
+    keyCredentialsSecret:
+      key: key_id
+      name: aws-credentials
+    provider: AWS
+    region: eu-north-1
+    secretCredentialsSecret:
+      key: access_key
+      name: aws-credentials
+    serverSideEncryption: aws:kms
+  schedule: 0 3 * * mon
+benchmarking:
   dbt2:
     numWarehouses: 4
     runSingle: |
@@ -240,81 +32,285 @@ benchmarking:
       2                    1               1
       2                    2               1
       2                    2               2
+  enabled: false
   sysbench:
-    threadCountsToRun: "1;2;4;8;12;16;24;32;64"
-    rows: 100000
     minimizeBandwidth: false
+    rows: 100000
+    threadCountsToRun: 1;2;4;8;12;16;24;32;64
+  type: sysbench
   ycsb:
     schemata: |
       CREATE TABLE IF NOT EXISTS ycsb.usertable (
           YCSB_KEY VARCHAR(255) PRIMARY KEY,
           FIELD0 varbinary(4096)
       );
-restoreFromBackup:
-  backupId: null
-  pathPrefix: rondb_backup
-  excludeDatabases: []
-  excludeTables: []
-  objectStorageProvider: s3
-  s3:
-    provider: "AWS"
-    endpoint: null
-    keyCredentialsSecret:
-      name: aws-credentials
-      key: key_id
-    secretCredentialsSecret:
-      name: aws-credentials
-      key: access_key
-    bucketName: rondb-helm
-    region: eu-north-1
-    # possible values: aws:kms, aws:kms:dsse, AES256
-    serverSideEncryption: aws:kms
-backups:
-  enabled: false
-  pathPrefix: rondb_backup
-  schedule: "0 3 * * mon"
-  objectStorageProvider: s3
-  s3:
-    provider: "AWS"
-    endpoint: null
-    keyCredentialsSecret:
-      name: aws-credentials
-      key: key_id
-    secretCredentialsSecret:
-      name: aws-credentials
-      key: access_key
-    bucketName: rondb-helm
-    region: eu-north-1
-    # possible values: aws:kms, aws:kms:dsse, AES256
-    serverSideEncryption: aws:kms
-nodeSelector:
-  mysqld: {}
-  ndbmtd: {}
-  mgmd: {}
-  rdrs: {}
-  backup: {}
-tolerations:
-  mysqld: []
-  ndbmtd: []
-  mgmd: []
-  rdrs: []
-  backup: []
+clusterSize:
+  activeDataReplicas: 1
+  maxNumMySQLServers: 5
+  maxNumRdrs: 2
+  minNumMySQLServers: 1
+  minNumRdrs: 1
+  numNodeGroups: 1
+enableSecurityContext: true
 globalReplication:
   clusterNumber: 1
   primary:
-    enabled: false
-    numBinlogServers: 2
-    maxNumBinlogServers: 2
-    expireBinlogsDays: 1.5
-    logReplicaUpdates: false
     binlogFilename: binlog
+    enabled: false
+    expireBinlogsDays: 1.5
     ignoreDatabases: []
     ignoreTables: []
+    logReplicaUpdates: false
+    maxNumBinlogServers: 2
+    numBinlogServers: 2
   secondary:
     enabled: false
     replicateFrom:
-      clusterNumber: 2
-      useTlsConnection: false
       binlogServerHosts: []
+      clusterNumber: 2
       ignoreDatabases: []
       ignoreTables: []
+      useTlsConnection: false
+imagePullPolicy: IfNotPresent
+imagePullSecrets: []
+images:
+  dataValidation:
+    name: python
+    registry: docker.io
+    repository: ''
+    tag: 3.12-slim
+  mysqldExporter:
+    name: mysqld_exporter
+    registry: docker.hops.works
+    repository: hopsworks
+    tag: 0.11.2
+  rondb:
+    name: rondb
+    registry: docker.io
+    repository: hopsworks
+    tag: 22.10.7-0.7
+  toolbox:
+    name: hwutils
+    registry: docker.io
+    repository: hopsworks
+    tag: '0.7'
+isMultiNodeCluster: true
+meta:
+  binlogServers:
+    externalLoadBalancers:
+      annotations: {}
+      class: null
+      enabled: true
+      namePrefix: binlog-server
+      port: 3306
+    headlessClusterIp:
+      name: headless-binlog-servers
+      port: 3306
+    statefulSet:
+      endToEndTls:
+        cafileName: null
+        certfileName: tls.crt
+        enabled: false
+        keyfileName: tls.key
+        secretName: binlog-end-to-end-tls
+        supplyOwnSecret: false
+      name: mysqld-binlog-servers
+  mgmd:
+    headlessClusterIp:
+      annotations: {}
+      name: headless-mgmds
+      port: 1186
+    statefulSetName: mgmds
+  mysqld:
+    addSysNiceCapability: true
+    clusterIp:
+      annotations: {}
+      name: mysqld
+      port: 3306
+    exporter:
+      metricsPort: 9104
+    externalLoadBalancer:
+      annotations: {}
+      class: null
+      enabled: false
+      name: mysqld-external
+      port: 3306
+    headlessClusterIp:
+      name: headless-mysqlds
+      port: 3306
+    statefulSet:
+      endToEndTls:
+        cafileName: null
+        certfileName: tls.crt
+        enabled: false
+        keyfileName: tls.key
+        secretName: mysqld-end-to-end-tls
+        supplyOwnSecret: false
+      name: mysqlds
+  ndbmtd:
+    statefulSet:
+      podAnnotations: {}
+  rdrs:
+    clusterIp:
+      annotations:
+        consul.hashicorp.com/service-name: rdrs
+        prometheus.io/path: /metrics
+        prometheus.io/port: '4406'
+        prometheus.io/scheme: https
+        prometheus.io/scrape: 'true'
+      name: rdrs
+    externalLoadBalancer:
+      annotations: {}
+      class: null
+      enabled: false
+      name: rdrs-external
+    headlessClusterIpName: rdrs-cluster-ip
+    ingress:
+      class: nginx
+      dnsNames:
+      - rondb.com
+      enabled: false
+      tls:
+        enabled: true
+        ipAddresses:
+        - 127.0.0.1
+      useDefaultBackend: true
+    statefulSet:
+      endToEndTls:
+        cafileName: null
+        certfileName: tls.crt
+        enabled: false
+        keyfileName: tls.key
+        secretName: rdrs-end-to-end-tls
+        supplyOwnSecret: false
+      name: rdrs
+  replicaAppliers:
+    headlessClusterIp:
+      name: headless-replica-appliers
+      port: 3306
+    statefulSet:
+      endToEndTls:
+        cafileName: null
+        certfileName: tls.crt
+        enabled: false
+        keyfileName: tls.key
+        secretName: replica-applier-end-to-end-tls
+        supplyOwnSecret: false
+      name: mysqld-replica-appliers
+mysql:
+  clusterUser: helm
+  credentialsSecretName: mysql-passwords
+  exporter:
+    enabled: false
+    maxUserConnections: 3
+    username: exporter
+  sqlInitContent: {}
+  supplyOwnSecret: false
+  users:
+  - host: '%'
+    privileges:
+    - database: '*'
+      privileges:
+      - ALL
+      table: '*'
+      withGrantOption: true
+    username: hopsworksroot
+networkPolicy:
+  mgmds:
+    enabled: true
+    ingressSelectors: []
+  ndbmtds:
+    enabled: true
+    ingressSelectors: []
+nodeSelector:
+  backup: {}
+  mgmd: {}
+  mysqld: {}
+  ndbmtd: {}
+  rdrs: {}
+priorityClass: rondb-high-priority
+rdrs:
+  externalMetadataCluster:
+    mgmds: []
+    slotsPerNode: 1
+resources:
+  limits:
+    cpus:
+      benchs: 2
+      mgmds: 0.2
+      mysqldExporters: 0.2
+      mysqlds: 2
+      ndbmtds: 2
+      rdrs: 2
+      restore: 1
+    memory:
+      benchsMiB: 500
+      mysqldExportersMiB: 100
+      mysqldMiB: 1400
+      ndbmtdsMiB: 4500
+      rdrsMiB: 500
+  requests:
+    cpus:
+      benchs: 1
+      mgmds: 0.2
+      mysqldExporters: 0.02
+      mysqlds: 1
+      rdrs: 1
+    memory:
+      benchsMiB: 100
+      mysqldExportersMiB: 50
+      mysqldMiB: 650
+      rdrsMiB: 100
+    storage:
+      binlogGiB: 2
+      classes:
+        binlogFiles: null
+        default: null
+        diskColumns: null
+      diskColumnGiB: 2
+      logGiB: 2
+      redoLogGiB: 2
+      relayLogGiB: 2
+      slackGiB: 1
+      undoLogsGiB: 2
+restoreFromBackup:
+  backupId: null
+  excludeDatabases: []
+  excludeTables: []
+  objectStorageProvider: s3
+  pathPrefix: rondb_backup
+  s3:
+    bucketName: rondb-helm
+    endpoint: null
+    keyCredentialsSecret:
+      key: key_id
+      name: aws-credentials
+    provider: AWS
+    region: eu-north-1
+    secretCredentialsSecret:
+      key: access_key
+      name: aws-credentials
+    serverSideEncryption: aws:kms
+rondbConfig:
+  EmptyApiSlots: 8
+  InitialTablespaceSizeGiB: -1
+  MySQLdSlotsPerNode: 4
+  NdbmtdMemoryOverheadMiB: 1024
+  RdrsMetadataSlotsPerNode: 1
+  RdrsSlotsPerNode: 1
+  TransactionDeadlockDetectionTimeout: 1500
+  TransactionInactiveTimeout: 15000
+serviceAccountAnnotations: {}
+staticCpuManagerPolicy: false
+terminationGracePeriodSeconds: 60
+timeoutsMinutes:
+  restoreNativeBackup: 120
+  singleSetupMySQLds: 5
+tls:
+  caSecretName: null
+tolerations:
+  backup: []
+  mgmd: []
+  mysqld: []
+  ndbmtd: []
+  rdrs: []
