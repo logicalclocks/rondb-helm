@@ -424,7 +424,11 @@
                             "properties": {
                                 "enabled": {
                                     "type": "boolean",
-                                    "default": false
+                                    "default": true
+                                },
+                                "namePrefix": {
+                                    "type": "string",
+                                    "default": "binlog-server"
                                 },
                                 "class": {
                                     "type": [
