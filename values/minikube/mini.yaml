@@ -55,8 +55,8 @@ rondbConfig:
   MaxNoOfTriggers: 1000
   MySQLdSlotsPerNode: 4
   NdbmtdMemoryOverheadMiB: 700
-  ReservedConcurrentOperations: 20000
   ReplicationMemory: 50M
+  ReservedConcurrentOperations: 20000
   SchemaMemory: 200M
   SharedGlobalMemory: 150M
   TransactionMemory: 150M

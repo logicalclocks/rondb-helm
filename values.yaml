@@ -297,8 +297,8 @@ rondbConfig:
   NdbmtdMemoryOverheadMiB: 1024
   RdrsMetadataSlotsPerNode: 1
   RdrsSlotsPerNode: 1
-  ReservedConcurrentOperations: null
   ReplicationMemory: null
+  ReservedConcurrentOperations: null
   SchemaMemory: null
   SharedGlobalMemory: null
   TransactionDeadlockDetectionTimeout: 1500
