@@ -60,4 +60,5 @@ rondbConfig:
   SchemaMemory: 200M
   SharedGlobalMemory: 150M
   TransactionMemory: 150M
+  UseTotalMemoryConfig: true
 terminationGracePeriodSeconds: 25

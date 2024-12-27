@@ -304,6 +304,7 @@ rondbConfig:
   TransactionDeadlockDetectionTimeout: 1500
   TransactionInactiveTimeout: 15000
   TransactionMemory: null
+  UseTotalMemoryConfig: false
 serviceAccountAnnotations: {}
 staticCpuManagerPolicy: false
 terminationGracePeriodSeconds: 60
