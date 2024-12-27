@@ -1138,6 +1138,20 @@
                     ],
                     "default": null
                 },
+                "ReplicationMemory": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null
+                },
+                "SchemaMemory": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null
+                },
                 "ReservedConcurrentOperations": {
                     "type": [
                         "integer",

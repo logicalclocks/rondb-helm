@@ -57,6 +57,8 @@ rondbConfig:
   MySQLdSlotsPerNode: 4
   NdbmtdMemoryOverheadMiB: 825
   ReservedConcurrentOperations: 50000
+  ReplicationMemory: 50M
+  SchemaMemory: 200M
   SharedGlobalMemory: 300M
   TransactionMemory: 300M
 terminationGracePeriodSeconds: 25
