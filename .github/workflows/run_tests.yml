@@ -86,11 +86,12 @@ jobs:
           helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --create-namespace \
-            --values ./values/minikube/mini.yaml \
+            --values ./values/minikube/medium.yaml \
             --set benchmarking.enabled=true \
             --set staticCpuManagerPolicy=true \
             --set terminationGracePeriodSeconds=40 \
             --set meta.rdrs.statefulSet.endToEndTls.enabled=true \
+            --set clusterSize.activeDataReplicas=1 \
             --set clusterSize.numNodeGroups=2 \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=2 \
