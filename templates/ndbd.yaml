@@ -89,6 +89,7 @@ spec:
         nodeGroup: {{ $nodeGroup | quote }}
       # This is an easy way to restart data nodes without changing specs.
       annotations:
+        configIniHash: {{ include "rondb.configIniHash" $ }}
 {{- range $k, $v := $.Values.meta.ndbmtd.statefulSet.podAnnotations }}
         {{ $k | quote }}: {{ $v | quote }}
 {{- end }}

@@ -35,6 +35,8 @@ spec:
       # Used to apply labels to all pods created by the Deployment
       labels:
         rondbService: {{ include "rondb.labels.rondbService.binlog-servers" $ }}
+      annotations:
+        configIniHash: {{ include "rondb.configIniHash" $ }}
     spec:
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
       affinity:
