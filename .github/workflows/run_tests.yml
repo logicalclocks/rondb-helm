@@ -103,7 +103,7 @@ jobs:
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=generate-data
 
       - name: Waiting for benchmark job to complete
-        run: bash .github/wait_job.sh $K8S_NAMESPACE benchs 240
+        run: bash .github/wait_job.sh $K8S_NAMESPACE benchs 400
 
       - name: Collect bench logs
         if: always()
