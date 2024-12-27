@@ -298,6 +298,8 @@ rondbConfig:
   RdrsMetadataSlotsPerNode: 1
   RdrsSlotsPerNode: 1
   ReservedConcurrentOperations: null
+  ReplicationMemory: null
+  SchemaMemory: null
   SharedGlobalMemory: null
   TransactionDeadlockDetectionTimeout: 1500
   TransactionInactiveTimeout: 15000
