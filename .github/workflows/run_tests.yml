@@ -146,13 +146,13 @@ jobs:
         run: bash .github/test_deploy_stability.sh
       - run: kubectl -n $K8S_NAMESPACE get pods
 
-      # Arbitrary ndbmtd change without changing the config.ini
-      - name: Rolling upgrade of data nodes
+      # Simple change in config.ini
+      - name: Rolling restart of cluster
         run: |
           helm upgrade -i $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --reuse-values \
-            --set meta.ndbmtd.statefulSet.podAnnotations.hello=world \
+            --set rondbConfig.EmptyApiSlots=5 \
             .
 
       - name: Test deploy stability
