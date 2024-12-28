@@ -852,6 +852,7 @@
             "properties": {
                 "activeDataReplicas": {
                     "type": "integer",
+                    "description": "How many replicas each node group has. When descreasing this value, try going down by 1 at a time. Too many nodes leaving at once can cause issues with leader elections.",
                     "minimum": 1,
                     "maximum": 3,
                     "default": 2
