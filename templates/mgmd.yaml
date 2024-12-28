@@ -89,8 +89,9 @@ spec:
         - name: mgmd-configs
           mountPath: {{ include "rondb.dataDir" $ }}/config.ini
           subPath: config.ini
+        # We're not persisting the configuration database
         - name: rondb-mgmd
-          mountPath: {{ include "rondb.dataDir" $ }}/default_storage
+          mountPath: {{ include "rondb.dataDir" $ }}/log
       volumes:
       - name: mgmd-configs
         configMap:
