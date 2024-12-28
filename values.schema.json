@@ -1193,12 +1193,22 @@
                     "default": 8
                 },
                 "OsStaticOverhead": {
-                    "description": "Memory overhead for the RonDB datanode containers.",
+                    "description": "Memory overhead for the RonDB datanode containers. Only set this if the container has less than 5GiB of memory.",
                     "type": [
                         "string",
                         "null"
                     ],
-                    "default": null
+                    "default": null,
+                    "example": "1400M"
+                },
+                "OsCpuOverhead": {
+                    "description": "Additional OS memory overhead for the RonDB datanode containers. This is multiplied by the number of CPUs. Also only set this if the container has less than 5GiB of memory.",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null,
+                    "example": "100M"
                 },
                 "InitialTablespaceSizeGiB": {
                     "type": "integer",

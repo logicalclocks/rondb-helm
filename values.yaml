@@ -294,6 +294,7 @@ rondbConfig:
   MaxNoOfTables: null
   MaxNoOfTriggers: null
   MySQLdSlotsPerNode: 4
+  OsCpuOverhead: null
   OsStaticOverhead: null
   RdrsMetadataSlotsPerNode: 1
   RdrsSlotsPerNode: 1
