@@ -241,7 +241,7 @@ resources:
       benchsMiB: 500
       mysqldExportersMiB: 100
       mysqldMiB: 1400
-      ndbmtdsMiB: 4500
+      ndbmtdsMiB: 5000
       rdrsMiB: 500
   requests:
     cpus:

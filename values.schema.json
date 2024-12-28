@@ -941,7 +941,7 @@
                             "properties": {
                                 "ndbmtdsMiB": {
                                     "type": "number",
-                                    "default": 4500
+                                    "default": 5000
                                 },
                                 "mysqldMiB": {
                                     "type": "number",
