@@ -940,24 +940,26 @@
                             "description": "Memory resources per RonDB service type",
                             "properties": {
                                 "ndbmtdsMiB": {
-                                    "type": "number",
-                                    "default": 5000
+                                    "type": "integer",
+                                    "description": "It is recommended to keep this above 5GiB, otherwise some memory parts will be configured manually.",
+                                    "default": 5000,
+                                    "minimum": 2800
                                 },
                                 "mysqldMiB": {
-                                    "type": "number",
+                                    "type": "integer",
                                     "description": "This can usually be kept at the default independent of the load",
                                     "default": 1400
                                 },
                                 "rdrsMiB": {
-                                    "type": "number",
+                                    "type": "integer",
                                     "default": 500
                                 },
                                 "benchsMiB": {
-                                    "type": "number",
+                                    "type": "integer",
                                     "default": 500
                                 },
                                 "mysqldExportersMiB": {
-                                    "type": "number",
+                                    "type": "integer",
                                     "default": 100
                                 }
                             }
@@ -999,20 +1001,20 @@
                             "description": "Memory resources per RonDB service type",
                             "properties": {
                                 "mysqldMiB": {
-                                    "type": "number",
+                                    "type": "integer",
                                     "description": "This can usually be kept at the default independent of the load",
                                     "default": 650
                                 },
                                 "rdrsMiB": {
-                                    "type": "number",
+                                    "type": "integer",
                                     "default": 100
                                 },
                                 "benchsMiB": {
-                                    "type": "number",
+                                    "type": "integer",
                                     "default": 100
                                 },
                                 "mysqldExportersMiB": {
-                                    "type": "number",
+                                    "type": "integer",
                                     "default": 50
                                 }
                             }
