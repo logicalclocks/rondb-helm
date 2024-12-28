@@ -13,7 +13,6 @@ MYSQL_SECRET_NAME="mysql-passwords"
 NUM_BINLOG_SERVERS=2
 PRIMARY_CLUSTER_NUMBER=1
 
-# TODO: Fix ingress.enabled after other PR
 helm upgrade -i rondb-primary \
     --namespace=$NAMESPACE \
     --kubeconfig=$PRIMARY_KUBECONFIG . \
@@ -21,7 +20,6 @@ helm upgrade -i rondb-primary \
     --set "clusterSize.minNumRdrs=0" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=false" \
-    --set "tls.ingress.enabled=false" \
     --set "globalReplication.clusterNumber=$PRIMARY_CLUSTER_NUMBER" \
     --set "globalReplication.primary.enabled=true" \
     --set "globalReplication.primary.numBinlogServers=$NUM_BINLOG_SERVERS" \
@@ -58,14 +56,12 @@ kubectl get secret $MYSQL_SECRET_NAME --kubeconfig=$PRIMARY_KUBECONFIG --namespa
     sed '/namespace/d; /creationTimestamp/d; /resourceVersion/d; /uid/d' |
     kubectl apply --kubeconfig=$SECONDARY_KUBECONFIG --namespace=$NAMESPACE -f -
 
-# TODO: Fix ingress.enabled after other PR
 helm upgrade -i rondb-secondary \
     --namespace=$NAMESPACE \
     --kubeconfig=$SECONDARY_KUBECONFIG . \
     --set "clusterSize.minNumRdrs=0" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=true" \
-    --set "tls.ingress.enabled=false" \
     --set "globalReplication.clusterNumber=$((PRIMARY_CLUSTER_NUMBER + 1))" \
     --set "globalReplication.secondary.enabled=true" \
     --set "globalReplication.secondary.replicateFrom.clusterNumber=$PRIMARY_CLUSTER_NUMBER" \

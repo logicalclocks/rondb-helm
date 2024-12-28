@@ -1,4 +1,4 @@
-# Helmchart RonDB
+# RonDB Helm chart
 
 ## About RonDB
 
@@ -15,13 +15,15 @@ Being supported by the MySQL server, RonDB is inherently ACID compliant. In-memo
 
 This Helmchart is hosted on [GitHub Pages](https://logicalclocks.github.io/rondb-helm/). See the `gh_pages` branch of this repository for the source code.
 
-## Capabilities
+## Helm chart's capabilities
 
-- Create custom-size, cross-AZ cluster
+This Helm chart supports:
+
+- Creating custom-size, cross-AZ cluster
+- Scaling data node replicas
 - Horizontal auto-scaling of MySQLds & RDRS'
-- Scale data node replicas
-- Create backups & restore from backups
-- Global Replication
+- Backup & restore to and from object storage (e.g. S3)
+- Global Replication (cross-cluster replication)
 
 ## Quickstart
 
@@ -53,9 +55,9 @@ kubectl create secret generic aws-credentials \
     --from-literal "key_id=${AWS_ACCESS_KEY_ID}" \
     --from-literal "access_key=${AWS_SECRET_ACCESS_KEY}"
 
-# Run this if both:
+# Run this if:
 # - We want to use the cert-manager for TLS certificates
-# - [RDRS Ingress is enabled] OR [Any TLS is enabled]
+# - RDRS Ingress is enabled
 source ./standalone_deps.sh
 setup_deps $RONDB_NAMESPACE
 

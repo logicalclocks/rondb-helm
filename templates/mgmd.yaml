@@ -30,6 +30,8 @@ spec:
       # Used to apply labels to all pods created by the Deployment
       labels:
         rondbService: {{ include "rondb.labels.rondbService.mgmd" $ }}
+      annotations:
+        configIniHash: {{ include "rondb.configIniHash" $ }}
     spec:
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
 {{- include "rondb.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.mgmd) | indent 6 }}

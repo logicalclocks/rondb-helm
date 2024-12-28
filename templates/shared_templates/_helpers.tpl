@@ -228,3 +228,8 @@ spec:
 ---
 {{ end }}
 {{- end }}
+
+# This is an easy way to trigger rolling restarts of all RonDB Pods
+{{- define "rondb.configIniHash" -}}
+{{ mustRegexReplaceAll "NodeActive *=.*" (tpl ($.Files.Get "files/configs/config.ini") $) "" | sha256sum }}
+{{- end -}}
