@@ -1192,10 +1192,13 @@
                     "minimum": 1,
                     "default": 8
                 },
-                "NdbmtdMemoryOverheadMiB": {
-                    "type": "integer",
+                "OsStaticOverhead": {
                     "description": "Memory overhead for the RonDB datanode containers.",
-                    "default": 1024
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null
                 },
                 "InitialTablespaceSizeGiB": {
                     "type": "integer",
@@ -1219,19 +1222,13 @@
                     "type": "integer",
                     "description": "Time transaction can spend executing within data node",
                     "default": 1500
-                },
-                "UseTotalMemoryConfig": {
-                    "type": "boolean",
-                    "description": "Whether to set the TotalMemoryConfig; Only use it in very low memory configurations",
-                    "default": false
                 }
             },
             "required": [
                 "MySQLdSlotsPerNode",
                 "RdrsSlotsPerNode",
                 "RdrsMetadataSlotsPerNode",
-                "EmptyApiSlots",
-                "UseTotalMemoryConfig"
+                "EmptyApiSlots"
             ]
         },
         "rdrs": {

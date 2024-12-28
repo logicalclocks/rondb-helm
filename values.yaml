@@ -294,7 +294,7 @@ rondbConfig:
   MaxNoOfTables: null
   MaxNoOfTriggers: null
   MySQLdSlotsPerNode: 4
-  NdbmtdMemoryOverheadMiB: 1024
+  OsStaticOverhead: null
   RdrsMetadataSlotsPerNode: 1
   RdrsSlotsPerNode: 1
   ReplicationMemory: null
@@ -304,7 +304,6 @@ rondbConfig:
   TransactionDeadlockDetectionTimeout: 1500
   TransactionInactiveTimeout: 15000
   TransactionMemory: null
-  UseTotalMemoryConfig: false
 serviceAccountAnnotations: {}
 staticCpuManagerPolicy: false
 terminationGracePeriodSeconds: 60
