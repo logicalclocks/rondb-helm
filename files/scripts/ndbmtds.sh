@@ -36,8 +36,11 @@ handle_sigterm() {
 
     # Even when not deactivating nodes, having too many nodes die at once can cause
     # the arbitration to kill the cluster. The living node will not be able to form
-    # a majority. HOWEVER, since we are using a RollingUpdate strategy, only one
-    # data node (per node group) will be killed at once.
+    # a majority. Usually, since we are using a RollingUpdate strategy, only one
+    # data node (per node group) will be killed at once. It does however become an issue
+    # if e.g. the number of replicas is changed from 3 to 1. Then replica 3 and 2 are
+    # killed simultaneously. When needing to debug such situtations it can be helpful
+    # to restart all data nodes at once.
 
     while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" --connect-retries=1 -e "$NODE_ID deactivate"; do
         echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client was unsuccessful. Retrying..." >&2
