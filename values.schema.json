@@ -1229,7 +1229,8 @@
                 "RdrsSlotsPerNode",
                 "RdrsMetadataSlotsPerNode",
                 "EmptyApiSlots"
-            ]
+            ],
+            "additionalProperties": false
         },
         "rdrs": {
             "type": "object",
