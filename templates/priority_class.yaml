@@ -1,9 +1,9 @@
 # Copyright (c) 2024-2024 Hopsworks AB. All rights reserved.
-
 {{/*
     TODO: Add logic to share PriorityClass between multiple charts
 */}}
 {{ if .Values.priorityClass -}}
+{{- if not (lookup "scheduling.k8s.io/v1" "PriorityClass" "" .Values.priorityClass ) }}
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
@@ -12,3 +12,4 @@ value: 1000000
 globalDefault: false
 description: "This priority class should be used for rondb service pods only."
 {{- end  }}
+{{- end }}
