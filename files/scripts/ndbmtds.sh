@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2024-2024 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
 # Requires to calculate Node Id based on Pod name and Node Group
 

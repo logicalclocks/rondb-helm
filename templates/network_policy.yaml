@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2024 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
 {{/*
     As soon as we have an empty API slot, any host can connect to our data nodes.
