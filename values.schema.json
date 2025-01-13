@@ -1524,7 +1524,7 @@
                                 "type": "string"
                             }
                         },
-                        "ignoreTables": {
+                        "includeDatabases": {
                             "type": "array",
                             "default": [],
                             "items": {
@@ -1578,6 +1578,20 @@
                                     "default": []
                                 },
                                 "ignoreTables": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "default": []
+                                },
+                                "includeDatabases": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                    "default": []
+                                },
+                                "includeTables": {
                                     "type": "array",
                                     "items": {
                                         "type": "string"
@@ -1695,7 +1709,7 @@
                         "AES256",
                         null
                     ],
-                    "default": "aws:kms"
+                    "default": null
                 },
                 "keyCredentialsSecret": {
                     "type": "object",

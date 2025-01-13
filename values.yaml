@@ -19,7 +19,7 @@ backups:
     secretCredentialsSecret:
       key: access_key
       name: aws-credentials
-    serverSideEncryption: aws:kms
+    serverSideEncryption: null
   schedule: 0 3 * * mon
 benchmarking:
   dbt2:
@@ -59,10 +59,10 @@ globalReplication:
     enabled: false
     expireBinlogsDays: 1.5
     ignoreDatabases: []
-    ignoreTables: []
     logReplicaUpdates: false
     maxNumBinlogServers: 2
     numBinlogServers: 2
+    includeDatabases: []
   secondary:
     enabled: false
     replicateFrom:
@@ -71,6 +71,8 @@ globalReplication:
       ignoreDatabases: []
       ignoreTables: []
       useTlsConnection: false
+      includeDatabases: []
+      includeTables: []
 imagePullPolicy: IfNotPresent
 imagePullSecrets: []
 images:
@@ -284,7 +286,7 @@ restoreFromBackup:
     secretCredentialsSecret:
       key: access_key
       name: aws-credentials
-    serverSideEncryption: aws:kms
+    serverSideEncryption: null
 rondbConfig:
   DiskPageBufferMemory: null
   EmptyApiSlots: 8
