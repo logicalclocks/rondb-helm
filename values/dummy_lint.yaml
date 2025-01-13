@@ -29,7 +29,6 @@ globalReplication:
   primary:
     enabled: true
     ignoreDatabases: *dummyStringArray
-    ignoreTables: *dummyStringArray
     logReplicaUpdates: true
   secondary:
     enabled: true
