@@ -59,10 +59,10 @@ globalReplication:
     enabled: false
     expireBinlogsDays: 1.5
     ignoreDatabases: []
+    includeDatabases: []
     logReplicaUpdates: false
     maxNumBinlogServers: 2
     numBinlogServers: 2
-    includeDatabases: []
   secondary:
     enabled: false
     replicateFrom:
@@ -70,9 +70,9 @@ globalReplication:
       clusterNumber: 2
       ignoreDatabases: []
       ignoreTables: []
-      useTlsConnection: false
       includeDatabases: []
       includeTables: []
+      useTlsConnection: false
 imagePullPolicy: IfNotPresent
 imagePullSecrets: []
 images:
