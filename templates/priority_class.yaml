@@ -4,7 +4,9 @@
     TODO: Add logic to share PriorityClass between multiple charts
 */}}
 {{ if .Values.priorityClass -}}
-{{- if not (lookup "scheduling.k8s.io/v1" "PriorityClass" "" .Values.priorityClass ) }}
+{{- $existingPC := lookup "scheduling.k8s.io/v1" "PriorityClass" "" .Values.priorityClass -}}
+{{- $managedByHelm := and $existingPC (eq (index $existingPC.metadata.annotations "meta.helm.sh/release-name" | default "") .Release.Name) -}}
+{{- if or (not $existingPC) $managedByHelm }}
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
