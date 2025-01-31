@@ -22,16 +22,15 @@ jobs:
     - run: |
         echo "GH ref:       ${{ github.ref }}"
         echo "GH ref_name:  ${{ github.ref_name }}"
+        echo "GH sha:       ${{ github.sha }}"
 
     - name: Only allow main branch to publish
       run: |
-        branch=$(git branch -r --contains ${{ github.ref }} --format "%(refname:lstrip=3)")
-        echo "Current branch: $branch"
-        # Exit if branch is not main
-        if [ "$branch" != "main" ]; then
+        # Exit if the commit is not on main branch
+        git merge-base --is-ancestor ${{ github.sha }} origin/main || {
           echo "::error Branch is not main, exiting"
           exit 1
-        fi
+        }
 
     - name: Check that Git tag matches Chart.yaml version
       run: |
