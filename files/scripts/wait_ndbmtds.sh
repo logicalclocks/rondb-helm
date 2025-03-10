@@ -7,19 +7,17 @@ until nslookup $MGMD_HOSTNAME; do
     sleep $(((RANDOM % 2) + 2))
 done
 
-echo "trying to connect to the managemnt node.."
+echo "trying to connect to the management node.."
 until /srv/hops/mysql/bin/ndb_mgm --ndb-connectstring $MGMD_HOSTNAME -e "show"; do
     echo "Waiting for $MGMD_HOSTNAME to be ready..."
     sleep $(((RANDOM % 2) + 2))
 done
 
-set -e
-
 # check all the ndbmtds in reverse order since stateful sets typically roll restart in the reverse order
 echo "Waiting for all ndbmtds to be ready..."
 for i in $(seq 0 5);
 do
-    echo "waiting for all ndbmtds retry $(( i + 1 )) out 6 retires"
+    echo "waiting for all ndbmtds retry $(( i + 1 )) out 6 retries"
     /srv/hops/mysql/bin/ndb_waiter -c $MGMD_HOSTNAME  --timeout=$(( 120 * (2 ** i) ))
     sleep $((2 ** i))
 done
