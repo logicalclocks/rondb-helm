@@ -75,7 +75,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: BACKUP_ID
-          value: {{ .Values.restoreFromBackup.backupId | quote }}
+          value: {{ .Values.restoreFromBackup.backupId | int | quote }}
         - name: LOCAL_BACKUP_DIR
           value: &metadataBackupDir /home/hopsworks/schemata
         volumeMounts:

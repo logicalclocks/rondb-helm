@@ -193,7 +193,7 @@ spec:
         - name: FILE_SYSTEM_PATH
           value: /home/hopsworks/data/ndb_data
         - name: BACKUP_ID
-          value: {{ $.Values.restoreFromBackup.backupId | quote }}
+          value: {{ $.Values.restoreFromBackup.backupId | int | quote }}
 {{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
         - name: ACCESS_KEY_ID
           valueFrom:
