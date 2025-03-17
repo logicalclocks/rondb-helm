@@ -233,3 +233,12 @@ spec:
 {{- define "rondb.configIniHash" -}}
 {{ mustRegexReplaceAll "NodeActive *=.*" (tpl ($.Files.Get "files/configs/config.ini") $) "" | sha256sum }}
 {{- end -}}
+
+# MaxDMLOperationsPerTransaction cannot exceed MaxNoOfConcurrentOperations
+{{- define "rondb.validatedMaxDMLOperationsPerTransaction" -}}
+{{- $dml := (.Values.rondbConfig.MaxDMLOperationsPerTransaction | default 32768) | int -}}
+{{- $conc := (.Values.rondbConfig.MaxNoOfConcurrentOperations | default 32768) | int -}}
+{{- if le $dml $conc }}
+{{- $dml -}}
+{{- end -}}
+{{- end -}}

@@ -1163,11 +1163,16 @@
                     "default": null
                 },
                 "MaxNoOfConcurrentOperations": {
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
-                    "default": null
+                    "type": "integer",
+                    "default": 32768,
+                    "minimum": 32,
+                    "maximum": 4294967039
+                },
+                "MaxDMLOperationsPerTransaction": {
+                    "type": "integer",
+                    "default": 32768,
+                    "minimum": 32,
+                    "maximum": 4294967039
                 },
                 "MySQLdSlotsPerNode": {
                     "type": "integer",
