@@ -292,7 +292,7 @@ rondbConfig:
   EmptyApiSlots: 8
   InitialTablespaceSizeGiB: -1
   MaxNoOfAttributes: null
-  MaxNoOfConcurrentOperations: 32768
+  MaxNoOfConcurrentOperations: 65536
   MaxDMLOperationsPerTransaction: 32768
   MaxNoOfTables: null
   MaxNoOfTriggers: null

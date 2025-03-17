@@ -237,7 +237,7 @@ spec:
 # MaxDMLOperationsPerTransaction cannot exceed MaxNoOfConcurrentOperations
 {{- define "rondb.validatedMaxDMLOperationsPerTransaction" -}}
 {{- $dml := (.Values.rondbConfig.MaxDMLOperationsPerTransaction | default 32768) | int -}}
-{{- $conc := (.Values.rondbConfig.MaxNoOfConcurrentOperations | default 32768) | int -}}
+{{- $conc := (.Values.rondbConfig.MaxNoOfConcurrentOperations | default 65536) | int -}}
 {{- if le $dml $conc }}
 {{- $dml -}}
 {{- end -}}
