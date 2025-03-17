@@ -243,6 +243,11 @@
                                     "type": "boolean",
                                     "default": false
                                 },
+                                "managed": {
+                                    "type": "boolean",
+                                    "default": true,
+                                    "description": "LoadBalancer is managed by provider"
+                                },
                                 "name": {
                                     "type": "string",
                                     "default": "mysqld-external"
@@ -264,7 +269,11 @@
                                     "description": "Port to expose the service on",
                                     "default": 3306
                                 }
-                            }
+                            },
+                            "required": [
+                                "enabled",
+                                "managed"
+                            ]
                         },
                         "exporter": {
                             "type": "object",
@@ -366,6 +375,11 @@
                                     "type": "boolean",
                                     "default": false
                                 },
+                                "managed": {
+                                    "type": "boolean",
+                                    "default": true,
+                                    "description": "LoadBalancer is managed by provider"
+                                },
                                 "name": {
                                     "type": "string",
                                     "default": "rdrs-external"
@@ -382,7 +396,11 @@
                                     "description": "Cloud provider load balancer specific annotations.",
                                     "default": {}
                                 }
-                            }
+                            },
+                            "required": [
+                                "enabled",
+                                "managed"
+                            ]
                         },
                         "ingress": {
                             "type": "object",

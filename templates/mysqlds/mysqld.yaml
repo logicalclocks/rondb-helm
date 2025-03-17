@@ -289,7 +289,7 @@ roleRef:
   kind: Role
   name: {{ include "rondb.mysqldRole" . }}
   apiGroup: rbac.authorization.k8s.io
-{{- if .Values.meta.mysqld.externalLoadBalancer.enabled }}
+{{- if include "mysqld.loadBalancersEnabled" . }}
 ---
 apiVersion: v1
 kind: Service
@@ -303,9 +303,13 @@ metadata:
     {{ $k }}: {{ $v | quote }}
 {{- end }}
 spec:
+  {{- if include "mysqld.managedLoadBalancers" . }}
   type: LoadBalancer
 {{- if .Values.meta.mysqld.externalLoadBalancer.class }}
   loadBalancerClass: {{ .Values.meta.mysqld.externalLoadBalancer.class }}
+{{- end }}
+{{- else if include "mysqld.unmanagedLoadBalancers" . }}
+  type: NodePort
 {{- end }}
   selector:
     rondbService: {{ include "rondb.labels.rondbService.mysqld" $ }}

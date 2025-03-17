@@ -206,7 +206,7 @@ spec:
         type: Utilization
         averageUtilization: 70
 {{ end }}
-{{- if .Values.meta.rdrs.externalLoadBalancer.enabled }}
+{{- if include "rdrs.loadBalancersEnabled" . }}
 ---
 # A service for external access
 apiVersion: v1
@@ -221,9 +221,13 @@ metadata:
 {{ $k | indent 4 }}: {{ $v | quote }}
 {{- end }}
 spec:
+  {{- if include "rdrs.managedLoadBalancers" . }}
   type: LoadBalancer
 {{- if .Values.meta.rdrs.externalLoadBalancer.class }}
   loadBalancerClass: {{ .Values.meta.rdrs.externalLoadBalancer.class }}
+{{- end }}
+{{- else if include "rdrs.unmanagedLoadBalancers" . }}
+  type: NodePort
 {{- end }}
   selector:
     rondbService: {{ include "rondb.labels.rondbService.rdrs" $ }}

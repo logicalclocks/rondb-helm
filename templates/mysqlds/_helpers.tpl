@@ -185,3 +185,47 @@ helmtest
 - {{ include "rondb.databases.helmTests" . }}
 - {{ include "rondb.databases.heartbeat" . }}
 {{- end -}}
+
+{{- define "mysqld.loadBalancersEnabled" -}}
+{{- if and .Values.meta .Values.meta.mysqld .Values.meta.mysqld.externalLoadBalancer .Values.meta.mysqld.externalLoadBalancer.enabled -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "mysqld.managedLoadBalancers" -}}
+{{- if include "mysqld.loadBalancersEnabled" . -}}
+{{- if .Values.meta.mysqld.externalLoadBalancer.managed -}}
+true
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "mysqld.unmanagedLoadBalancers" -}}
+{{- if include "mysqld.loadBalancersEnabled" . -}}
+{{- if not .Values.meta.mysqld.externalLoadBalancer.managed -}}
+true
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rdrs.loadBalancersEnabled" -}}
+{{- if and .Values.meta .Values.meta.rdrs .Values.meta.rdrs.externalLoadBalancer .Values.meta.rdrs.externalLoadBalancer.enabled -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "rdrs.managedLoadBalancers" -}}
+{{- if include "rdrs.loadBalancersEnabled" . -}}
+{{- if .Values.meta.rdrs.externalLoadBalancer.managed -}}
+true
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rdrs.unmanagedLoadBalancers" -}}
+{{- if include "rdrs.loadBalancersEnabled" . -}}
+{{- if not .Values.meta.rdrs.externalLoadBalancer.managed -}}
+true
+{{- end -}}
+{{- end -}}
+{{- end -}}

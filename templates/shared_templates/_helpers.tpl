@@ -242,3 +242,9 @@ spec:
 {{- $dml -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "rondb.isAWS" -}}
+{{- if and .Values.global .Values.global._hopsworks (eq (upper .Values.global._hopsworks.cloudProvider) "AWS") -}}
+true
+{{- end -}}
+{{- end -}}
