@@ -291,9 +291,9 @@ rondbConfig:
   DiskPageBufferMemory: null
   EmptyApiSlots: 8
   InitialTablespaceSizeGiB: -1
+  MaxDMLOperationsPerTransaction: 32768
   MaxNoOfAttributes: null
   MaxNoOfConcurrentOperations: 65536
-  MaxDMLOperationsPerTransaction: 32768
   MaxNoOfTables: null
   MaxNoOfTriggers: null
   MySQLdSlotsPerNode: 4
