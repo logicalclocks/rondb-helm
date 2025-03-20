@@ -125,7 +125,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
   resources:
     limits:
       cpu: 0.3
-      memory: 30Mi
+      memory: 100Mi
 {{- end }}
 {{- end }}
 
