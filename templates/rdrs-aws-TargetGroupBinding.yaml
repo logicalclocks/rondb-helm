@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 {{- if include "rdrs.unmanagedLoadBalancers" . -}}
 {{- if include "rondb.isAWS" . }}
 apiVersion: elbv2.k8s.aws/v1beta1
