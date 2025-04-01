@@ -848,9 +848,9 @@
                             "default": 512
                         },
                         "maxConnectErrors": {
-                            "type": "integer",
+                            "type": "string",
                             "description": "Maximum number of connection errors before the MySQL server blocks the host.",
-                            "default": 18446744073709551615
+                            "default": "9223372036854775807"
                         },
                         "maxPreparedStmtCount": {
                             "type": "integer",
