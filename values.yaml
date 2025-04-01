@@ -211,6 +211,13 @@ mysql:
   sqlInitContent: {}
   supplyOwnSecret: false
   users: []
+  config:
+    maxConnections: 512
+    # This is an hack to avoid the loadbalancer host to be blocked due to the health check
+    # We should probably fix it in a proper way, but I'm sick and tired to flush the hosts manually
+    # so whatever.
+    maxConnectErrors: 18446744073709551615
+    maxPreparedStmtCount: 65530
 networkPolicy:
   mgmds:
     enabled: true
