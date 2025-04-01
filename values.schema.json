@@ -837,6 +837,27 @@
                         "additionalProperties": false
                     },
                     "description": "A list of MySQL users and their privileges."
+                },
+                "config": {
+                    "type": "object",
+                    "description": "MySQL configuration options",
+                    "properties": {
+                        "maxConnections": {
+                            "type": "integer",
+                            "description": "Maximum number of connections to the MySQL server.",
+                            "default": 512
+                        },
+                        "maxConnectErrors": {
+                            "type": "integer",
+                            "description": "Maximum number of connection errors before the MySQL server blocks the host.",
+                            "default": 18446744073709551615
+                        },
+                        "maxPreparedStmtCount": {
+                            "type": "integer",
+                            "description": "Maximum number of prepared statements.",
+                            "default": 65530
+                        }
+                    }
                 }
             },
             "required": [
