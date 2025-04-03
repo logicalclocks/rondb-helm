@@ -90,12 +90,12 @@ images:
     name: rondb
     registry: docker.io
     repository: hopsworks
-    tag: 22.10.7-0.7
+    tag: 24.10.0
   toolbox:
     name: hwutils
     registry: docker.io
     repository: hopsworks
-    tag: '0.7'
+    tag: '0.8'
 isMultiNodeCluster: true
 meta:
   binlogServers:

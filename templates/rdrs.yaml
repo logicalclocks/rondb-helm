@@ -56,7 +56,7 @@ spec:
             # here is just a sanity check if the main container is restarted.
 {{ include "rondb.resolveOwnIp" $ | indent 12 }}
 
-            rdrs -config={{ include "rondb.dataDir" $ }}/rest_api.json
+            rdrs2 --config {{ include "rondb.dataDir" $ }}/rest_api.json
         ports:
           - containerPort: 4406
           - containerPort: 5406
@@ -152,10 +152,6 @@ spec:
       protocol: TCP
       port: 4406
       targetPort: 4406
-    - name: grpc
-      protocol: TCP
-      port: 5406
-      targetPort: 5406
 ---
 # This is for the Ingress controller to route traffic to the RDRS
 apiVersion: v1
@@ -176,10 +172,6 @@ spec:
       protocol: TCP
       port: 4406
       targetPort: 4406
-    - name: grpc
-      protocol: TCP
-      port: 5406
-      targetPort: 5406
 {{ if
     and (gt (.Values.clusterSize.minNumRdrs | int) 0)
     (not (eq .Values.clusterSize.minNumRdrs .Values.clusterSize.maxNumRdrs))
@@ -236,8 +228,4 @@ spec:
       protocol: TCP
       port: 4406
       targetPort: 4406
-    - name: grpc
-      protocol: TCP
-      port: 5406
-      targetPort: 5406
 {{- end }}
