@@ -4,11 +4,6 @@
         "ServerIP": "0.0.0.0",
         "ServerPort": 4406
     },
-    "GRPC": {
-        "Enable": true,
-        "ServerIP": "0.0.0.0",
-        "ServerPort": 5406
-    },
     "RonDB": {
         "Mgmds": [
             {
