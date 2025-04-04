@@ -1,0 +1,26 @@
+# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
+{{- if include "rdrs.unmanagedLoadBalancers" . -}}
+{{- if include "rondb.isAWS" . }}
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: rdrs-http
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceRef:
+    name: {{ .Values.meta.rdrs.externalLoadBalancer.name }}
+    port: 4406
+  targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.rdrs.http.targetGroupId }}
+---
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: rdrs-grpc
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceRef:
+    name: {{ .Values.meta.rdrs.externalLoadBalancer.name }}
+    port: 5406
+  targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.rdrs.grpc.targetGroupId }}
+{{- end -}}
+{{- end -}}

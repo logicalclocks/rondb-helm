@@ -1,0 +1,15 @@
+# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
+{{- if include "mysqld.unmanagedLoadBalancers" . -}}
+{{- if include "rondb.isAWS" . }}
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: mysqld
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceRef:
+    name: {{ .Values.meta.mysqld.externalLoadBalancer.name }}
+    port: {{ .Values.meta.mysqld.externalLoadBalancer.port }}
+  targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.mysqld.targetGroupId }}
+{{- end -}}
+{{- end -}}

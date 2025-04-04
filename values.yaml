@@ -136,6 +136,7 @@ meta:
       annotations: {}
       class: null
       enabled: false
+      managed: true
       name: mysqld-external
       port: 3306
     headlessClusterIp:
@@ -167,6 +168,7 @@ meta:
       annotations: {}
       class: null
       enabled: false
+      managed: true
       name: rdrs-external
     headlessClusterIpName: rdrs-cluster-ip
     ingress:
