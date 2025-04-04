@@ -294,6 +294,8 @@ restoreFromBackup:
 rondbConfig:
   DiskPageBufferMemory: null
   EmptyApiSlots: 8
+  HeartbeatIntervalDbApi: 5000
+  HeartbeatIntervalDbDb: 5000
   InitialTablespaceSizeGiB: -1
   MaxDMLOperationsPerTransaction: 32768
   MaxNoOfAttributes: null

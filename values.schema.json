@@ -1261,6 +1261,16 @@
                     "type": "integer",
                     "description": "Time transaction can spend executing within data node",
                     "default": 1500
+                },
+                "HeartbeatIntervalDbApi": {
+                    "type": "integer",
+                    "description": "Each data node sends heartbeat signals to each MySQL server (SQL node) to ensure that it remains in contact. If a MySQL server fails to send a heartbeat in time it is declared “dead,” in which case all ongoing transactions are completed and all resources released. The SQL node cannot reconnect until all activities initiated by the previous MySQL instance have been completed. The three-heartbeat criteria for this determination are the same as described for HeartbeatIntervalDbDb.",
+                    "default": 5000
+                },
+                "HeartbeatIntervalDbDb": {
+                    "type": "integer",
+                    "description": "One of the primary methods of discovering failed nodes is by the use of heartbeats. This parameter states how often heartbeat signals are sent and how often to expect to receive them. Heartbeats cannot be disabled. After missing four heartbeat intervals in a row, the node is declared dead. Thus, the maximum time for discovering a failure through the heartbeat mechanism is five times the heartbeat interval.",
+                    "default": 5000
                 }
             },
             "required": [
