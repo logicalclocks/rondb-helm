@@ -313,6 +313,7 @@ rondbConfig:
   ReservedConcurrentOperations: null
   SchemaMemory: null
   SharedGlobalMemory: null
+  TotalMemoryConfig: null
   TransactionDeadlockDetectionTimeout: 1500
   TransactionInactiveTimeout: 15000
   TransactionMemory: null

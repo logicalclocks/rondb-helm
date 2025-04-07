@@ -1289,6 +1289,14 @@
                     "type": "integer",
                     "description": "One of the primary methods of discovering failed nodes is by the use of heartbeats. This parameter states how often heartbeat signals are sent and how often to expect to receive them. Heartbeats cannot be disabled. After missing four heartbeat intervals in a row, the node is declared dead. Thus, the maximum time for discovering a failure through the heartbeat mechanism is five times the heartbeat interval.",
                     "default": 5000
+                },
+                "TotalMemoryConfig": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "The total memory configured by RonDB datanode. By default it is not defined and memory is calculated automatically.",
+                    "default": null
                 }
             },
             "required": [
