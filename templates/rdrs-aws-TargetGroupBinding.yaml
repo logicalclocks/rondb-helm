@@ -11,16 +11,5 @@ spec:
     name: {{ .Values.meta.rdrs.externalLoadBalancer.name }}
     port: 4406
   targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.rdrs.http.targetGroupId }}
----
-apiVersion: elbv2.k8s.aws/v1beta1
-kind: TargetGroupBinding
-metadata:
-  name: rdrs-grpc
-  namespace: {{ .Release.Namespace }}
-spec:
-  serviceRef:
-    name: {{ .Values.meta.rdrs.externalLoadBalancer.name }}
-    port: 5406
-  targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.rdrs.grpc.targetGroupId }}
 {{- end -}}
 {{- end -}}

@@ -77,6 +77,32 @@ do
     ln -s ${RONDB_VOLUME}/${dir} ${BASE_DIR}/${dir}
 done
 
+LOG_DIR="${BASE_DIR}/log/"
+echo "[K8s Entrypoint ndbmtd] check log dir: ${LOG_DIR}"
+if [ -d "$LOG_DIR" ]; then
+  ls -al "$LOG_DIR"
+
+  # Double-checked config.ini:
+  #   DataDir = ${BASE_DIR}/log
+  # So ndb_* will move the generated error and trace log files from this directory.
+  #
+  # CAUTION:
+  # If additional files are configured to be stored in this directory in the future,
+  # be careful with this move operation — it may affect unrelated files.
+  files=($(find "$LOG_DIR" -maxdepth 1 -type f -name 'ndb_*'))
+
+  if [ "${#files[@]}" -gt 0 ]; then
+    timestamp=$(date +%Y%m%d_%H%M%S)
+    target_dir="$LOG_DIR/issue_at_$timestamp"
+    mkdir -p "$target_dir"
+
+    echo "[K8s Entrypoint ndbmtd] $target_dir generated in ${LOG_DIR}"
+    for file in "${files[@]}"; do
+      mv "$file" "$target_dir/"
+    done
+  fi
+fi
+
 INITIAL_START=
 # This is the first file that is read by the ndbmtd
 # WARNING: This env var needs to be aware of symlinks created here
