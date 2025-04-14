@@ -84,12 +84,12 @@ if [ -d "$LOG_DIR" ]; then
 
   # Double-checked config.ini:
   #   DataDir = ${BASE_DIR}/log
-  # So ndb_* will move the generated error and trace log files from this directory.
+  # So ndb_*log* will move the generated error and trace log files from this directory.
   #
   # CAUTION:
   # If additional files are configured to be stored in this directory in the future,
   # be careful with this move operation — it may affect unrelated files.
-  files=($(find "$LOG_DIR" -maxdepth 1 -type f -name 'ndb_*'))
+  files=($(find "$LOG_DIR" -maxdepth 1 -type f -name 'ndb_*log*'))
 
   if [ "${#files[@]}" -gt 0 ]; then
     timestamp=$(date +%Y%m%d_%H%M%S)
