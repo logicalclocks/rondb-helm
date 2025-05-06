@@ -248,3 +248,9 @@ spec:
 true
 {{- end -}}
 {{- end -}}
+
+{{- define "rondb.isExternallyManaged" -}}
+{{- if and .Values.global .Values.global.externalServices .Values.global.externalServices.rondb .Values.global.externalServices.rondb.external -}}
+true
+{{- end -}}
+{{- end -}}
