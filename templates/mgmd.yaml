@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
-{{- if not (include "rondb.isExternallyManaged" .) -}}
+{{- if not (include "rondb.isExternallyManaged" .) }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
