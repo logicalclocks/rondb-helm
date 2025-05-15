@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
-
+{{- if not (include "rondb.isExternallyManaged" .) }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -125,3 +125,13 @@ spec:
     - protocol: TCP
       port: {{ .Values.meta.mgmd.headlessClusterIp.port }}
       targetPort: 1186
+{{- else }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: mgm
+  namespace: {{ .Release.Namespace }}
+spec:
+  type: ExternalName
+  externalName: {{ .Values.global._hopsworks.externalServices.rondb.mgmdHostname }}
+{{- end -}}
