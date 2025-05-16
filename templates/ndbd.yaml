@@ -15,19 +15,6 @@ spec:
   # data nodes to start at the same time.
   podManagementPolicy: Parallel
   replicas: {{ $.Values.clusterSize.activeDataReplicas }}
-{{- if lt ($.Values.clusterSize.activeDataReplicas | int) 2 }}
-  # Don't kill a data node if we only have 1 replica.
-  # Even when we start with 2 replicas and scale down to 1,
-  # whilst also scaling our replicas vertically, K8s
-  # will first kill the second replica before exchanging our
-  # first replica. In short: even if we start with
-  # 2 replicas, we risk downtime when vertically
-  # scaling.
-  updateStrategy:
-    type: RollingUpdate
-    rollingUpdate:
-      partition: 1
-{{- end }}
   selector:
     # Used by the Deployment to select and manage existing pods with the specified label
     matchLabels:
