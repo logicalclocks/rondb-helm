@@ -1,5 +1,5 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
-
+{{- if not (include "rondb.isExternallyManaged" .) -}}
 {{ range $nodeGroup := until ($.Values.clusterSize.numNodeGroups | int) }}
 apiVersion: apps/v1
 kind: StatefulSet
@@ -425,3 +425,4 @@ spec:
       targetPort: 11860
 ---
 {{ end }}
+{{- end -}}
