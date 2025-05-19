@@ -7,11 +7,17 @@ backupRemote
 {{- end -}}
 
 {{- define "rondb.mgmdHostname" -}}
+{{- if include "rondb.isExternallyManaged" . -}}
+{{ printf "mgm.%s.svc.cluster.local"
+        $.Release.Namespace
+}}
+{{- else -}}
 {{ printf "%s-0.%s.%s.svc.cluster.local"
         $.Values.meta.mgmd.statefulSetName
         $.Values.meta.mgmd.headlessClusterIp.name
         $.Release.Namespace
 }}
+{{- end -}}
 {{- end -}}
 
 {{- define "rondb.mysqldPodname" -}}
