@@ -90,7 +90,7 @@ images:
     name: rondb
     registry: docker.io
     repository: hopsworks
-    tag: 24.10.0
+    tag: 24.10.3
   toolbox:
     name: hwutils
     registry: docker.io
