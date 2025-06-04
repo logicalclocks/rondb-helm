@@ -67,6 +67,10 @@ runs:
             kubectl logs -n ${{ inputs.namespace }} $pod $container > ${{ inputs.folder_name }}/pods/logs/$pod/$container.log || true
             kubectl logs -n ${{ inputs.namespace }} $pod $container --previous > ${{ inputs.folder_name }}/pods/logs/$pod/$container.previous.log || true
           done
+          for container in $(kubectl get pods -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.initContainers[*].name}'); do
+            kubectl logs -n ${{ inputs.namespace }} $pod $container > ${{ inputs.folder_name }}/pods/logs/$pod/$container.log || true
+            kubectl logs -n ${{ inputs.namespace }} $pod $container --previous > ${{ inputs.folder_name }}/pods/logs/$pod/$container.previous.log || true
+          done
         done
 
     - name: Describe Pods
