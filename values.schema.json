@@ -656,7 +656,7 @@
                         "tag": {
                             "type": "string",
                             "description": "The version of RonDB to use; This should always be equivalent to .Chart.AppVersion",
-                            "default": "22.10.7-0.7"
+                            "default": "24.10.3"
                         }
                     }
                 },
@@ -677,7 +677,7 @@
                         },
                         "tag": {
                             "type": "string",
-                            "default": "0.7"
+                            "default": "0.8"
                         }
                     }
                 },
