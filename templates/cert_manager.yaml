@@ -1,10 +1,10 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
 {{ if (or 
-    $.Values.meta.mysqld.statefulSet.endToEndTls.enabled
-    $.Values.meta.binlogServers.statefulSet.endToEndTls.enabled
-    $.Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled
-    $.Values.meta.rdrs.statefulSet.endToEndTls.enabled
+    ( and $.Values.meta.mysqld.statefulSet.endToEndTls.enabled (not $.Values.meta.mysqld.statefulSet.endToEndTls.supplyOwnSecret ))
+    ( and $.Values.meta.binlogServers.statefulSet.endToEndTls.enabled (not $.Values.meta.binlogServers.statefulSet.endToEndTls.supplyOwnSecret))
+    ( and $.Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled (not $.Values.meta.replicaAppliers.statefulSet.endToEndTls.supplyOwnSecret))
+    ( and $.Values.meta.rdrs.statefulSet.endToEndTls.enabled (not $.Values.meta.rdrs.statefulSet.endToEndTls.supplyOwnSecret))
     (and
         $.Values.meta.rdrs.ingress.enabled
         $.Values.meta.rdrs.ingress.tls.enabled
