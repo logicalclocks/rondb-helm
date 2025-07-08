@@ -80,13 +80,6 @@ jobs:
           kubectl version --client
           kubectl get nodes
 
-      - name: Remove old cluster
-        if: always()
-        uses: ./.github/actions/remove_cluster
-        timeout-minutes: 4
-        with:
-          namespace: rondb-helm-${{ github.run_id }}-1
-          helm_chart: ${{ env.RONDB_CLUSTER_NAME }}
       # Static CPU manager policy will only work if the FeatureGate is enabled
       - name: Create original RonDB cluster
         run: |
