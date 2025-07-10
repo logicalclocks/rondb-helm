@@ -205,7 +205,9 @@ spec:
       target:
         type: Utilization
         averageUtilization: 70
-{{ .Values.rdrs.hpa.additionalMetrics | toYaml | indent 2 }}
+{{- with .Values.rdrs.hpa.additionalMetrics }}
+{{ toYaml . | indent 2 }}
+{{- end }}
 {{ end }}
 {{- if include "rdrs.loadBalancersEnabled" . }}
 ---
