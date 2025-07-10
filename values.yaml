@@ -232,11 +232,12 @@ nodeSelector:
   rdrs: {}
 priorityClass: rondb-high-priority
 rdrs:
-  hpa:
-    additionalMetrics: []
   externalMetadataCluster:
     mgmds: []
     slotsPerNode: 1
+  hpa:
+    additionalMetrics:
+    - {}
 resources:
   limits:
     cpus:
