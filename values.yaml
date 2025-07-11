@@ -235,6 +235,8 @@ rdrs:
   externalMetadataCluster:
     mgmds: []
     slotsPerNode: 1
+  hpa:
+    additionalMetrics: []
 resources:
   limits:
     cpus:
