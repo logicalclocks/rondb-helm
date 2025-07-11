@@ -1310,6 +1310,20 @@
         "rdrs": {
             "type": "object",
             "properties": {
+                "hpa": {
+                    "type": "object",
+                    "description": "Horizontal Pod Autoscaler for RDRS",
+                    "properties": {
+                        "additionalMetrics": {
+                            "type": "array",
+                            "description": "Additional metrics to use for the HPA. This is useful for custom metrics that are not supported by default.",
+                            "default": [],
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "externalMetadataCluster": {
                     "type": "object",
                     "description": "RDRSs will always be in the cluster of the data, not the metadata",
