@@ -236,8 +236,7 @@ rdrs:
     mgmds: []
     slotsPerNode: 1
   hpa:
-    additionalMetrics:
-    - {}
+    additionalMetrics: []
 resources:
   limits:
     cpus:

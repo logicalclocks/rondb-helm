@@ -1317,6 +1317,7 @@
                         "additionalMetrics": {
                             "type": "array",
                             "description": "Additional metrics to use for the HPA. This is useful for custom metrics that are not supported by default.",
+                            "default": [],
                             "items": {
                                 "type": "object"
                             }
