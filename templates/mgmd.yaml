@@ -20,7 +20,11 @@ spec:
 {{ include "rondb.storageClass.default" . | indent 8 }}
         resources:
           requests:
-            storage: 30Mi
+{{- if .Release.IsInstall }}
+            storage: 1Gi # HWORKS-2270 EBS min size is 1Gi
+{{- else }}
+            storage: 30Mi # In case of an upgrade do NOT change to 1Gi automatically - it does NOT work
+{{- end }}
   # Still in beta mode (Jan 2024)
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Delete
