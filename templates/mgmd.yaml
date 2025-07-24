@@ -17,7 +17,7 @@ spec:
         name: rondb-mgmd
       spec:
         accessModes: [ReadWriteOnce]
-{{ include "rondb.storageClass.default" . | indent 8 }}
+{{ include "rondb.storageClass.mgmd" . | indent 8 }}
         resources:
           requests:
 {{- if .Release.IsInstall }}
