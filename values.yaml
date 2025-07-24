@@ -271,6 +271,7 @@ resources:
         binlogFiles: null
         default: null
         diskColumns: null
+        mgmd: null
       diskColumnGiB: 2
       logGiB: 2
       redoLogGiB: 4

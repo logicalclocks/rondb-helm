@@ -68,6 +68,14 @@ storageClassName: {{ .Values.resources.requests.storage.classes.default | quote 
 {{ end }}
 {{- end }}
 
+{{ define "rondb.storageClass.mgmd" -}}
+{{ if .Values.resources.requests.storage.classes.mgmd }}
+storageClassName: {{ .Values.resources.requests.storage.classes.mgmd | quote }}
+{{- else }}
+{{ include "rondb.storageClass.default" . }}
+{{ end }}
+{{- end }}
+
 {{ define "rondb.storageClass.diskColumns" -}}
 {{ if .Values.resources.requests.storage.classes.diskColumns }}
 storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | quote }}
