@@ -1090,6 +1090,14 @@
                                             ],
                                             "default": null,
                                             "description": "Storage class name for MySQLd binlog volumes in global replication"
+                                        },
+                                        "mgmd": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "default": null,
+                                            "description": "Storage class name for Management server"
                                         }
                                     }
                                 },
