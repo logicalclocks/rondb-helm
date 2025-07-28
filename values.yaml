@@ -85,7 +85,7 @@ images:
     name: mysqld_exporter
     registry: docker.hops.works
     repository: hopsworks
-    tag: 0.11.2
+    tag: 0.11.3
   rondb:
     name: rondb
     registry: docker.io
