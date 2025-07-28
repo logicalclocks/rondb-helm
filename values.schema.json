@@ -719,7 +719,7 @@
                         },
                         "tag": {
                             "type": "string",
-                            "default": "0.11.2"
+                            "default": "0.11.3"
                         }
                     }
                 }
