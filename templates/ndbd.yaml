@@ -35,7 +35,7 @@ spec:
 }}
         resources:
           requests:
-{{- include "rondb.ndbmtd.storageSize" (dict "root" $ "nodeGroup" $nodeGroup) | indent 10 }} 
+{{- include "rondb.ndbmtd.storageSize" (dict "root" $ "nodeGroup" $nodeGroup) | indent 10 }}
 {{- if $.Values.resources.requests.storage.classes.diskColumns }}
     - metadata:
         name: rondb-ndbmtd-dc
