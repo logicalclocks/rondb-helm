@@ -85,36 +85,35 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- end }}
 
 {{ define "rondb.ndbmtd.storageSize" -}}
-{{- if .Release.IsInstall }}
-{{ requiredStorage := add (
-  (div .Values.resources.limits.memory.ndbmtdsMiB 1024)
-    .Values.resources.requests.storage.undoLogsGiB
-    .Values.resources.requests.storage.redoLogGiB
-    .Values.resources.requests.storage.undoLogsGiB
-    .Values.resources.requests.storage.undoLogsGiB
-    .Values.resources.requests.storage.logGiB
-  )
+{{- $ := .root }}
+{{- if $.Release.IsInstall }}
+{{- $requiredStorage := add 
+    (div $.Values.resources.limits.memory.ndbmtdsMiB 1024 | int)
+    $.Values.resources.requests.storage.redoLogGiB
+    $.Values.resources.requests.storage.undoLogsGiB
+    $.Values.resources.requests.storage.undoLogsGiB
+    $.Values.resources.requests.storage.logGiB
 }}
-{{- if not .Values.resources.requests.storage.classes.diskColumns }}
-{{ requiredStorage := add (
-  requiredStorage
-  .Values.resources.requests.storage.diskColumnGiB
-)}}
+{{- if not $.Values.resources.requests.storage.classes.diskColumns }}
+{{- $requiredStorage := add
+  $requiredStorage
+  $.Values.resources.requests.storage.diskColumnGiB
+}}
 {{- end }}
-{{- if gt requiredStorage .Values.resources.requests.storage.ndbmtdGiB }}
+{{- if gt $requiredStorage (int $.Values.resources.requests.storage.ndbmtdGiB) }}
 # Validate that the requested storage is enough for the different components
-{{ fail (printf "The requested storage size %dGiB is not enough for the ndbmtds. Required: %dGiB" .Values.resources.requests.storage.ndbmtdGiB requiredStorage) }}
+{{ fail (printf "The requested storage size %dGiB is not enough for the ndbmtds. Required: %dGiB" $.Values.resources.requests.storage.ndbmtdGiB $requiredStorage) }}
 {{- end }}
-  storage: {{ .Values.resources.requests.storage.ndbmtdGiB }}Gi
+  storage: {{ $.Values.resources.requests.storage.ndbmtdGiB }}Gi
 {{- else }}
-{{ statefulSetName := "node-group-"{{ . }} }}
-{{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace statefulSetName }}
+{{- $statefulSetName := printf "node-group-%s" .nodeGroup }}
+{{- $sts := lookup "apps/v1" "StatefulSet" $.Release.Namespace $statefulSetName }}
 {{- if $sts }}
 {{- $claim := index $sts.spec.volumeClaimTemplates 0 }}
 {{- $size := $claim.spec.resources.requests.storage }}
   storage: {{ $size }} # In case of an upgrade use the existing value
 {{- else }}
-{{ fail (printf "Failed to lookup StatefulSet %s" statefulSetName) }}
+{{ fail (printf "Failed to lookup StatefulSet %s" $statefulSetName) }}
 {{- end }}
 {{- end }}
 {{- end }}
