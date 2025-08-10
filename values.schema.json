@@ -1121,12 +1121,11 @@
                                     "minimum": 1,
                                     "description": "64GiB is recommended for good performance"
                                 },
-                                "slackGiB": {
+                                "ndbmtdGiB": {
                                     "type": "integer",
-                                    "description": "Extra space for data node volumes. When RonDB allocates *exactly* the given amount of space, we can run into issues.",
-                                    "default": 1,
-                                    "minimum": 0,
-                                    "maximum": 2
+                                    "description": "The size of the statefulSet persistent volume for the RonDB data nodes",
+                                    "default": 30,
+                                    "minimum": 0
                                 },
                                 "logGiB": {
                                     "type": "integer",

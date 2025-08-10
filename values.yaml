@@ -274,9 +274,9 @@ resources:
         mgmd: null
       diskColumnGiB: 2
       logGiB: 2
+      ndbmtdGiB: 30
       redoLogGiB: 4
       relayLogGiB: 2
-      slackGiB: 1
       undoLogsGiB: 4
 restoreFromBackup:
   backupId: null
