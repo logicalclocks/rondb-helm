@@ -106,7 +106,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- end }}
   storage: {{ $.Values.resources.requests.storage.ndbmtdGiB }}Gi
 {{- else }}
-{{- $statefulSetName := printf "node-group-%s" .nodeGroup }}
+{{- $statefulSetName := printf "node-group-%d" .nodeGroup }}
 {{- $sts := lookup "apps/v1" "StatefulSet" $.Release.Namespace $statefulSetName }}
 {{- if $sts }}
 {{- $claim := index $sts.spec.volumeClaimTemplates 0 }}
