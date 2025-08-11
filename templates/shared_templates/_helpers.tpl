@@ -87,11 +87,11 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{ define "rondb.ndbmtd.storageSize" -}}
 {{- $ := .root }}
 {{- if $.Release.IsInstall }}
+{{- $memoryGiB := div $.Values.resources.limits.memory.ndbmtdsMiB 1024 | int }}
 {{- $requiredStorage := add 
-    (div $.Values.resources.limits.memory.ndbmtdsMiB 1024 | int)
+    (mul $memoryGiB 2.25)
     $.Values.resources.requests.storage.redoLogGiB
-    $.Values.resources.requests.storage.undoLogsGiB
-    $.Values.resources.requests.storage.undoLogsGiB
+    (mul $.Values.resources.requests.storage.undoLogsGiB 2)
     $.Values.resources.requests.storage.logGiB
 }}
 {{- if not $.Values.resources.requests.storage.classes.diskColumns }}

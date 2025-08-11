@@ -46,6 +46,7 @@ spec:
           requests:
             storage: {{ add
                 $.Values.resources.requests.storage.diskColumnGiB 
+                2 {{ /* 2 GiB overhead */ }}
             }}Gi
 {{- end }}
   # Still in beta mode (Jan 2024)
