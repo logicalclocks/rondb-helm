@@ -312,6 +312,7 @@ rondbConfig:
   OsStaticOverhead: null
   RdrsMetadataSlotsPerNode: 1
   RdrsSlotsPerNode: 1
+  RedoBuffer: null
   ReplicationMemory: null
   ReservedConcurrentOperations: null
   SchemaMemory: null
