@@ -102,9 +102,9 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- end }}
 {{- if gt $requiredStorage (int $.Values.resources.requests.storage.ndbmtdGiB) }}
 # Validate that the requested storage is enough for the different components
-{{ fail (printf "The requested storage size %dGiB is not enough for the ndbmtds. Required: %dGiB" $.Values.resources.requests.storage.ndbmtdGiB $requiredStorage) }}
+{{ fail (printf "The requested storage size %dGiB is not enough for the ndbmtds. Required: %dGiB" (int $.Values.resources.requests.storage.ndbmtdGiB) $requiredStorage) }}
 {{- end }}
-  storage: {{ $.Values.resources.requests.storage.ndbmtdGiB }}Gi
+  storage: {{ $.Values.resources.requests.storage.ndbmtdGiB | int }}Gi
 {{- else }}
 {{- $statefulSetName := printf "node-group-%d" .nodeGroup }}
 {{- $sts := lookup "apps/v1" "StatefulSet" $.Release.Namespace $statefulSetName }}
