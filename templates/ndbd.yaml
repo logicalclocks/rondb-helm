@@ -44,9 +44,10 @@ spec:
 {{ include "rondb.storageClass.diskColumns" $ | indent 8 }}
         resources:
           requests:
+            # Add 2 GiB for overhead
             storage: {{ add
                 $.Values.resources.requests.storage.diskColumnGiB 
-                2 {{ /* 2 GiB overhead */ }}
+                2
             }}Gi
 {{- end }}
   # Still in beta mode (Jan 2024)
