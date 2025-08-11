@@ -62,6 +62,7 @@ resources:
       benchsMiB: 100
       rdrsMiB: 100
     storage:
+      ndbmtdGiB: 250
       diskColumnGiB: 16
       redoLogGiB: 64
       undoLogsGiB: 64
