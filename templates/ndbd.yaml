@@ -35,23 +35,8 @@ spec:
 }}
         resources:
           requests:
-{{- if not $.Values.resources.requests.storage.classes.diskColumns }}
-            storage: {{ add
-                $backupGiB
-                $.Values.resources.requests.storage.diskColumnGiB
-                $.Values.resources.requests.storage.redoLogGiB
-                $.Values.resources.requests.storage.undoLogsGiB
-                $.Values.resources.requests.storage.slackGiB
-                $.Values.resources.requests.storage.logGiB
-            }}Gi
-{{- else }}
-            storage: {{ add
-                $backupGiB
-                $.Values.resources.requests.storage.redoLogGiB
-                $.Values.resources.requests.storage.undoLogsGiB
-                $.Values.resources.requests.storage.slackGiB
-                $.Values.resources.requests.storage.logGiB
-            }}Gi
+{{- include "rondb.ndbmtd.storageSize" (dict "root" $ "nodeGroup" $nodeGroup) | indent 10 }}
+{{- if $.Values.resources.requests.storage.classes.diskColumns }}
     - metadata:
         name: rondb-ndbmtd-dc
       spec:
@@ -59,9 +44,10 @@ spec:
 {{ include "rondb.storageClass.diskColumns" $ | indent 8 }}
         resources:
           requests:
+            # Add 2 GiB for overhead
             storage: {{ add
                 $.Values.resources.requests.storage.diskColumnGiB 
-                $.Values.resources.requests.storage.slackGiB
+                2
             }}Gi
 {{- end }}
   # Still in beta mode (Jan 2024)
