@@ -1201,6 +1201,13 @@
                     ],
                     "default": null
                 },
+                "RedoBuffer": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "default": null
+                },
                 "ReservedConcurrentOperations": {
                     "type": [
                         "integer",
