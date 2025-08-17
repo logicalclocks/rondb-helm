@@ -1870,9 +1870,9 @@
                 "matchLabels": {
                     "type": "object",
                     "default": {},
-                    "examples": {
+                    "examples": [{
                         "app": "rondb"
-                    }
+                    }]
                 },
                 "matchExpressions": {
                     "type": "array",
