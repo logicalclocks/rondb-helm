@@ -5,11 +5,11 @@ name: rondb
 
 # This is the chart version. This version number should be incremented each time you make changes
 # to the chart and its templates, including the app version.
-version: 0.7.8
+version: 0.7.9
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application.
-appVersion: 24.10.8
+appVersion: 24.10.10
 
 # kubeVersion: A SemVer range of compatible Kubernetes versions (optional)
 kubeVersion: ">= 1.27.0-0"
