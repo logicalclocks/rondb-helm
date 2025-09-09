@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# Copyright (c) 2025-2026 Hopsworks AB. All rights reserved.
+
 set -e
 
 echo_newline() { echo; echo "$1"; echo; }
