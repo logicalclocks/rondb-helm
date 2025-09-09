@@ -1,0 +1,71 @@
+{{- $execute := true }}
+{{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName }}
+{{- if $sts }}
+  {{- $containers := get $sts.spec.template.spec "containers" }}
+  {{- if $containers }}
+    {{- range $c := $containers }}
+      {{- if eq $c.name "mgmd" }}
+        {{- $imageSplits := $c.image | split ":" }}
+        {{- $tag := $imageSplits._1 }}
+        {{- if semverCompare ">= 24.x" $tag }}
+          {{- $execute = false }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- else }}
+  {{- printf "\n# WARNING: Could not detect old version tag from StatefulSet, executing anyway\n" }}
+{{- end }}
+{{- if $execute }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: grant-all-privileges-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 0
+  parallelism: 1
+  template:
+    metadata:
+      labels:
+        rondbService: {{ include "rondb.labels.rondbService.setup-mysqld" $ }}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "rondb.mysqldServiceAccountName" . }}
+{{- include "rondb.PodSecurityContext" $ | indent 6 }}
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.mysqld) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.mysqld) | indent 6 }}
+{{- if .Values.priorityClass }}
+      priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end  }}
+      initContainers:
+{{ include "rondb.container.waitDatanodes" $ | indent 6 }}
+{{ include "rondb.container.waitRestore" $ | indent 6 }}
+      containers:
+      - name: grant-all-privileges
+        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+{{ tpl (.Files.Get "files/scripts/fix_admin_users_24.10.sh") . | indent 10 }}
+          _grant_all_privileges
+        volumeMounts:
+        - name: mysqld-configs
+          # Using "raw", so that we can sed NodeIds into the file
+          mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
+          subPath: my.cnf
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.mysql.credentialsSecretName }}
+              key: root
+      volumes:
+      - name: mysqld-configs
+        configMap:
+          name: mysqld-configs
+{{- end }}

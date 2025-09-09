@@ -660,6 +660,28 @@
                         }
                     }
                 },
+                "upgrade2410revokegrants": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string",
+                            "default": "docker.io"
+                        },
+                        "repository": {
+                            "type": "string",
+                            "default": "hopsworks"
+                        },
+                        "name": {
+                            "type": "string",
+                            "default": "rondb"
+                        },
+                        "tag": {
+                            "type": "string",
+                            "description": "The version of RonDB to use when revoking bogus user privilege to upgrade from 22.10 to 24.10",
+                            "default": "22.10.13-0.7"
+                        }
+                    }
+                },
                 "toolbox": {
                     "type": "object",
                     "properties": {
