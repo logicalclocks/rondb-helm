@@ -19,7 +19,7 @@
 {{- else }}
   {{- printf "\n# WARNING: Could not detect old version tag from StatefulSet, executing anyway\n" }}
 {{- end }}
-{{- if $execute }}
+{{- if and $execute .Release.IsUpgrade }}
 apiVersion: batch/v1
 kind: Job
 metadata:
