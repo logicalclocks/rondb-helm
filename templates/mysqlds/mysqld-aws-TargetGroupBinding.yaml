@@ -11,5 +11,9 @@ spec:
     name: {{ .Values.meta.mysqld.externalLoadBalancer.name }}
     port: {{ .Values.meta.mysqld.externalLoadBalancer.port }}
   targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.mysqld.targetGroupId }}
+{{- if .Values.meta.mysqld.externalLoadBalancer.nodeSelector }}
+  nodeSelector:
+    {{- toYaml .Values.meta.mysqld.externalLoadBalancer.nodeSelector | nindent 4 }}
+{{- end }}
 {{- end -}}
 {{- end -}}
