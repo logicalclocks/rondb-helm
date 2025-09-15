@@ -26,7 +26,7 @@ metadata:
   name: grant-all-privileges-{{ .Release.Revision }}
   namespace: {{ .Release.Namespace }}
 spec:
-  backoffLimit: 0
+  backoffLimit: 60
   parallelism: 1
   template:
     metadata:

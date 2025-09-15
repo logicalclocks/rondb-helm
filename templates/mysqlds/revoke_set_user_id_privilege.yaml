@@ -28,7 +28,7 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
 spec:
-  backoffLimit: 0
+  backoffLimit: 5
   parallelism: 1
   template:
     metadata:
