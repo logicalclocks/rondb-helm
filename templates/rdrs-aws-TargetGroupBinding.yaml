@@ -11,5 +11,9 @@ spec:
     name: {{ .Values.meta.rdrs.externalLoadBalancer.name }}
     port: 4406
   targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.rdrs.http.targetGroupId }}
+{{- if .Values.meta.rdrs.externalLoadBalancer.nodeSelector }}
+  nodeSelector:
+    {{- toYaml .Values.meta.rdrs.externalLoadBalancer.nodeSelector | nindent 4 }}
+{{- end }}
 {{- end -}}
 {{- end -}}
