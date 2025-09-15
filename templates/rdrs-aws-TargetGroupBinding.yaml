@@ -11,6 +11,10 @@ spec:
     name: {{ .Values.meta.rdrs.externalLoadBalancer.name }}
     port: 4406
   targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.rdrs.http.targetGroupId }}
+{{- if .Values.meta.rdrs.externalLoadBalancer.nodeSelector }}
+  nodeSelector:
+    {{- toYaml .Values.meta.rdrs.externalLoadBalancer.nodeSelector | nindent 4 }}
+{{- end }}
 ---
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
@@ -22,5 +26,9 @@ spec:
     name: {{ .Values.meta.rdrs.externalLoadBalancer.name }}
     port: 5406
   targetGroupARN: {{ .Values.global.unmanagedLoadBalancers.rdrs.grpc.targetGroupId }}
+{{- if .Values.meta.rdrs.externalLoadBalancer.nodeSelector }}
+  nodeSelector:
+    {{- toYaml .Values.meta.rdrs.externalLoadBalancer.nodeSelector | nindent 4 }}
+{{- end }}
 {{- end -}}
 {{- end -}}
