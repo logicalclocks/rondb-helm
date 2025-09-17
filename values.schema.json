@@ -1306,6 +1306,13 @@
                     "description": "DiskPageBufferMemory are used by disk columns. This is the page cache that contains disk pages when they are in memory. By default it is not defined.",
                     "default": null
                 },
+                "ActivateRateLimits": {
+                    "type": "integer",
+                    "description": "Activate rate limits handling",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0
+                },
                 "TransactionInactiveTimeout": {
                     "type": "integer",
                     "description": "Milliseconds that application waits before executing another part of transaction",

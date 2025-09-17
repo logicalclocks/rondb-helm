@@ -302,6 +302,7 @@ restoreFromBackup:
       name: aws-credentials
     serverSideEncryption: null
 rondbConfig:
+  ActivateRateLimits: 0
   DiskPageBufferMemory: null
   EmptyApiSlots: 8
   HeartbeatIntervalDbApi: 5000
