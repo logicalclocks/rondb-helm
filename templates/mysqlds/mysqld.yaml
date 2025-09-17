@@ -46,15 +46,6 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
 {{- include "rondb.affinity.preferred.ndbdAZs" $ | indent 10 }}
         podAntiAffinity:
-          # mysql should not run on the same node
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-                - key: rondbService
-                  operator: In
-                  values:
-                  - {{ include "rondb.labels.rondbService.mysqld" $ }}
-            topologyKey: kubernetes.io/hostname
           preferredDuringSchedulingIgnoredDuringExecution:
           # try spreading mysql in different zones
           - weight: 100
