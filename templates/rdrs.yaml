@@ -37,9 +37,21 @@ spec:
           matchLabels:
             rondbService: {{ include "rondb.labels.rondbService.rdrs" $ }}
       affinity:
-        podAntiAffinity:
+        podAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
 {{- include "rondb.affinity.preferred.ndbdAZs" $ | indent 10 }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # try spreading rdrs in different zones
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: rondbService
+                  operator: In
+                  values:
+                  - {{ include "rondb.labels.rondbService.rdrs" $ }}
+              topologyKey: topology.kubernetes.io/zone
       initContainers:
 {{ include "rondb.container.waitDatanodes" $ | indent 6 }}
 {{ include "rondb.container.isDnsResolvable" $ | indent 6 }}

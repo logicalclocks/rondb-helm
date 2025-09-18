@@ -44,7 +44,19 @@ spec:
       affinity:
         podAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-{{- include "rondb.affinity.preferred.ndbdAZs" $ | indent 10 -}}
+{{- include "rondb.affinity.preferred.ndbdAZs" $ | indent 10 }}
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # try spreading mysql in different zones
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: rondbService
+                  operator: In
+                  values:
+                  - {{ include "rondb.labels.rondbService.mysqld" $ }}
+              topologyKey: topology.kubernetes.io/zone
 {{- include "rondb.PodSecurityContext" . | indent 6 }}
 {{- if .Values.priorityClass }}
       priorityClassName: {{ .Values.priorityClass | quote }}
