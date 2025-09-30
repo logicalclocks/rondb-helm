@@ -1,4 +1,10 @@
 {
+    "Internal": {
+        "BufferSize": {{ $.Values.rdrs.internal.bufferSize }},
+        "PreAllocatedBuffers": {{ $.Values.rdrs.internal.preAllocatedBuffers }},
+        "MaxAllocatedBuffers": {{ $.Values.rdrs.internal.maxAllocatedBuffers }},
+        "BatchMaxSize": {{ $.Values.rdrs.internal.batchMaxSize }}
+    },
     "REST": {
         "Enable": true,
         "ServerIP": "0.0.0.0",

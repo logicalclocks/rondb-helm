@@ -239,6 +239,11 @@ rdrs:
     slotsPerNode: 1
   hpa:
     additionalMetrics: []
+  internal:
+    bufferSize: 5242880
+    preAllocatedBuffers: 32
+    maxAllocatedBuffers: 8192
+    batchMaxSize: 256
 resources:
   limits:
     cpus:
