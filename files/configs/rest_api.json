@@ -1,9 +1,9 @@
 {
     "Internal": {
-        "BufferSize": {{ $.Values.rdrs.internal.bufferSize }},
-        "PreAllocatedBuffers": {{ $.Values.rdrs.internal.preAllocatedBuffers }},
-        "MaxAllocatedBuffers": {{ $.Values.rdrs.internal.maxAllocatedBuffers }},
-        "BatchMaxSize": {{ $.Values.rdrs.internal.batchMaxSize }}
+        "BufferSize": {{ $.Values.rdrs.internal.bufferSize | int }},
+        "PreAllocatedBuffers": {{ $.Values.rdrs.internal.preAllocatedBuffers | int }},
+        "MaxAllocatedBuffers": {{ $.Values.rdrs.internal.maxAllocatedBuffers | int }},
+        "BatchMaxSize": {{ $.Values.rdrs.internal.batchMaxSize | int }}
     },
     "REST": {
         "Enable": true,
