@@ -1354,6 +1354,32 @@
                         }
                     }
                 },
+                "internal": {
+                    "type": "object",
+                    "description": "Internal configuration for RDRS",
+                    "properties": {
+                        "bufferSize": {
+                            "type": "integer",
+                            "description": "Buffer size for internal operations",
+                            "default": 5242880
+                        },
+                        "preAllocatedBuffers": {
+                            "type": "integer",
+                            "description": "Number of pre-allocated buffers",
+                            "default": 32
+                        },
+                        "maxAllocatedBuffers": {
+                            "type": "integer",
+                            "description": "Maximum number of allocated buffers",
+                            "default": 8192
+                        },
+                        "batchMaxSize": {
+                            "type": "integer",
+                            "description": "Maximum batch size",
+                            "default": 256
+                        }
+                    }
+                },
                 "externalMetadataCluster": {
                     "type": "object",
                     "description": "RDRSs will always be in the cluster of the data, not the metadata",
