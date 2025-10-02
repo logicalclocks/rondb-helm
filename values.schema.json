@@ -1356,14 +1356,6 @@
                     ],
                     "description": "The total memory configured by RonDB datanode. By default it is not defined and memory is calculated automatically.",
                     "default": null
-                },
-                "NumCPUs": {
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
-                    "description": "The number of CPUs to configure for RonDB datanode. If set, this overrides the automatic CPU calculation. If not set and staticCpuManagerPolicy is false, CPUs are calculated automatically.",
-                    "default": null
                 }
             },
             "required": [
