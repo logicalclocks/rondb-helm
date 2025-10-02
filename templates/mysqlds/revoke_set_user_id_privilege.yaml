@@ -1,6 +1,5 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
-
 {{- $execute := true }}
 {{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName }}
 {{- if $sts }}
@@ -8,8 +7,8 @@
   {{- if $containers }}
     {{- range $c := $containers }}
       {{- if eq $c.name "mgmd" }}
-        {{- $imageSplits := $c.image | split ":" }}
-        {{- $tag := $imageSplits._1 }}
+        {{- $imageSplits := regexSplit ":+" $c.image -1 }}
+        {{- $tag := last $imageSplits }}
         {{- if semverCompare ">= 24.x" $tag }}
           {{- $execute = false }}
         {{- end }}
