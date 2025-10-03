@@ -1,6 +1,12 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
-
+{{- /*
+  This Job will restore the admin privileges revoked by revoke_set_user_id_privilege.yaml and
+  grant all new MySQL admin privileges in RonDB 24.x
+  This job will run *only* on upgrades and *only* if the cluster to be upgraded is < 24.x
+  For this we read the Image from the mgmd Pod and extract the version.
+  For more information: HWORKS-2315 CLOUD-857
+*/}}
 {{- $execute := true }}
 {{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName }}
 {{- if $sts }}

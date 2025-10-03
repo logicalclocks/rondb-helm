@@ -1,5 +1,12 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
+{{- /*
+  This Job will remove the unsupported MySQL privilege from a 22.x cluster *before* (pre-upgrade hook) running an upgrade
+  We don't want to run the job on all upgrades, only if the cluster to be upgraded is < 24.x
+  For this we read the Image from the mgmd Pod and extract the version.
+  The admin privileges will be restored in the new 24.x cluster by the 2410_update_grant_all.yaml Job
+  For more information: HWORKS-2315 CLOUD-857
+*/}}
 {{- $execute := true }}
 {{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName }}
 {{- if $sts }}
