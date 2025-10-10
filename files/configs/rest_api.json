@@ -3,7 +3,8 @@
         "BufferSize": {{ $.Values.rdrs.internal.bufferSize | int }},
         "PreAllocatedBuffers": {{ $.Values.rdrs.internal.preAllocatedBuffers | int }},
         "MaxAllocatedBuffers": {{ $.Values.rdrs.internal.maxAllocatedBuffers | int }},
-        "BatchMaxSize": {{ $.Values.rdrs.internal.batchMaxSize | int }}
+        "BatchMaxSize": {{ $.Values.rdrs.internal.batchMaxSize | int }},
+        "GOMAXPROCS": {{- include "rdrs.gomaxprocs" . }}
     },
     "REST": {
         "Enable": true,
