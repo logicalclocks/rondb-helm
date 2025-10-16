@@ -364,6 +364,30 @@
                                         "supplyOwnSecret",
                                         "filenames"
                                     ]
+                                },
+                                "envs": {
+                                    "type": "array",
+                                    "description": "Additional environment variables to set in the RDRS container",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string",
+                                                "description": "Name of the environment variable",
+                                                "default": ""
+                                            },
+                                            "value": {
+                                                "type": "string",
+                                                "description": "Value of the environment variable",
+                                                "default": ""
+                                            }
+                                        },
+                                        "required": [
+                                            "name",
+                                            "value"
+                                        ]
+                                    },
+                                    "default": []
                                 }
                             },
                             "required": [
@@ -1377,6 +1401,14 @@
                             "type": "integer",
                             "description": "Maximum batch size",
                             "default": 256
+                        },
+                        "gomaxprocs": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "GOMAXPROCS setting for RDRS. By default, it is set to CPU resource limit of the RDRS pod",
+                            "default": null
                         }
                     }
                 },

@@ -110,6 +110,9 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+{{- if not (empty .Values.meta.rdrs.statefulSet.envs) }}
+{{ .Values.meta.rdrs.statefulSet.envs | toYaml | indent 10 }}
+{{- end }}
         volumeMounts:
         # Only mount single file, otherwise entire directory becomes read-only
         - name: rdrs-configs
