@@ -190,6 +190,7 @@ meta:
           key: tls.key
         secretName: rdrs-end-to-end-tls
         supplyOwnSecret: false
+      envs: []
       name: rdrs
   replicaAppliers:
     headlessClusterIp:
@@ -242,6 +243,7 @@ rdrs:
   internal:
     batchMaxSize: 256
     bufferSize: 5242880
+    gomaxprocs: null
     maxAllocatedBuffers: 8192
     preAllocatedBuffers: 32
 resources:
