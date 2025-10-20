@@ -1588,7 +1588,7 @@
             "properties": {
                 "enabled": {
                     "type": "boolean",
-                    "default": false
+                    "default": true
                 },
                 "pathPrefix": {
                     "description": "Prefix of RonDB backup in the configured bucket",
@@ -1598,7 +1598,7 @@
                 "schedule": {
                     "description": "Cron schedule for backups",
                     "type": "string",
-                    "default": "0 3 * * mon"
+                    "default": "@weekly"
                 },
                 "objectStorageProvider": {
                     "enum": [

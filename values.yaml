@@ -20,7 +20,7 @@ backups:
       key: access_key
       name: aws-credentials
     serverSideEncryption: null
-  schedule: "@weekly"
+  schedule: '@weekly'
 benchmarking:
   dbt2:
     numWarehouses: 4
