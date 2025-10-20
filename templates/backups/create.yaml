@@ -44,26 +44,13 @@ spec:
               value: /tmp/backup
             - name: LOCAL_BACKUP_DIR
               value: /home/hopsworks/schemata
-            - name: RCLONE_MOUNT_FILEPATH
-              value: &rawRCloneConf /home/hopsworks/rclone-raw.conf
             # This will be read by rclone
             - name: RCLONE_CONFIG
               value: /home/hopsworks/rclone.conf
-{{- if eq $.Values.backups.objectStorageProvider "s3" }}
-            - name: ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-{{- toYaml .Values.backups.s3.keyCredentialsSecret | nindent 18 }}
-                  optional: true
-            - name: SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-{{- toYaml .Values.backups.s3.secretCredentialsSecret | nindent 18 }}
-                  optional: true
-{{- end }}
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.backups "namespace" $.Release.Namespace) | indent 12 }}
             volumeMounts:
             - name: rclone-configs
-              mountPath: *rawRCloneConf
+              mountPath: /home/hopsworks/rclone.conf
               subPath: rclone.conf
           # RonDB contains a native backup protocol, which is launched through
           # the mgm client. It essentially causes every datanode to create a binary

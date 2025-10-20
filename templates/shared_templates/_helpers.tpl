@@ -364,3 +364,20 @@ true
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "rondb.backup.credentials" -}}
+{{- if eq .backupConfig.objectStorageProvider "s3" }}
+{{- if (lookup "v1" "Secret" .namespace .backupConfig.s3.keyCredentialsSecret.name) }}
+- name: AWS_ACCESS_KEY_ID
+  valueFrom:
+    secretKeyRef:
+{{- toYaml .backupConfig.s3.keyCredentialsSecret | nindent 6 }}
+{{- end }}
+{{- if (lookup "v1" "Secret" .namespace .backupConfig.s3.secretCredentialsSecret.name) }}
+- name: AWS_SECRET_ACCESS_KEY
+  valueFrom:
+    secretKeyRef:
+{{- toYaml .backupConfig.s3.secretCredentialsSecret | nindent 6 }}
+{{- end }}
+{{- end }}
+{{- end -}}

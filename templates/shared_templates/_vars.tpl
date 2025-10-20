@@ -38,10 +38,6 @@ backupRemote
 }}
 {{- end -}}
 
-{{- define "rondb.rawRCloneConf" -}}
-/home/hopsworks/rclone-raw.conf
-{{- end -}}
-
 ---
 
 {{- define "rondb.restoreNativeBackupJobname" -}}

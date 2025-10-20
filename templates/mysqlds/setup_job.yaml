@@ -43,7 +43,6 @@ spec:
         - |
           set -e
 
-{{ include "rondb.createRcloneConfig" . | indent 10 }}
 
 {{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
           REMOTE_BACKUP_DIR={{ include "rondb.rcloneRestoreRemoteName" . }}:{{ $.Values.restoreFromBackup.s3.bucketName }}/{{ include "rondb.restoreBackupPathPrefix" . }}/$BACKUP_ID
