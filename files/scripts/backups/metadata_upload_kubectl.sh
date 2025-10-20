@@ -6,8 +6,6 @@
 # for everything we want to back up. Root cannot be used over the network.
 set -e
 
-{{ include "rondb.createRcloneConfig" . }}
-
 kubectl exec \
     $MYSQLD_PODNAME \
     -c mysqld \

@@ -12,9 +12,7 @@ data:
 {{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
         type = s3
         provider = {{ .Values.restoreFromBackup.s3.provider }}
-        access_key_id = REG_ACCESS_KEY_ID
-        secret_access_key = REG_SECRET_ACCESS_KEY
-        env_auth = false
+        env_auth = true
         region = {{ .Values.restoreFromBackup.s3.region }}
 {{- if .Values.restoreFromBackup.s3.serverSideEncryption }}
         server_side_encryption = {{ .Values.restoreFromBackup.s3.serverSideEncryption }}
@@ -29,9 +27,7 @@ data:
 {{- if eq $.Values.backups.objectStorageProvider "s3" }}
         type = s3
         provider = {{ .Values.backups.s3.provider }}
-        access_key_id = REG_ACCESS_KEY_ID
-        secret_access_key = REG_SECRET_ACCESS_KEY
-        env_auth = false
+        env_auth = true
         region = {{ .Values.backups.s3.region }}
 {{- if .Values.backups.s3.serverSideEncryption }}
         server_side_encryption = {{ .Values.backups.s3.serverSideEncryption }}

@@ -201,26 +201,13 @@ spec:
           value: {{ include "rondb.mgmdHostname" . }}
         - name: BACKUP_ID
           value: {{ .Values.restoreFromBackup.backupId | int | quote }}
-{{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
-        - name: ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-{{- toYaml $.Values.restoreFromBackup.s3.keyCredentialsSecret | nindent 14 }}
-              optional: true
-        - name: SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-{{- toYaml $.Values.restoreFromBackup.s3.secretCredentialsSecret | nindent 14 }}
-              optional: true
-{{- end }}
-        - name: RCLONE_MOUNT_FILEPATH
-          value: {{ include "rondb.rawRCloneConf" $ }}
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace) | indent 8 }}
         # This will be read by rclone
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
         volumeMounts:
         - name: rclone-configs
-          mountPath: {{ include "rondb.rawRCloneConf" $ }}
+          mountPath: /home/hopsworks/rclone.conf
           subPath: rclone.conf
         resources:
           limits:
