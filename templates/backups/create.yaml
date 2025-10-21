@@ -33,10 +33,6 @@ spec:
             - |
 {{ tpl (.Files.Get "files/scripts/backups/metadata_upload_kubectl.sh") . | indent 14 }}
             env:
-            - name: JOB_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
             - name: MYSQLD_PODNAME
               value: {{ include "rondb.mysqldPodname" . }}
             # On MySQLd Pod:
@@ -52,6 +48,8 @@ spec:
             - name: rclone-configs
               mountPath: /home/hopsworks/rclone.conf
               subPath: rclone.conf
+            - name: backup-id
+              mountPath: /home/hopsworks/backup-id
           # RonDB contains a native backup protocol, which is launched through
           # the mgm client. It essentially causes every datanode to create a binary
           # backup that it stores locally.
@@ -63,15 +61,15 @@ spec:
             - /bin/bash
             - -c
             - |
-{{- include "rondb.backups.defineJobNumberEnv" $ | indent 14 }}
-              ndb_mgm --ndb-connectstring=$MGM_CONNECTSTRING -e "START BACKUP $JOB_NUMBER SNAPSHOTEND WAIT COMPLETED"
+{{- include "rondb.backups.defineBackupIdEnv" $ | indent 14 }}
+              ndb_mgm --ndb-connectstring=$MGM_CONNECTSTRING -e "START BACKUP $BACKUP_ID SNAPSHOTEND WAIT COMPLETED"
             env:
-            - name: JOB_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
             - name: MGM_CONNECTSTRING
               value: {{ include "rondb.mgmdHostname" . }}:1186
+            volumeMounts:
+            - name: backup-id
+              mountPath: /home/hopsworks/backup-id
+              readOnly: true
           containers:
           - name: upload-native-backups
             image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
@@ -83,14 +81,15 @@ spec:
             - -c
             - |
 {{ tpl (.Files.Get "files/scripts/backups/native_upload_kubectl.sh") . | indent 14 }}
-            env:
-            - name: JOB_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
+            volumeMounts:
+            - name: backup-id
+              mountPath: /home/hopsworks/backup-id
+              readOnly: true
           volumes:
           - name: rclone-configs
             configMap:
               name: rclone-configs
+          - name: backup-id
+            emptyDir: {}
 ---
 {{- end -}}

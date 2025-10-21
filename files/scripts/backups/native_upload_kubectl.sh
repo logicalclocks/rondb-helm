@@ -10,9 +10,9 @@ wait_pids=()
 NUM_NODE_GROUPS={{ .Values.clusterSize.numNodeGroups }}
 NUM_REPLICAS={{ .Values.clusterSize.activeDataReplicas }}
 
-{{ include "rondb.backups.defineJobNumberEnv" $ }}
-SOURCE_DIR=/home/hopsworks/data/ndb/backups/BACKUP/BACKUP-$JOB_NUMBER
-REMOTE_BACKUP_DIR={{ include "rondb.rcloneBackupRemoteName" . }}:{{ include "rondb.backups.bucketName" (dict "backupConfig" .Values.backups "global" .Values.global) }}/{{ include "rondb.takeBackupPathPrefix" . }}/$JOB_NUMBER
+{{ include "rondb.backups.defineBackupIdEnv" $ }}
+SOURCE_DIR=/home/hopsworks/data/ndb/backups/BACKUP/BACKUP-$BACKUP_ID
+REMOTE_BACKUP_DIR={{ include "rondb.rcloneBackupRemoteName" . }}:{{ include "rondb.backups.bucketName" (dict "backupConfig" .Values.backups "global" .Values.global) }}/{{ include "rondb.takeBackupPathPrefix" . }}/$BACKUP_ID
 
 echo "Uploading backups from '$SOURCE_DIR' to object storage $REMOTE_BACKUP_DIR in parallel"
 for ((g = 0; g < NUM_NODE_GROUPS; g++)); do

@@ -254,24 +254,22 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
 {{ end }}
 {{- end }}
 
-
-# Previously JOB_NUMBER=$(echo $JOB_NAME | tr -d '[[:alpha:]]' | tr -d '-' | sed 's/^0*//' | cut -c -9)
-# However, sometimes, the JOB_NAME would not contain an integer
-# Now, we hash the JOB_NAME, remove alphabets and take the first 5 characters
-# echo -n "$JOB_NAME" | sha1sum                     # Hash
-# echo -n "$JOB_NAME" | ... | cut -d ' ' -f 1       # Remove appended whitespace
-# echo -n "$JOB_NAME" | ... | xxd -p                # Hexadecimal hash
-# echo -n "$JOB_NAME" | ... | tr -d '\n'            # Remove newline
-# echo -n "$JOB_NAME" | ... | tr -d '[[:alpha:]]'   # Remove alphabets
-# echo -n "$JOB_NAME" | ... | sed 's/^0*//'         # Remove appended zeroes
-# echo -n "$JOB_NAME" | ... | cut -c 1-5            # Truncate to 5 characters
-{{- define "rondb.backups.defineJobNumberEnv" }}
-JOB_NUMBER=$(echo -n "$JOB_NAME" | sha1sum | cut -d ' ' -f 1 | tr -d '\n' | tr -d '[[:alpha:]]' | sed 's/^0*//' | cut -c 1-5)
-if [ -z "$JOB_NUMBER" ]; then
-    echo "JOB_NUMBER is not set"
-    exit 1
+# Backup Id format $(date +'%y%V%u%H%M')
+# %y Last two digits of the year
+# %V ISO week number (01–53)
+# %u Day of the week (1 = Monday, 7 = Sunday)
+# %H Hour (00–23)
+# %M Minute (00–59)
+{{- define "rondb.backups.defineBackupIdEnv" }}
+BACKUP_FILE="/home/hopsworks/backup-id/id"
+if [ -f "$BACKUP_FILE" ]; then
+  BACKUP_ID=$(cat "$BACKUP_FILE")
+  echo "Reusing existing backup ID: $BACKUP_ID"
+else
+  BACKUP_ID=$(date +'%y%V%u%H%M')
+  echo "$BACKUP_ID" > "$BACKUP_FILE"
+  echo "Generated new backup ID: $BACKUP_ID"
 fi
-echo "Job number: $JOB_NUMBER"
 {{- end }}
 
 {{- define "rondb.certManager.certificate.endToEnd" }}
