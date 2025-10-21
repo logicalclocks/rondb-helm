@@ -21,7 +21,7 @@ spec:
         rondbService: {{ include "rondb.labels.rondbService.setup-mysqld" $ }}
     spec:
       restartPolicy: Never
-{{- if .Values.restoreFromBackup.backupId }}
+{{- if include "rondb.restoreFromBackup.backupId" . }}
       serviceAccountName: {{ include "rondb.serviceAccount.restoreWatcher" . }}
 {{- end }}
 {{- include "rondb.PodSecurityContext" $ | indent 6 }}
@@ -32,7 +32,7 @@ spec:
       priorityClassName: {{ .Values.priorityClass | quote }}
 {{- end  }}
       initContainers:
-{{- if .Values.restoreFromBackup.backupId }}
+{{- if include "rondb.restoreFromBackup.backupId" . }}
       - name: download-mysql-metadata
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
@@ -44,9 +44,7 @@ spec:
           set -e
 
 
-{{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
-          REMOTE_BACKUP_DIR={{ include "rondb.rcloneRestoreRemoteName" . }}:{{ $.Values.restoreFromBackup.s3.bucketName }}/{{ include "rondb.restoreBackupPathPrefix" . }}/$BACKUP_ID
-{{- end }}
+          REMOTE_BACKUP_DIR={{ include "rondb.rcloneRestoreRemoteName" . }}:{{ include "rondb.backups.bucketName" (dict "backupConfig" $.Values.restoreFromBackup "global" $.Values.global) }}/{{ include "rondb.restoreBackupPathPrefix" . }}/$BACKUP_ID
           rclone copy --include "*.sql" $REMOTE_BACKUP_DIR/ $LOCAL_BACKUP_DIR/
 
           (set -x; ls -la $LOCAL_BACKUP_DIR)
@@ -61,7 +59,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: BACKUP_ID
-          value: {{ .Values.restoreFromBackup.backupId | int | quote }}
+          value: {{ include "rondb.restoreFromBackup.backupId" . | int | quote }}
         - name: LOCAL_BACKUP_DIR
           value: &metadataBackupDir /home/hopsworks/schemata
         volumeMounts:
@@ -109,7 +107,7 @@ spec:
           mountPath: {{ include "rondb.sqlInitScriptsDir" . }}/{{ include "rondb.helmSqlInitFile" . }}
           subPath: {{ include "rondb.helmSqlInitFile" . }}
 {{- end }}
-{{- if .Values.restoreFromBackup.backupId }}
+{{- if include "rondb.restoreFromBackup.backupId" . }}
         # The mount path must be unique; so we cannot mount it directly into the SQL-init directory
         - name: mysql-restore
           mountPath: {{ include "rondb.sqlRestoreScriptsDir" . }}
@@ -152,12 +150,12 @@ spec:
       - name: mysqld-configs
         configMap:
           name: mysqld-configs
-{{- if .Values.restoreFromBackup.backupId }}
+{{- if include "rondb.restoreFromBackup.backupId" .}}
       - name: rclone-configs
         configMap:
           name: rclone-configs
 {{- end }}
-{{- if .Values.restoreFromBackup.backupId }}
+{{- if include "rondb.restoreFromBackup.backupId" . }}
       - name: mysql-restore
         emptyDir:
           sizeLimit: 100Mi

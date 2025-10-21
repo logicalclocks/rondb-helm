@@ -138,7 +138,7 @@ spec:
     TODO: Since we already have the rclone-listener sidecar, use it to also
         download the backup-to-be-restored.
 */}}
-{{- if $.Values.restoreFromBackup.backupId }}
+{{- if include "rondb.restoreFromBackup.backupId" $ }}
       - name: download-backup-to-restore
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         # Setting resources in order to be in QoS class Guaranteed
@@ -166,7 +166,7 @@ spec:
         - name: FILE_SYSTEM_PATH
           value: /home/hopsworks/data/ndb_data
         - name: BACKUP_ID
-          value: {{ $.Values.restoreFromBackup.backupId | int | quote }}
+          value: {{ include "rondb.restoreFromBackup.backupId" $ | int | quote }}
 {{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace "global" $.Values.global) | indent 8 }}
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
@@ -355,7 +355,7 @@ spec:
           mountPath: /home/hopsworks/rclone.conf
           subPath: rclone.conf
 {{- end }}
-{{- if or (include "rondb.backups.isEnabled" $) $.Values.restoreFromBackup.backupId }}
+{{- if or (include "rondb.backups.isEnabled" $) (include "rondb.restoreFromBackup.backupId" $) }}
       volumes:
       - name: rclone-configs
         configMap:

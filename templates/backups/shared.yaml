@@ -1,6 +1,6 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
-{{ if or (include "rondb.backups.isEnabled" .) .Values.restoreFromBackup.backupId }}
+{{ if or (include "rondb.backups.isEnabled" .) (include "rondb.restoreFromBackup.backupId" .) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

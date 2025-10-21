@@ -70,7 +70,7 @@
     echo "Waiting for {{ include "rondb.mysqldSetupJobName" . }} Job to have completed"
 
 {{- $waitTimeoutMinutes := .Values.timeoutsMinutes.singleSetupMySQLds }}
-{{- if .Values.restoreFromBackup.backupId }}
+{{- if include "rondb.restoreFromBackup.backupId" . }}
     {{- $waitTimeoutMinutes := (add $waitTimeoutMinutes .Values.timeoutsMinutes.restoreNativeBackup) }}
 {{- end }}
     (

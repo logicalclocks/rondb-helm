@@ -67,7 +67,7 @@ spec:
 {{- if .Values.priorityClass }}
       priorityClassName: {{ .Values.priorityClass | quote }}
 {{- end  }}
-{{- if .Values.restoreFromBackup.backupId }}
+{{- if include "rondb.restoreFromBackup.backupId" . }}
       # We need to wait for the restore Job
       serviceAccountName: {{ include "rondb.serviceAccount.restoreWatcher" . }}
 {{- end }}

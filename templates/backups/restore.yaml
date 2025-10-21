@@ -1,6 +1,6 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
-{{ if .Values.restoreFromBackup.backupId -}}
+{{ if include "rondb.restoreFromBackup.backupId" . -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -145,7 +145,7 @@ spec:
         - name: MGMD_HOST
           value: {{ include "rondb.mgmdHostname" . }}
         - name: BACKUP_ID
-          value: {{ .Values.restoreFromBackup.backupId | int | quote }}
+          value: {{ include "rondb.restoreFromBackup.backupId" . | int | quote }}
         resources:
           limits:
             cpu: {{ .Values.resources.limits.cpus.restore }}
@@ -200,7 +200,7 @@ spec:
         - name: MGMD_HOST
           value: {{ include "rondb.mgmdHostname" . }}
         - name: BACKUP_ID
-          value: {{ .Values.restoreFromBackup.backupId | int | quote }}
+          value: {{ include "rondb.restoreFromBackup.backupId" . | int | quote }}
 {{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace "global" $.Values.global) | indent 8 }}
         # This will be read by rclone
         - name: RCLONE_CONFIG
@@ -259,7 +259,7 @@ spec:
         - name: MGMD_HOST
           value: {{ include "rondb.mgmdHostname" . }}
         - name: BACKUP_ID
-          value: {{ .Values.restoreFromBackup.backupId | int | quote }}
+          value: {{ include "rondb.restoreFromBackup.backupId" . | int | quote }}
         resources:
           limits:
             cpu: {{ .Values.resources.limits.cpus.restore }}
@@ -296,7 +296,7 @@ spec:
           echo "Successfully removed native backup ID $BACKUP_ID from data node Pods"
         env:
         - name: BACKUP_ID
-          value: {{ .Values.restoreFromBackup.backupId | int | quote }}
+          value: {{ include "rondb.restoreFromBackup.backupId" . | int | quote }}
         resources:
           limits:
             cpu: {{ .Values.resources.limits.cpus.restore }}
