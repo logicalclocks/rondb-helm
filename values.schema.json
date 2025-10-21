@@ -1588,8 +1588,8 @@
             "description": "Whether, how and how often to run regular backups on the cluster",
             "properties": {
                 "enabled": {
-                    "type": "boolean",
-                    "default": true
+                    "type": ["boolean", "null"],
+                    "default": null
                 },
                 "pathPrefix": {
                     "description": "Prefix of RonDB backup in the configured bucket",
@@ -1611,10 +1611,7 @@
                 "s3": {
                     "$ref": "#/$defs/s3"
                 }
-            },
-            "required": [
-                "enabled"
-            ]
+            }
         },
         "globalReplication": {
             "type": "object",
