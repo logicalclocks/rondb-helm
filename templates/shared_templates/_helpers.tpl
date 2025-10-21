@@ -413,20 +413,26 @@ true
 {{- end -}}
 
 {{- define "rondb.globalObjectStorage.backupsEnabled" -}}
-{{- if and (include  "rondb.globalObjectStorage" (dict "global" .Values.global)) .Values.global._hopsworks.managedObjectStorage.backups .Values.global._hopsworks.managedObjectStorage.backups.enabled -}}
+{{- if and (include  "rondb.globalObjectStorage" (dict "global" .Values.global)) .Values.global._hopsworks.managedObjectStorage.backups (hasKey .Values.global._hopsworks.managedObjectStorage.backups "enabled" ) -}}
+{{- if .Values.global._hopsworks.managedObjectStorage.backups.enabled -}}
 true
+{{- end -}}
 {{- end -}}
 {{- end -}}
 
 {{- define "rondb.backups.isEnabled" -}}
-{{- if or .Values.backups.enabled (include "rondb.globalObjectStorage.backupsEnabled" .) -}}
+{{- if hasKey .Values.backups "enabled" -}}
+{{- if .Values.backups.enabled -}}
+true
+{{- end -}}
+{{- else if include "rondb.globalObjectStorage.backupsEnabled" . -}}
 true
 {{- end -}}
 {{- end -}}
 
 # FIXME add a default value
 {{- define "rondb.backups.schedule" -}}
-{{- if .Values.backups.schedule -}}
+{{- if and .Values.backups.enabled .Values.backups.schedule -}}
 {{- .Values.backups.schedule -}}
 {{- else if and (include "rondb.globalObjectStorage.backupsEnabled" .) .Values.global._hopsworks.managedObjectStorage.backups.schedule -}}
 {{- .Values.global._hopsworks.managedObjectStorage.backups.schedule -}}

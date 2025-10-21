@@ -5,7 +5,7 @@
 # Schema JSON files allow defining restrictions, enums and references.
 # Use script .github/json_to_yaml.py to generate this file.
 backups:
-  enabled: false
+  enabled: null
   objectStorageProvider: null
   pathPrefix: rondb_backup
   s3:
