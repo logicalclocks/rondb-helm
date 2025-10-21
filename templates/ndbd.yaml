@@ -167,7 +167,7 @@ spec:
           value: /home/hopsworks/data/ndb_data
         - name: BACKUP_ID
           value: {{ $.Values.restoreFromBackup.backupId | int | quote }}
-{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace) | indent 8 }}
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace "global" $.Values.global) | indent 8 }}
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
         volumeMounts:
@@ -320,7 +320,7 @@ spec:
         - name: rondb-ndbmtd-dc
           mountPath: {{ include "rondb.ndbmtd.fileSystemPathDataFiles" $ }}
 {{- end }}
-{{- if $.Values.backups.enabled -}}
+{{- if include "rondb.backups.isEnabled" $ -}}
 {{/* This container is used to receive calls to push backups to object storage */}}
       - name: rclone-listener
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
@@ -344,7 +344,7 @@ spec:
 {{- end }}
             memory: 300Mi
         env:
-{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.backups "namespace" $.Release.Namespace) | indent 8 }}
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.backups "namespace" $.Release.Namespace "global" $.Values.global) | indent 8 }}
         # This will be read by rclone
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
@@ -355,7 +355,7 @@ spec:
           mountPath: /home/hopsworks/rclone.conf
           subPath: rclone.conf
 {{- end }}
-{{- if or $.Values.backups.enabled $.Values.restoreFromBackup.backupId }}
+{{- if or (include "rondb.backups.isEnabled" $) $.Values.restoreFromBackup.backupId }}
       volumes:
       - name: rclone-configs
         configMap:
