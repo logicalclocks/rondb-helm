@@ -7,10 +7,8 @@ NODE_ID=$(($NODE_ID_OFFSET+$POD_ID+1))
 
 {{- define "rondb.mapNewNodesToBackedUpNodes" -}}
 
-{{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
-REMOTE_NATIVE_BACKUP_DIR={{ include "rondb.rcloneRestoreRemoteName" . }}:{{ $.Values.restoreFromBackup.s3.bucketName }}/{{ include "rondb.restoreBackupPathPrefix" . }}/$BACKUP_ID/rondb
+REMOTE_NATIVE_BACKUP_DIR={{ include "rondb.rcloneRestoreRemoteName" . }}:{{ include "rondb.backups.bucketName" (dict "backupConfig" $.Values.restoreFromBackup "global" $.Values.global) }}/{{ include "rondb.restoreBackupPathPrefix" . }}/$BACKUP_ID/rondb
 echo "Path of remote (native) backup: $REMOTE_NATIVE_BACKUP_DIR"
-{{- end }}
 
 DIRECTORY_NAMES=$(rclone lsd $REMOTE_NATIVE_BACKUP_DIR | awk '{print $NF}')
 OLD_NODE_IDS=($DIRECTORY_NAMES)
