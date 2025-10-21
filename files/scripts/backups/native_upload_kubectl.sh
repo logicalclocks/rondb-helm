@@ -12,7 +12,7 @@ NUM_REPLICAS={{ .Values.clusterSize.activeDataReplicas }}
 
 {{ include "rondb.backups.defineJobNumberEnv" $ }}
 SOURCE_DIR=/home/hopsworks/data/ndb/backups/BACKUP/BACKUP-$JOB_NUMBER
-REMOTE_BACKUP_DIR={{ include "rondb.rcloneBackupRemoteName" . }}:{{ .Values.backups.s3.bucketName }}/{{ include "rondb.takeBackupPathPrefix" . }}/$JOB_NUMBER
+REMOTE_BACKUP_DIR={{ include "rondb.rcloneBackupRemoteName" . }}:{{ include "rondb.backups.bucketName" (dict "backupConfig" .Values.backups "global" .Values.global) }}/{{ include "rondb.takeBackupPathPrefix" . }}/$JOB_NUMBER
 
 echo "Uploading backups from '$SOURCE_DIR' to object storage $REMOTE_BACKUP_DIR in parallel"
 for ((g = 0; g < NUM_NODE_GROUPS; g++)); do

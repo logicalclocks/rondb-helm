@@ -366,18 +366,112 @@ true
 {{- end -}}
 
 {{- define "rondb.backup.credentials" -}}
-{{- if eq .backupConfig.objectStorageProvider "s3" }}
-{{- if (lookup "v1" "Secret" .namespace .backupConfig.s3.keyCredentialsSecret.name) }}
+{{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.globalObjectStorage.s3" .)}}
+{{- $secretName := "" }}
+{{- $key := "" }}
+{{- if and .backupConfig.s3.keyCredentialsSecret.name .backupConfig.s3.keyCredentialsSecret.key }}
+{{- $secretName = .backupConfig.s3.keyCredentialsSecret.name }}
+{{- $key = .backupConfig.s3.keyCredentialsSecret.key  }}
+{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id}}
+{{- $secretName = .global._hopsworks.managedObjectStorage.s3.secret.name }}
+{{- $key = .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id }}
+{{- end }}
+{{- if (lookup "v1" "Secret" .namespace $secretName ) }}
 - name: AWS_ACCESS_KEY_ID
   valueFrom:
     secretKeyRef:
-{{- toYaml .backupConfig.s3.keyCredentialsSecret | nindent 6 }}
+      name: {{ $secretName }}
+      key: {{ $key }}
 {{- end }}
-{{- if (lookup "v1" "Secret" .namespace .backupConfig.s3.secretCredentialsSecret.name) }}
+{{- if and .backupConfig.s3.secretCredentialsSecret.name .backupConfig.s3.secretCredentialsSecret.key }}
+{{- $secretName = .backupConfig.s3.secretCredentialsSecret.name }}
+{{- $key = .backupConfig.s3.secretCredentialsSecret.key  }}
+{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.secret_key_id}}
+{{- $secretName = .global._hopsworks.managedObjectStorage.s3.secret.name }}
+{{- $key = .global._hopsworks.managedObjectStorage.s3.secret.secret_key_id }}
+{{- end }}
+{{- if (lookup "v1" "Secret" .namespace $secretName) }}
 - name: AWS_SECRET_ACCESS_KEY
   valueFrom:
     secretKeyRef:
-{{- toYaml .backupConfig.s3.secretCredentialsSecret | nindent 6 }}
+      name: {{ $secretName }}
+      key: {{ $key }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+# FIXME need to account for minio as well if enabled 
+
+{{- define "rondb.globalObjectStorage" -}}
+{{- if and .global .global._hopsworks .global._hopsworks.managedObjectStorage .global._hopsworks.managedObjectStorage.enabled -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.globalObjectStorage.s3" -}}
+{{- if and (include "rondb.globalObjectStorage" .) .global._hopsworks.managedObjectStorage.s3  -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.globalObjectStorage.backupsEnabled" -}}
+{{- if and (include  "rondb.globalObjectStorage" (dict "global" .Values.global)) .Values.global._hopsworks.managedObjectStorage.backups .Values.global._hopsworks.managedObjectStorage.backups.enabled -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.backups.isEnabled" -}}
+{{- if or .Values.backups.enabled (include "rondb.globalObjectStorage.backupsEnabled" .) -}}
+true
+{{- end -}}
+{{- end -}}
+
+# FIXME add a default value
+{{- define "rondb.backups.schedule" -}}
+{{- if .Values.backups.schedule -}}
+{{- .Values.backups.schedule -}}
+{{- else if and (include "rondb.globalObjectStorage.backupsEnabled" .) .Values.global._hopsworks.managedObjectStorage.backups.schedule -}}
+{{- .Values.global._hopsworks.managedObjectStorage.backups.schedule -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.backups.bucketName" -}}
+{{- if .backupConfig.s3.bucketName -}}
+{{- .backupConfig.s3.bucketName -}}
+{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.bucket.name -}}
+{{- .global._hopsworks.managedObjectStorage.s3.bucket.name -}}
+{{- else -}}
+{{- fail "Missing bucket name configuration for backups. Please specify the bucket name either in the Rondb subchart or under global._hopsworks.managedObjectStorage." }}
+{{- end -}}
+{{- end -}}
+
+
+{{- define "rondb.rcloneConfig" -}}
+{{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.globalObjectStorage.s3" .) }}
+type = s3
+env_auth = true
+storage_class = STANDARD
+{{- if .backupConfig.s3.provider }}
+provider = {{ .backupConfig.s3.provider }}
+{{- else if and .global._hopsworks (eq (upper .global._hopsworks.cloudProvider) "AWS")}}
+provider = AWS
+{{- else }}
+provider = Other
+{{- end }}
+{{- if .backupConfig.s3.region }}
+region = {{ .backupConfig.s3.region }}
+{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.region }}
+region = {{ .global._hopsworks.managedObjectStorage.s3.region }}
+{{- end }}
+{{- if .backupConfig.s3.serverSideEncryption }}
+server_side_encryption = {{ .backupConfig.s3.serverSideEncryption }}
+{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.serverSideEncryption }}
+server_side_encryption = {{ .global._hopsworks.managedObjectStorage.s3.serverSideEncryption }}
+{{- end }}
+{{- if .backupConfig.s3.endpoint }}
+endpoint = {{ .backupConfig.s3.endpoint }}
+{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.endpoint }}
+endpoint = {{ .global._hopsworks.managedObjectStorage.s3.endpoint }}
 {{- end }}
 {{- end }}
 {{- end -}}

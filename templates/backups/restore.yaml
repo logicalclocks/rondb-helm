@@ -201,7 +201,7 @@ spec:
           value: {{ include "rondb.mgmdHostname" . }}
         - name: BACKUP_ID
           value: {{ .Values.restoreFromBackup.backupId | int | quote }}
-{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace) | indent 8 }}
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace "global" $.Values.global) | indent 8 }}
         # This will be read by rclone
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf

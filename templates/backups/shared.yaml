@@ -1,6 +1,6 @@
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
-{{ if or .Values.backups.enabled .Values.restoreFromBackup.backupId }}
+{{ if or (include "rondb.backups.isEnabled" .) .Values.restoreFromBackup.backupId }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,34 +9,10 @@ metadata:
 data:
     rclone.conf: |
         [{{ include "rondb.rcloneRestoreRemoteName" . }}]
-{{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
-        type = s3
-        provider = {{ .Values.restoreFromBackup.s3.provider }}
-        env_auth = true
-        region = {{ .Values.restoreFromBackup.s3.region }}
-{{- if .Values.restoreFromBackup.s3.serverSideEncryption }}
-        server_side_encryption = {{ .Values.restoreFromBackup.s3.serverSideEncryption }}
-{{- end }}
-        storage_class = STANDARD
-{{- if .Values.restoreFromBackup.s3.endpoint }}
-        endpoint = {{ .Values.restoreFromBackup.s3.endpoint }}
-{{- end }}
-{{- end }}
+{{ include "rondb.rcloneConfig" (dict "backupConfig" .Values.restoreFromBackup "global" .Values.global) | nindent 8}}
 
         [{{ include "rondb.rcloneBackupRemoteName" . }}]
-{{- if eq $.Values.backups.objectStorageProvider "s3" }}
-        type = s3
-        provider = {{ .Values.backups.s3.provider }}
-        env_auth = true
-        region = {{ .Values.backups.s3.region }}
-{{- if .Values.backups.s3.serverSideEncryption }}
-        server_side_encryption = {{ .Values.backups.s3.serverSideEncryption }}
-{{- end }}
-        storage_class = STANDARD
-{{- if .Values.backups.s3.endpoint }}
-        endpoint = {{ .Values.backups.s3.endpoint }}
-{{- end }}
-{{- end }}
+{{ include "rondb.rcloneConfig" (dict "backupConfig" .Values.backups "global" .Values.global) | nindent 8}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
