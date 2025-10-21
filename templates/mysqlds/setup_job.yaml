@@ -52,23 +52,10 @@ spec:
           (set -x; ls -la $LOCAL_BACKUP_DIR)
           echo "Successfully downloaded MySQL metadata"
         env:
-        - name: RCLONE_MOUNT_FILEPATH
-          value: {{ include "rondb.rawRCloneConf" . }}
         # This will be read by rclone
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
-{{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
-        - name: ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-{{- toYaml $.Values.restoreFromBackup.s3.keyCredentialsSecret | nindent 14 }}
-              optional: true
-        - name: SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-{{- toYaml $.Values.restoreFromBackup.s3.secretCredentialsSecret | nindent 14 }}
-              optional: true
-{{- end }}
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace) | indent 8 }}
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -79,7 +66,7 @@ spec:
           value: &metadataBackupDir /home/hopsworks/schemata
         volumeMounts:
         - name: rclone-configs
-          mountPath: {{ include "rondb.rawRCloneConf" . }}
+          mountPath: /home/hopsworks/rclone.conf
           subPath: rclone.conf
         - name: mysql-restore
           mountPath: *metadataBackupDir
