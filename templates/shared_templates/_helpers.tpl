@@ -364,15 +364,18 @@ true
 {{- end -}}
 
 {{- define "rondb.backup.credentials" -}}
-{{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.globalObjectStorage.s3" .)}}
+{{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.global.managedObjectStorage.s3" .) (include "rondb.global.minio" .)}}
 {{- $secretName := "" }}
 {{- $key := "" }}
 {{- if and .backupConfig.s3.keyCredentialsSecret.name .backupConfig.s3.keyCredentialsSecret.key }}
 {{- $secretName = .backupConfig.s3.keyCredentialsSecret.name }}
 {{- $key = .backupConfig.s3.keyCredentialsSecret.key  }}
-{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id}}
+{{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id}}
 {{- $secretName = .global._hopsworks.managedObjectStorage.s3.secret.name }}
 {{- $key = .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id }}
+{{- else if include "rondb.global.minio" . }}
+{{- $secretName = "aws-credentials" }}
+{{- $key = "access-key-id" }}
 {{- end }}
 {{- if (lookup "v1" "Secret" .namespace $secretName ) }}
 - name: AWS_ACCESS_KEY_ID
@@ -384,9 +387,11 @@ true
 {{- if and .backupConfig.s3.secretCredentialsSecret.name .backupConfig.s3.secretCredentialsSecret.key }}
 {{- $secretName = .backupConfig.s3.secretCredentialsSecret.name }}
 {{- $key = .backupConfig.s3.secretCredentialsSecret.key  }}
-{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.secret_key_id}}
+{{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.secret_key_id}}
 {{- $secretName = .global._hopsworks.managedObjectStorage.s3.secret.name }}
 {{- $key = .global._hopsworks.managedObjectStorage.s3.secret.secret_key_id }}
+{{- else if include "rondb.global.minio" . }}
+{{- $key = "secret-access-key" }}
 {{- end }}
 {{- if (lookup "v1" "Secret" .namespace $secretName) }}
 - name: AWS_SECRET_ACCESS_KEY
@@ -400,21 +405,27 @@ true
 
 # FIXME need to account for minio as well if enabled 
 
-{{- define "rondb.globalObjectStorage" -}}
+{{- define "rondb.global.managedObjectStorage" -}}
 {{- if and .global .global._hopsworks .global._hopsworks.managedObjectStorage .global._hopsworks.managedObjectStorage.enabled -}}
 true
 {{- end -}}
 {{- end -}}
 
-{{- define "rondb.globalObjectStorage.s3" -}}
-{{- if and (include "rondb.globalObjectStorage" .) .global._hopsworks.managedObjectStorage.s3  -}}
+{{- define "rondb.global.minio" -}}
+{{- if and .global .global._hopsworks .global._hopsworks.minio .global._hopsworks.minio.enabled .global._hopsworks.minio.hopsfs .global._hopsworks.minio.hopsfs.enabled -}}
 true
 {{- end -}}
 {{- end -}}
 
-{{- define "rondb.globalObjectStorage.backupsEnabled" -}}
-{{- if and (include  "rondb.globalObjectStorage" (dict "global" .Values.global)) .Values.global._hopsworks.managedObjectStorage.backups (hasKey .Values.global._hopsworks.managedObjectStorage.backups "enabled" ) -}}
-{{- if .Values.global._hopsworks.managedObjectStorage.backups.enabled -}}
+{{- define "rondb.global.managedObjectStorage.s3" -}}
+{{- if and (include "rondb.global.managedObjectStorage" .) .global._hopsworks.managedObjectStorage.s3  -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.global.backupsEnabled" -}}
+{{- if and ( or (include  "rondb.global.managedObjectStorage" (dict "global" .Values.global))  (include  "rondb.global.minio" (dict "global" .Values.global))) .Values.global._hopsworks.backups (hasKey .Values.global._hopsworks.backups "enabled" ) -}}
+{{- if .Values.global._hopsworks.backups.enabled -}}
 true
 {{- end -}}
 {{- end -}}
@@ -425,7 +436,7 @@ true
 {{- if .Values.backups.enabled -}}
 true
 {{- end -}}
-{{- else if include "rondb.globalObjectStorage.backupsEnabled" . -}}
+{{- else if include "rondb.global.backupsEnabled" . -}}
 true
 {{- end -}}
 {{- end -}}
@@ -434,8 +445,8 @@ true
 {{- define "rondb.backups.schedule" -}}
 {{- if and .Values.backups.enabled .Values.backups.schedule -}}
 {{- .Values.backups.schedule -}}
-{{- else if and (include "rondb.globalObjectStorage.backupsEnabled" .) .Values.global._hopsworks.managedObjectStorage.backups.schedule -}}
-{{- .Values.global._hopsworks.managedObjectStorage.backups.schedule -}}
+{{- else if and (include "rondb.global.backupsEnabled" .) .Values.global._hopsworks.backups.schedule -}}
+{{- .Values.global._hopsworks.backups.schedule -}}
 {{- end -}}
 {{- end -}}
 
@@ -443,8 +454,10 @@ true
 {{- define "rondb.backups.bucketName" -}}
 {{- if .backupConfig.s3.bucketName -}}
 {{- .backupConfig.s3.bucketName -}}
-{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.bucket.name -}}
+{{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.bucket.name -}}
 {{- .global._hopsworks.managedObjectStorage.s3.bucket.name -}}
+{{- else if and (include "rondb.global.minio" .) .global._hopsworks.minio.hopsfs.bucket -}}
+{{- .global._hopsworks.minio.hopsfs.bucket -}}
 {{- else -}}
 {{- fail "Missing bucket name configuration for backups. Please specify the bucket name either in the Rondb subchart or under global._hopsworks.managedObjectStorage." }}
 {{- end -}}
@@ -452,7 +465,7 @@ true
 
 
 {{- define "rondb.rcloneConfig" -}}
-{{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.globalObjectStorage.s3" .) }}
+{{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.global.managedObjectStorage.s3" .) }}
 type = s3
 env_auth = true
 storage_class = STANDARD
@@ -465,26 +478,33 @@ provider = Other
 {{- end }}
 {{- if .backupConfig.s3.region }}
 region = {{ .backupConfig.s3.region }}
-{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.region }}
+{{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.region }}
 region = {{ .global._hopsworks.managedObjectStorage.s3.region }}
 {{- end }}
 {{- if .backupConfig.s3.serverSideEncryption }}
 server_side_encryption = {{ .backupConfig.s3.serverSideEncryption }}
-{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.serverSideEncryption }}
+{{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.serverSideEncryption }}
 server_side_encryption = {{ .global._hopsworks.managedObjectStorage.s3.serverSideEncryption }}
 {{- end }}
 {{- if .backupConfig.s3.endpoint }}
 endpoint = {{ .backupConfig.s3.endpoint }}
-{{- else if and (include "rondb.globalObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.endpoint }}
+{{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.endpoint }}
 endpoint = {{ .global._hopsworks.managedObjectStorage.s3.endpoint }}
 {{- end }}
+{{- else if include "rondb.global.minio" . }}
+type = s3
+env_auth = true
+storage_class = STANDARD
+region = {{ .global._hopsworks.minio.region }}
+provider = Other
+endpoint = http://minio.service.consul:9000
 {{- end }}
 {{- end -}}
 
 {{- define "rondb.restoreFromBackup.backupId" -}}
 {{- if .Values.restoreFromBackup.backupId -}}
 {{- .Values.restoreFromBackup.backupId  -}}
-{{- else if and (include  "rondb.globalObjectStorage" (dict "global" .Values.global)) .Values.global._hopsworks.managedObjectStorage.restoreFromBackup .Values.global._hopsworks.managedObjectStorage.restoreFromBackup.backupId -}}
-{{- .Values.global._hopsworks.managedObjectStorage.restoreFromBackup.backupId -}}
+{{- else if and (include  "rondb.global.managedObjectStorage" (dict "global" .Values.global)) .Values.global._hopsworks.restoreFromBackup .Values.global._hopsworks.restoreFromBackup.backupId -}}
+{{- .Values.global._hopsworks.restoreFromBackup.backupId -}}
 {{- end -}}
 {{- end -}}
