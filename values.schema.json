@@ -1565,10 +1565,9 @@
                 "backupId": {
                     "description": "The native backup ID for the backup to restore",
                     "type": [
-                        "integer",
+                        "string",
                         "null"
                     ],
-                    "minimum": 1,
                     "default": null
                 },
                 "pathPrefix": {
@@ -1840,7 +1839,7 @@
             "type": "object",
             "properties": {
                 "provider": {
-                    "type": ["string", null],
+                    "type": ["string", "null"],
                     "default": null
                 },
                 "endpoint": {
@@ -1851,11 +1850,11 @@
                     "default": null
                 },
                 "bucketName": {
-                    "type": ["string", null],
+                    "type": ["string", "null"],
                     "default": null
                 },
                 "region": {
-                    "type": ["string", null],
+                    "type": ["string", "null"],
                     "default": null
                 },
                 "serverSideEncryption": {
@@ -1871,13 +1870,13 @@
                     "type": "object",
                     "properties": {
                         "name": {
-                            "type": ["string", null],
+                            "type": ["string", "null"],
                             "description": "Name of the Secret",
                             "minLength": 1,
                             "default": null
                         },
                         "key": {
-                            "type": ["string", null],
+                            "type": ["string", "null"],
                             "description": "Key in the Secret",
                             "minLength": 1,
                             "default": null
@@ -1888,13 +1887,13 @@
                     "type": "object",
                     "properties": {
                         "name": {
-                            "type": ["string", null],
+                            "type": ["string", "null"],
                             "description": "Name of the Secret",
                             "minLength": 1,
                             "default": null
                         },
                         "key": {
-                            "type": ["string", null],
+                            "type": ["string", "null"],
                             "description": "Key in the Secret",
                             "minLength": 1,
                             "default": null
