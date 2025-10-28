@@ -9,7 +9,8 @@
     "REST": {
         "Enable": true,
         "ServerIP": "0.0.0.0",
-        "ServerPort": 4406
+        "ServerPort": 4406,
+        "MaxConcurrentReqs": {{ $.Values.rdrs.rest.maxConcurrentReqs | int }}
     },
     "GRPC": {
         "Enable": true,

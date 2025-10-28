@@ -90,7 +90,7 @@ images:
     name: rondb
     registry: docker.io
     repository: hopsworks
-    tag: 22.10.15-0.7
+    tag: 22.10.16-0.7
   toolbox:
     name: hwutils
     registry: docker.io
@@ -246,6 +246,8 @@ rdrs:
     gomaxprocs: null
     maxAllocatedBuffers: 8192
     preAllocatedBuffers: 32
+  rest:
+    maxConcurrentReqs: 0
 resources:
   limits:
     cpus:
