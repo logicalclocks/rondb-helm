@@ -50,7 +50,7 @@ setupFirstCluster() {
     helm test -n $namespace $RONDB_CLUSTER_NAME --logs --filter name=generate-data
 
     kubectl delete job -n $namespace manual-backup || true
-    kubectl create job -n $namespace --from=cronjob/create-backup manual-backup
+    kubectl create job -n $namespace --from=cronjob/create-rondb-backup manual-backup
     bash .github/wait_job.sh $namespace manual-backup 180
     BACKUP_ID=$(getBackupId $namespace)
     echo "BACKUP_ID is ${BACKUP_ID}"
