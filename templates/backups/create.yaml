@@ -4,7 +4,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: create-backup
+  name: create-rondb-backup
   namespace: {{ .Release.Namespace }}
 spec:
   schedule: {{ include "rondb.backups.schedule" . | quote}}

@@ -170,7 +170,7 @@ deleteCluster $CLUSTER_A_NAME
 #########################
 
 kubectl delete job -n $CLUSTER_B_NAME manual-backup || true
-kubectl create job -n $CLUSTER_B_NAME --from=cronjob/create-backup manual-backup
+kubectl create job -n $CLUSTER_B_NAME --from=cronjob/create-rondb-backup manual-backup
 bash .github/wait_job.sh $CLUSTER_B_NAME manual-backup 180
 BACKUP_B_ID=$(getBackupId $CLUSTER_B_NAME)
 echo "BACKUP_B_ID is ${BACKUP_B_ID}"
