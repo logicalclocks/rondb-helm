@@ -696,7 +696,7 @@
                         "tag": {
                             "type": "string",
                             "description": "The version of RonDB to use; This should always be equivalent to .Chart.AppVersion",
-                            "default": "22.10.15-0.7"
+                            "default": "22.10.16-0.7"
                         }
                     }
                 },
@@ -1409,6 +1409,18 @@
                             ],
                             "description": "GOMAXPROCS setting for RDRS. By default, it is set to CPU resource limit of the RDRS pod",
                             "default": null
+                        }
+                    }
+                },
+                "rest": {
+                    "type": "object",
+                    "description": "REST API configuration for RDRS",
+                    "properties": {
+                        "maxConcurrentReqs": {
+                            "type": "integer",
+                            "description": "Maximum number of concurrent requests the server will handle. The default value is 0 (auto mode). When set to 0, the server automatically sets the limit to GOMAXPROCS (matching CPU resources). Set to a positive number to define a custom limit. This helps prevent overloading the server under high traffic.",
+                            "default": 0,
+                            "minimum": 0
                         }
                     }
                 },
