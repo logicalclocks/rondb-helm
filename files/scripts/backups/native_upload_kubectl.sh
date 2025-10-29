@@ -26,7 +26,6 @@ for ((g = 0; g < NUM_NODE_GROUPS; g++)); do
         
         RUN_CMD="echo 'Source dir ($SOURCE_DIR):' \
             && ls -la $SOURCE_DIR \
-            && rclone mkdir $REMOTE_DIR \
             && echo 'Remote dir before copying ($REMOTE_DIR):' \
             && rclone ls $REMOTE_DIR \
             && echo \
