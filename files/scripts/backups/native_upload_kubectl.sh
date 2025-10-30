@@ -85,3 +85,37 @@ if [ "$FAILED" = true ]; then
     exit 1
 fi
 echo ">>> Succeeded uploading all backups"
+
+{{ $configMap := include "rondb.backups.metadataStore.configMapName" . }}
+{{- if $configMap }}
+# FIXME if size is close to limit create a new configmap
+if ! kubectl get configmap {{ $configMap }} -n {{ .Release.Namespace }} >/dev/null 2>&1; then
+  kubectl create configmap {{ $configMap }} -n {{ .Release.Namespace }}
+  kubectl label configmap {{ $configMap }} -n {{ .Release.Namespace }} \
+    app=backups-metadata \
+    service=rondb \
+    managed-by=cronjob \
+    --overwrite
+fi
+
+START_TS=$(stat -c %Y {{ include "rondb.backups.backupIdFile" . }} | awk '{printf "%.3f", $1}')
+END_TS=$(date +%s.%3N)
+
+DURATION_MS=$(awk -v start="$START_TS" -v end="$END_TS" 'BEGIN { printf "%.0f", (end - start) * 1000 }')
+
+START_TIME=$(date -u -d @"${START_TS%.*}" +"%Y-%m-%dT%H:%M:%S").$(printf "%03d" "${START_TS#*.}")Z
+END_TIME=$(date -u -d @"${END_TS%.*}" +"%Y-%m-%dT%H:%M:%S").$(printf "%03d" "${END_TS#*.}")Z
+
+STATE="SUCCESS"
+
+PATCH_JSON=$(cat <<EOF
+{
+  "data": {
+    "$BACKUP_ID": "{\"start_time\":\"$START_TIME\",\"end_time\":\"$END_TIME\",\"duration_ms\":$DURATION_MS,\"state\":\"$STATE\"}"
+  }
+}
+EOF
+)
+
+kubectl patch configmap {{ $configMap }} -n {{ .Release.Namespace }} --type merge -p "$PATCH_JSON"
+{{- end }}
