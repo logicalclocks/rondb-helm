@@ -254,6 +254,10 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
 {{ end }}
 {{- end }}
 
+{{- define "rondb.backups.backupIdFile" -}}
+/home/hopsworks/backup-id/id
+{{- end -}}
+
 # Backup Id format $(date +'%y%V%u%H%M')
 # %y Last two digits of the year
 # %V ISO week number (01–53)
@@ -261,7 +265,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
 # %H Hour (00–23)
 # %M Minute (00–59)
 {{- define "rondb.backups.defineBackupIdEnv" }}
-BACKUP_FILE="/home/hopsworks/backup-id/id"
+BACKUP_FILE={{ include "rondb.backups.backupIdFile" . | quote}}
 if [ -f "$BACKUP_FILE" ]; then
   BACKUP_ID=$(cat "$BACKUP_FILE")
   echo "Reusing existing backup ID: $BACKUP_ID"
@@ -514,5 +518,13 @@ endpoint = http://minio.service.consul:9000
 {{- .Values.restoreFromBackup.backupId  -}}
 {{- else if and (include  "rondb.global.managedObjectStorage" (dict "global" .Values.global)) .Values.global._hopsworks.restoreFromBackup .Values.global._hopsworks.restoreFromBackup.backupId -}}
 {{- .Values.global._hopsworks.restoreFromBackup.backupId -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.backups.metadataStore.configMapName" -}}
+{{- if .Values.backups.metadataConfigmapName -}}
+{{- .Values.backups.metadataConfigmapName  -}}
+{{- else if and (include "rondb.global.backupsEnabled" .) .Values.global._hopsworks.backups.metadataStore.configMap.ronDB -}}
+{{- .Values.global._hopsworks.backups.metadataStore.configMap.ronDB -}}
 {{- end -}}
 {{- end -}}

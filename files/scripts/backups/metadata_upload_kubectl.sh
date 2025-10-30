@@ -23,7 +23,6 @@ ls -la $LOCAL_BACKUP_DIR
 
 {{ include "rondb.backups.defineBackupIdEnv" $ }}
 REMOTE_BACKUP_DIR={{ include "rondb.rcloneBackupRemoteName" . }}:{{include "rondb.backups.bucketName" (dict "backupConfig" .Values.backups "global" .Values.global)}}/{{ include "rondb.takeBackupPathPrefix" . }}/$BACKUP_ID
-echo && rclone mkdir $REMOTE_BACKUP_DIR
 echo && rclone ls $REMOTE_BACKUP_DIR
 echo "Copying backup from $LOCAL_BACKUP_DIR to $REMOTE_BACKUP_DIR"
 rclone move $LOCAL_BACKUP_DIR $REMOTE_BACKUP_DIR

@@ -54,4 +54,13 @@ rules:
 {{- end }}
 {{- end }}
     - {{ include "rondb.mysqldPodname" . }}
+{{- if include "rondb.backups.metadataStore.configMapName" $ }}
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "patch"]
+    resourceNames: [{{ include "rondb.backups.metadataStore.configMapName" $ | quote }}]
+{{- end }}
 {{- end }}

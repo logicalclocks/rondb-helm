@@ -21,6 +21,7 @@ backups:
       name: null
     serverSideEncryption: null
   schedule: null
+  metadataConfigmapName: null
 benchmarking:
   dbt2:
     numWarehouses: 4

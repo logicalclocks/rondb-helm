@@ -1631,6 +1631,11 @@
                 },
                 "s3": {
                     "$ref": "#/$defs/s3"
+                },
+                "metadataConfigmapName": {
+                    "description": "The name of the configmap to be used to store the backups metadata information.",
+                    "type": ["string", "null"],
+                    "default": null
                 }
             }
         },
