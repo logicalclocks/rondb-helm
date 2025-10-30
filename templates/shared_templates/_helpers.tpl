@@ -367,43 +367,51 @@ true
 {{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.global.managedObjectStorage.s3" .) (include "rondb.global.minio" .)}}
 {{- $secretName := "" }}
 {{- $key := "" }}
+{{- $optional := false }}
 {{- if and .backupConfig.s3.keyCredentialsSecret.name .backupConfig.s3.keyCredentialsSecret.key }}
 {{- $secretName = .backupConfig.s3.keyCredentialsSecret.name }}
 {{- $key = .backupConfig.s3.keyCredentialsSecret.key  }}
+{{- $optional = false }}
 {{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id}}
 {{- $secretName = .global._hopsworks.managedObjectStorage.s3.secret.name }}
 {{- $key = .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id }}
+{{- $optional = false }}
 {{- else if include "rondb.global.minio" . }}
 {{- $secretName = "aws-credentials" }}
 {{- $key = "access-key-id" }}
+{{- $optional = true -}}
 {{- end }}
-{{- if (lookup "v1" "Secret" .namespace $secretName ) }}
+{{- if or (lookup "v1" "Secret" .namespace $secretName ) $optional }}
 - name: AWS_ACCESS_KEY_ID
   valueFrom:
     secretKeyRef:
       name: {{ $secretName }}
       key: {{ $key }}
+      optional: {{ $optional }}
 {{- end }}
 {{- if and .backupConfig.s3.secretCredentialsSecret.name .backupConfig.s3.secretCredentialsSecret.key }}
 {{- $secretName = .backupConfig.s3.secretCredentialsSecret.name }}
 {{- $key = .backupConfig.s3.secretCredentialsSecret.key  }}
+{{- $optional = false }}
 {{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.secret_key_id}}
 {{- $secretName = .global._hopsworks.managedObjectStorage.s3.secret.name }}
 {{- $key = .global._hopsworks.managedObjectStorage.s3.secret.secret_key_id }}
+{{- $optional = false }}
 {{- else if include "rondb.global.minio" . }}
+{{- $secretName = "aws-credentials" }}
 {{- $key = "secret-access-key" }}
+{{- $optional = true }}
 {{- end }}
-{{- if (lookup "v1" "Secret" .namespace $secretName) }}
+{{- if or (lookup "v1" "Secret" .namespace $secretName) $optional }}
 - name: AWS_SECRET_ACCESS_KEY
   valueFrom:
     secretKeyRef:
       name: {{ $secretName }}
       key: {{ $key }}
+      optional: {{ $optional }}
 {{- end }}
 {{- end }}
 {{- end -}}
-
-# FIXME need to account for minio as well if enabled 
 
 {{- define "rondb.global.managedObjectStorage" -}}
 {{- if and .global .global._hopsworks .global._hopsworks.managedObjectStorage .global._hopsworks.managedObjectStorage.enabled -}}
