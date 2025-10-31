@@ -25,7 +25,6 @@ ls -la $LOCAL_BACKUP_DIR
 
 {{ include "rondb.backups.defineJobNumberEnv" $ }}
 REMOTE_BACKUP_DIR={{ include "rondb.rcloneBackupRemoteName" . }}:{{ .Values.backups.s3.bucketName }}/{{ include "rondb.takeBackupPathPrefix" . }}/$JOB_NUMBER
-echo && rclone mkdir $REMOTE_BACKUP_DIR
 echo && rclone ls $REMOTE_BACKUP_DIR
 echo "Copying backup from $LOCAL_BACKUP_DIR to $REMOTE_BACKUP_DIR"
 rclone move $LOCAL_BACKUP_DIR $REMOTE_BACKUP_DIR
