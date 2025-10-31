@@ -88,16 +88,72 @@ echo ">>> Succeeded uploading all backups"
 
 {{ $configMap := include "rondb.backups.metadataStore.configMapName" . }}
 {{- if $configMap }}
-# FIXME if size is close to limit create a new configmap
-if ! kubectl get configmap {{ $configMap }} -n {{ .Release.Namespace }} >/dev/null 2>&1; then
-  kubectl create configmap {{ $configMap }} -n {{ .Release.Namespace }}
-  kubectl label configmap {{ $configMap }} -n {{ .Release.Namespace }} \
-    app=backups-metadata \
-    service=rondb \
-    managed-by=cronjob \
-    --overwrite
+
+MAX_KEYS=8000
+MAX_SIZE_BYTES=900000
+BASE_CONFIGMAP={{ $configMap }}
+
+get_active_configmap(){
+    kubectl get cm -n {{ .Release.Namespace }} -l "app=backups-metadata,service=rondb,managed-by=cronjob,active=active" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true
+}
+
+log_stderr(){
+    echo "$*" >&2
+}
+
+create_configmap_if_missing() {
+  local name="$1"
+  if ! kubectl get configmap "$name" -n {{ .Release.Namespace }} >/dev/null 2>&1; then
+    log_stderr "Creating ConfigMap $name"
+    kubectl create configmap "$name" -n {{ .Release.Namespace }} >/dev/null 2>&1
+    kubectl label configmap "$name" -n {{ .Release.Namespace }} app=backups-metadata service=rondb managed-by=cronjob active=active --overwrite >/dev/null 2>&1
+  fi
+}
+
+rotate_if_needed() {
+  local cm="$1"
+
+  local key_count size_bytes
+  key_count=$(kubectl get configmap "$cm" -n {{ .Release.Namespace }} -o json | jq '.data | length')
+  size_bytes=$(kubectl get configmap "$cm" -n {{ .Release.Namespace }} -o json | jq -r '.data' | wc -c)
+
+  log_stderr "ConfigMap: $cm | Keys=$key_count | Size=${size_bytes}B"
+
+  if (( key_count >= MAX_KEYS )) || (( size_bytes >= MAX_SIZE_BYTES )); then
+    log_stderr "Threshold exceeded, rotating ConfigMap..."
+    local suffix next_suffix new_cm
+    suffix="${cm#$BASE_CONFIGMAP-}"
+    if [[ "$suffix" =~ ^[0-9]+$ ]]; then
+      next_suffix=$((suffix + 1))
+    else
+      next_suffix=1
+    fi
+    new_cm="${BASE_CONFIGMAP}-${next_suffix}"
+
+    # Create and label the new ConfigMap
+    create_configmap_if_missing "$new_cm"
+
+    # Remove active label from old configmap
+    kubectl label configmap "$cm" -n {{ .Release.Namespace }} active- --overwrite >/dev/null 2>&1  || true
+
+    log_stderr "Rotated to new ConfigMap: $new_cm"
+    echo "$new_cm"
+  else
+    echo "$cm"
+  fi
+}
+
+ACTIVE_CM=$(get_active_configmap)
+if [[ -z "$ACTIVE_CM" ]]; then
+  ACTIVE_CM="$BASE_CONFIGMAP"
+  echo "No active ConfigMap found. Creating $ACTIVE_CM ..."
+  create_configmap_if_missing "$ACTIVE_CM"
 fi
 
+ACTIVE_CM=$(rotate_if_needed "$ACTIVE_CM")
+
+# Build backup metadata info json
+echo "Updating backup metadata on ConfigMap $ACTIVE_CM "
 START_TS=$(stat -c %Y {{ include "rondb.backups.backupIdFile" . }} | awk '{printf "%.3f", $1}')
 END_TS=$(date +%s.%3N)
 
@@ -117,5 +173,5 @@ PATCH_JSON=$(cat <<EOF
 EOF
 )
 
-kubectl patch configmap {{ $configMap }} -n {{ .Release.Namespace }} --type merge -p "$PATCH_JSON"
+kubectl patch configmap "$ACTIVE_CM" -n {{ .Release.Namespace }} --type merge -p "$PATCH_JSON"
 {{- end }}
