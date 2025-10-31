@@ -85,7 +85,7 @@ images:
     name: mysqld_exporter
     registry: docker.hops.works
     repository: hopsworks
-    tag: 0.11.3
+    tag: 0.11.4
   rondb:
     name: rondb
     registry: docker.io
@@ -95,7 +95,7 @@ images:
     name: hwutils
     registry: docker.io
     repository: hopsworks
-    tag: '0.8'
+    tag: '1.0'
   upgrade2410revokegrants:
     name: rondb
     registry: docker.io
