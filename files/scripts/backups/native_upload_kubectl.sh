@@ -89,7 +89,7 @@ echo ">>> Succeeded uploading all backups"
 {{ $configMap := include "rondb.backups.metadataStore.configMapName" . }}
 {{- if $configMap }}
 
-MAX_KEYS=8000
+MAX_KEYS=5000
 MAX_SIZE_BYTES=900000
 BASE_CONFIGMAP={{ $configMap }}
 
@@ -167,7 +167,7 @@ STATE="SUCCESS"
 PATCH_JSON=$(cat <<EOF
 {
   "data": {
-    "$BACKUP_ID": "{\"start_time\":\"$START_TIME\",\"end_time\":\"$END_TIME\",\"duration_ms\":$DURATION_MS,\"state\":\"$STATE\"}"
+    "$BACKUP_ID": "{\"start_time\":\"$START_TIME\",\"end_time\":\"$END_TIME\",\"duration_ms\":$DURATION_MS,\"state\":\"$STATE\",\"path\":\"/{{ include "rondb.backups.bucketName" (dict "backupConfig" .Values.backups "global" .Values.global) }}/{{ include "rondb.takeBackupPathPrefix" . }}/$BACKUP_ID\"}"
   }
 }
 EOF
