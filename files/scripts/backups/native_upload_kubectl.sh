@@ -167,7 +167,7 @@ STATE="SUCCESS"
 PATCH_JSON=$(cat <<EOF
 {
   "data": {
-    "$BACKUP_ID": "{\"start_time\":\"$START_TIME\",\"end_time\":\"$END_TIME\",\"duration_ms\":$DURATION_MS,\"state\":\"$STATE\",\"path\":\"/{{ include "rondb.backups.bucketName" (dict "backupConfig" .Values.backups "global" .Values.global) }}/{{ include "rondb.takeBackupPathPrefix" . }}/$BACKUP_ID\"}"
+    "$BACKUP_ID": "{\"start_time\":\"$START_TIME\",\"end_time\":\"$END_TIME\",\"duration_ms\":$DURATION_MS,\"state\":\"$STATE\",\"path\":\"{{ include "rondb.backups.pathScheme" . }}/{{ include "rondb.backups.bucketName" (dict "backupConfig" .Values.backups "global" .Values.global) }}/{{ include "rondb.takeBackupPathPrefix" . }}/$BACKUP_ID\"}"
   }
 }
 EOF
