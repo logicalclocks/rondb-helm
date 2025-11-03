@@ -528,3 +528,9 @@ endpoint = http://minio.service.consul:9000
 {{- .Values.global._hopsworks.backups.metadataStore.configMap.ronDB -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "rondb.backups.pathScheme" -}}
+{{- if or (eq .Values.backups.objectStorageProvider "s3") (include "rondb.global.managedObjectStorage.s3" (dict "global" .Values.global)) (include "rondb.global.minio"  (dict "global" .Values.global)) -}}
+{{- "s3:/" -}}
+{{- end -}}
+{{- end -}}
