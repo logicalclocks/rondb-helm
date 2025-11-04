@@ -53,7 +53,7 @@ spec:
                   - {{ include "rondb.labels.rondbService.rdrs" $ }}
               topologyKey: topology.kubernetes.io/zone
       initContainers:
-{{ include "rondb.container.waitDatanodes" $ | indent 6 }}
+{{ include "rondb.container.waitManagement" $ | indent 6 }}
 {{ include "rondb.container.isDnsResolvable" $ | indent 6 }}
       containers:
       - name: rdrs
