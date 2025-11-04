@@ -145,6 +145,25 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
       memory: 100Mi
 {{- end }}
 
+{{- define "rondb.container.waitManagement" -}}
+- name: wait-management-dependency
+  image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 2 }}
+  imagePullPolicy: {{ $.Values.imagePullPolicy }}
+  command:
+  - /bin/bash
+  - -c
+  - |
+{{ tpl (.Files.Get "files/scripts/wait_mgmd.sh") . | indent 4 }}
+  env:
+  - name: MGMD_HOSTNAME
+    value: {{ include "rondb.mgmdHostname" . }}
+  resources:
+    limits:
+      cpu: 0.3
+      memory: 100Mi
+{{- end }}
+
 {{- define "rondb.container.waitRestore" -}}
 {{- if $.Values.restoreFromBackup.backupId }}
 - name: wait-restore-backup
