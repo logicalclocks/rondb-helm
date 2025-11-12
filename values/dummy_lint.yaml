@@ -136,7 +136,7 @@ resources:
         default: bla
         diskColumns: foo
 restoreFromBackup:
-  backupId: 1
+  backupId: "1"
   excludeDatabases: *dummyStringArray
   excludeTables: *dummyStringArray
   objectStorageProvider: s3
