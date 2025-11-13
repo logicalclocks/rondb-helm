@@ -483,7 +483,7 @@ env_auth = true
 storage_class = STANDARD
 {{- if .backupConfig.s3.provider }}
 provider = {{ .backupConfig.s3.provider }}
-{{- else if and .global._hopsworks (eq (upper .global._hopsworks.cloudProvider) "AWS")}}
+{{- else if and .global .global._hopsworks (eq (upper .global._hopsworks.cloudProvider) "AWS")}}
 provider = AWS
 {{- else }}
 provider = Other

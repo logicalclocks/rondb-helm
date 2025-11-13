@@ -20,6 +20,7 @@ backups:
   enabled: true
   s3:
     endpoint: rondb.com
+    bucketName: test
 benchmarking:
   enabled: true
   sysbench:
@@ -142,6 +143,7 @@ restoreFromBackup:
   objectStorageProvider: s3
   s3:
     endpoint: rondb.com
+    bucketName: test
 rondbConfig:
   InitialTablespaceSizeGiB: 1
 serviceAccountAnnotations: *dummyAnnotations
