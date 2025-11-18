@@ -146,7 +146,7 @@ helm upgrade -i $CLUSTER_B_NAME \
     --values $backups_values_file \
     --set "clusterSize.minNumRdrs=0" \
     --set "backups.enabled=true" \
-    --set "backups.schedule='@weekly'"
+    --set "backups.schedule=@weekly"
     --set "priorityClass=$CLUSTER_B_NAME" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=true" \
