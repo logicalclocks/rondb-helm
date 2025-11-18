@@ -120,6 +120,9 @@ for namespace in ${namespaces[@]}; do
     kubectl get secret $MYSQL_SECRET_NAME --namespace=$CLUSTER_A_NAME -o yaml |
         sed '/namespace/d; /creationTimestamp/d; /resourceVersion/d; /uid/d' |
         kubectl apply --namespace=$namespace -f -
+
+    kubectl -n $namespace annotate secret $MYSQL_SECRET_NAME "meta.helm.sh/release-name=$namespace" "meta.helm.sh/release-namespace=$namespace"
+    kubectl -n $namespace label secret $MYSQL_SECRET_NAME "app.kubernetes.io/managed-by=Helm"
 done
 
 ##################################
