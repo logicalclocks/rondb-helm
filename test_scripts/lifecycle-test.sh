@@ -200,7 +200,7 @@ helm upgrade -i $CLUSTER_C_NAME \
     --values values/end_to_end_tls.yaml \
     --values $restore_values_file \
     --set "clusterSize.minNumRdrs=0" \
-    --set "restoreFromBackup.backupId=$BACKUP_B_ID" \
+    --set "restoreFromBackup.backupId=\"$BACKUP_B_ID\"" \
     --set "priorityClass=$CLUSTER_C_NAME" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=true" \
@@ -251,7 +251,7 @@ helm upgrade -i $CLUSTER_D_NAME \
     --values values/end_to_end_tls.yaml \
     --values $restore_values_file \
     --set "clusterSize.minNumRdrs=0" \
-    --set "restoreFromBackup.backupId=$BACKUP_B_ID" \
+    --set "restoreFromBackup.backupId=\"$BACKUP_B_ID\"" \
     --set "priorityClass=$CLUSTER_D_NAME" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=true" \
