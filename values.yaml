@@ -6,7 +6,7 @@
 # Use script .github/json_to_yaml.py to generate this file.
 backups:
   enabled: null
-  objectStorageProvider: null
+  objectStorageProvider: s3
   pathPrefix: rondb_backup
   s3:
     bucketName: null
@@ -293,7 +293,7 @@ restoreFromBackup:
   backupId: null
   excludeDatabases: []
   excludeTables: []
-  objectStorageProvider: null
+  objectStorageProvider: s3
   pathPrefix: rondb_backup
   s3:
     bucketName: null

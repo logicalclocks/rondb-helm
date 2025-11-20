@@ -1577,10 +1577,9 @@
                 },
                 "objectStorageProvider": {
                     "enum": [
-                        "s3",
-                        null
+                        "s3"
                     ],
-                    "default": null
+                    "default": "s3"
                 },
                 "s3": {
                     "$ref": "#/$defs/s3"
@@ -1624,10 +1623,9 @@
                 },
                 "objectStorageProvider": {
                     "enum": [
-                        "s3",
-                        null
+                        "s3"
                     ],
-                    "default": null
+                    "default": "s3"
                 },
                 "s3": {
                     "$ref": "#/$defs/s3"
