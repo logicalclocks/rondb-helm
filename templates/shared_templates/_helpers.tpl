@@ -386,7 +386,7 @@ true
       key: {{ $key }}
 {{- else if include "rondb.global.minio" . }}
 - name: AWS_ACCESS_KEY_ID
-  value: {{ .Values.global._hopsworks.minio.user }}
+  value: {{ .global._hopsworks.minio.user }}
 {{- end }}
 {{- if and .backupConfig.s3.secretCredentialsSecret.name .backupConfig.s3.secretCredentialsSecret.key }}
 {{- $secretName = .backupConfig.s3.secretCredentialsSecret.name }}
@@ -406,7 +406,7 @@ true
       key: {{ $key }}
 {{- else if include "rondb.global.minio" . }}
 - name: AWS_SECRET_ACCESS_KEY
-  value: {{ .Values.global._hopsworks.minio.password }}
+  value: {{ .global._hopsworks.minio.password }}
 {{- end }}
 {{- end }}
 {{- end -}}
