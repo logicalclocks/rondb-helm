@@ -166,7 +166,7 @@ spec:
         - name: FILE_SYSTEM_PATH
           value: /home/hopsworks/data/ndb_data
         - name: BACKUP_ID
-          value: {{ include "rondb.restoreFromBackup.backupId" $ | int | quote }}
+          value: {{ include "rondb.restoreFromBackup.backupId" $ | quote }}
 {{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace "global" $.Values.global) | indent 8 }}
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
