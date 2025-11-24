@@ -113,6 +113,7 @@ spec:
       - name: mysqld
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
@@ -160,12 +161,12 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
 {{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.mysqld.statefulSet.endToEndTls.enabled) | indent 8 }}
+{{- if .Values.meta.mysqld.addSysNiceCapability }}
         securityContext:
           capabilities:
             add:
-            {{ if .Values.meta.mysqld.addSysNiceCapability -}}
               - SYS_NICE
-            {{- end }}
+{{- end }}
         volumeMounts:
         # Only mount single file, otherwise entire directory becomes read-only
         - name: mysqld-configs
