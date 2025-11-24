@@ -39,6 +39,10 @@ securityContext:
   capabilities:
     drop:
       - ALL
+{{- if .addSysNice }}
+    add:
+      - SYS_NICE
+{{- end }}
   runAsNonRoot: true
   runAsUser: 1000
   runAsGroup: null
