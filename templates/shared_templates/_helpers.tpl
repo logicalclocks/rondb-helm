@@ -471,7 +471,14 @@ true
 
 
 {{- define "rondb.rcloneConfig" -}}
-{{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.global.managedObjectStorage.s3" .) }}
+{{- if include "rondb.global.minio" . }}
+type = s3
+env_auth = true
+storage_class = STANDARD
+region = {{ .global._hopsworks.minio.region }}
+provider = Other
+endpoint = http://minio.service.consul:9000
+{{- else if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.global.managedObjectStorage.s3" .) }}
 type = s3
 env_auth = true
 storage_class = STANDARD
@@ -497,13 +504,6 @@ endpoint = {{ .backupConfig.s3.endpoint }}
 {{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.endpoint }}
 endpoint = {{ .global._hopsworks.managedObjectStorage.s3.endpoint }}
 {{- end }}
-{{- else if include "rondb.global.minio" . }}
-type = s3
-env_auth = true
-storage_class = STANDARD
-region = {{ .global._hopsworks.minio.region }}
-provider = Other
-endpoint = http://minio.service.consul:9000
 {{- end }}
 {{- end -}}
 
