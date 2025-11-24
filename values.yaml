@@ -6,6 +6,7 @@
 # Use script .github/json_to_yaml.py to generate this file.
 backups:
   enabled: null
+  metadataConfigmapName: null
   objectStorageProvider: s3
   pathPrefix: rondb_backup
   s3:
@@ -21,7 +22,6 @@ backups:
       name: null
     serverSideEncryption: null
   schedule: null
-  metadataConfigmapName: null
 benchmarking:
   dbt2:
     numWarehouses: 4
