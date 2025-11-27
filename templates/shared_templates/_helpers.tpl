@@ -374,9 +374,9 @@ true
 {{- if and .backupConfig.s3.keyCredentialsSecret.name .backupConfig.s3.keyCredentialsSecret.key }}
 {{- $secretName = .backupConfig.s3.keyCredentialsSecret.name }}
 {{- $key = .backupConfig.s3.keyCredentialsSecret.key  }}
-{{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id}}
+{{- else if and (include "rondb.global.managedObjectStorage.s3" .) .global._hopsworks.managedObjectStorage.s3.secret .global._hopsworks.managedObjectStorage.s3.secret.name .global._hopsworks.managedObjectStorage.s3.secret.access_key_id}}
 {{- $secretName = .global._hopsworks.managedObjectStorage.s3.secret.name }}
-{{- $key = .global._hopsworks.managedObjectStorage.s3.secret.acess_key_id }}
+{{- $key = .global._hopsworks.managedObjectStorage.s3.secret.access_key_id }}
 {{- end }}
 {{- if and $secretName $key (lookup "v1" "Secret" .namespace $secretName )}}
 - name: AWS_ACCESS_KEY_ID
