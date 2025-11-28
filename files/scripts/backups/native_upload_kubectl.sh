@@ -115,7 +115,7 @@ rotate_if_needed() {
 
   local key_count size_bytes
   key_count=$(kubectl get configmap "$cm" -n {{ .Release.Namespace }} -o json | jq '.data | length')
-  size_bytes=$(kubectl get configmap "$cm" -n {{ .Release.Namespace }} -o json | jq -r '.data' | wc -c)
+  size_bytes=$(kubectl get configmap "$cm" -n {{ .Release.Namespace }} -o json | jq -r '.' | wc -c)
 
   log_stderr "ConfigMap: $cm | Keys=$key_count | Size=${size_bytes}B"
 
