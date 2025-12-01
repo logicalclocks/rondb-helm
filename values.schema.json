@@ -1634,6 +1634,15 @@
                     "description": "The name of the configmap to be used to store the backups metadata information.",
                     "type": ["string", "null"],
                     "default": null
+                },
+                "ttl": {
+                  "default": null,
+                  "description": "time to live to control when to clean up backups. It is a number followed by either d (days) or h (hours) suffix.",
+                  "pattern": "^\\d+[dh]$",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
             }
         },

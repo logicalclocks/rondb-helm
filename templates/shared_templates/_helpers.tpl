@@ -528,3 +528,11 @@ endpoint = {{ .global._hopsworks.managedObjectStorage.s3.endpoint }}
 {{- "s3:/" -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "rondb.backups.ttl" -}}
+{{- if .Values.backups.ttl -}}
+{{- .Values.backups.ttl  -}}
+{{- else if and (include "rondb.global.backupsEnabled" .) .Values.global._hopsworks.backups.ttl -}}
+{{- .Values.global._hopsworks.backups.ttl -}}
+{{- end -}}
+{{- end -}}

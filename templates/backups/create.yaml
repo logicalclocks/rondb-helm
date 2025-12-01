@@ -71,7 +71,9 @@ spec:
             - name: backup-id
               mountPath: /home/hopsworks/backup-id
               readOnly: true
+{{- if not (include "rondb.backups.ttl" .) }}
           containers:
+{{- end }}
           - name: upload-native-backups
             image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
             imagePullPolicy: {{ $.Values.imagePullPolicy }}
@@ -86,6 +88,32 @@ spec:
             - name: backup-id
               mountPath: /home/hopsworks/backup-id
               readOnly: true
+{{- if include "rondb.backups.ttl" . }}
+          containers:
+          - name: cleanup-old-backups
+            image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
+            imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 12 }}
+            workingDir: /home/hopsworks
+            command:
+            - /bin/bash
+            - -c
+            - |
+{{ tpl (.Files.Get "files/scripts/backups/cleanup_old_backups.sh") . | indent 14 }}
+            env:
+            - name: TTL
+              value: {{ include "rondb.backups.ttl" . }}
+            - name: RCLONE_CONFIG
+              value: /home/hopsworks/rclone.conf
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.backups "namespace" $.Release.Namespace "global" $.Values.global) | indent 12 }}
+            volumeMounts:
+            - name: rclone-configs
+              mountPath: /home/hopsworks/rclone.conf
+              subPath: rclone.conf
+            - name: backup-id
+              mountPath: /home/hopsworks/backup-id
+              readOnly: true
+{{- end }}
           volumes:
           - name: rclone-configs
             configMap:
