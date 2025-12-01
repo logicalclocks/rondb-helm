@@ -5,42 +5,10 @@ NODE_ID_OFFSET=$(($NODE_GROUP*3))
 NODE_ID=$(($NODE_ID_OFFSET+$POD_ID+1))
 {{- end -}}
 
-{{- define "rondb.createRcloneConfig" -}}
-echo "Location of rclone config file:"
-rclone config file
-
-echo "Templating file $RCLONE_MOUNT_FILEPATH to $RCLONE_CONFIG"
-cp $RCLONE_MOUNT_FILEPATH $RCLONE_CONFIG
-
-# Helper function to escape special characters in the variable
-escape_sed() {
-    echo "$1" | sed -e 's/[\/&]/\\&/g'
-}
-
-{{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
-# Escape the variables
-ESCAPED_ACCESS_KEY_ID=$(escape_sed "$ACCESS_KEY_ID")
-ESCAPED_SECRET_ACCESS_KEY=$(escape_sed "$SECRET_ACCESS_KEY")
-
-if [[ -z "$ACCESS_KEY_ID" ]]; then
-    # Use IAM Role instead
-    sed -i '/access_key_id/d' "$RCLONE_CONFIG"
-    sed -i '/secret_access_key/d' "$RCLONE_CONFIG"
-    sed -i 's/env_auth.*/env_auth = true/g' "$RCLONE_CONFIG"
-else
-    sed -i "s|REG_ACCESS_KEY_ID|$ESCAPED_ACCESS_KEY_ID|g" "$RCLONE_CONFIG"
-    sed -i "s|REG_SECRET_ACCESS_KEY|$ESCAPED_SECRET_ACCESS_KEY|g" "$RCLONE_CONFIG"
-fi
-{{- end }}
-{{- end }}
-
 {{- define "rondb.mapNewNodesToBackedUpNodes" -}}
-{{ include "rondb.createRcloneConfig" $ }}
 
-{{- if eq $.Values.restoreFromBackup.objectStorageProvider "s3" }}
-REMOTE_NATIVE_BACKUP_DIR={{ include "rondb.rcloneRestoreRemoteName" . }}:{{ $.Values.restoreFromBackup.s3.bucketName }}/{{ include "rondb.restoreBackupPathPrefix" . }}/$BACKUP_ID/rondb
+REMOTE_NATIVE_BACKUP_DIR={{ include "rondb.rcloneRestoreRemoteName" . }}:{{ include "rondb.backups.bucketName" (dict "backupConfig" $.Values.restoreFromBackup "global" $.Values.global) }}/{{ include "rondb.restoreBackupPathPrefix" . }}/$BACKUP_ID/rondb
 echo "Path of remote (native) backup: $REMOTE_NATIVE_BACKUP_DIR"
-{{- end }}
 
 DIRECTORY_NAMES=$(rclone lsd $REMOTE_NATIVE_BACKUP_DIR | awk '{print $NF}')
 OLD_NODE_IDS=($DIRECTORY_NAMES)

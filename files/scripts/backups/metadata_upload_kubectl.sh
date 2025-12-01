@@ -6,8 +6,6 @@
 # for everything we want to back up. Root cannot be used over the network.
 set -e
 
-{{ include "rondb.createRcloneConfig" . }}
-
 kubectl exec \
     $MYSQLD_PODNAME \
     -c mysqld \
@@ -23,9 +21,15 @@ kubectl cp \
     -c mysqld $LOCAL_BACKUP_DIR
 ls -la $LOCAL_BACKUP_DIR
 
-{{ include "rondb.backups.defineJobNumberEnv" $ }}
-REMOTE_BACKUP_DIR={{ include "rondb.rcloneBackupRemoteName" . }}:{{ .Values.backups.s3.bucketName }}/{{ include "rondb.takeBackupPathPrefix" . }}/$JOB_NUMBER
-echo && rclone ls $REMOTE_BACKUP_DIR
+{{ include "rondb.backups.defineBackupIdEnv" $ }}
+REMOTE_BACKUP_DIR={{ include "rondb.rcloneBackupRemoteName" . }}:{{include "rondb.backups.bucketName" (dict "backupConfig" .Values.backups "global" .Values.global)}}/{{ include "rondb.takeBackupPathPrefix" . }}/$BACKUP_ID
+
+if rclone lsf "$REMOTE_BACKUP_DIR" 2>/dev/null | grep -q .; then
+    echo "Remote backup direcotry $REMOTE_BACKUP_DIR exists and contains files — exiting."
+    rclone ls "$REMOTE_BACKUP_DIR"
+    exit 1
+fi
+
 echo "Copying backup from $LOCAL_BACKUP_DIR to $REMOTE_BACKUP_DIR"
 rclone move $LOCAL_BACKUP_DIR $REMOTE_BACKUP_DIR
 rclone ls $REMOTE_BACKUP_DIR
