@@ -20,8 +20,11 @@ spec:
 {{ include "rondb.storageClass.mgmd" . | indent 8 }}
         resources:
           requests:
-{{- if .Release.IsInstall }}
+{{- if include "rondb.isInstall" . }}
             storage: 1Gi # HWORKS-2270 EBS min size is 1Gi
+{{- else }}
+{{- if ne .Values.resources.requests.storage.mgmdGiB nil }}
+            storage: {{ .Values.resources.requests.storage.mgmdGiB }}Gi
 {{- else }}
 {{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName }}
 {{- if $sts }}
@@ -30,6 +33,7 @@ spec:
             storage: {{ $size }} # In case of an upgrade use the existing value
 {{- else }}
 {{ fail (printf "Failed to lookup StatefulSet %s" .Values.meta.mgmd.statefulSetName) }}
+{{- end }}
 {{- end }}
 {{- end }}
   # Still in beta mode (Jan 2024)

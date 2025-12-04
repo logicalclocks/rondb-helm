@@ -23,9 +23,9 @@
     {{- end }}
   {{- end }}
 {{- else }}
-  {{- printf "\n# WARNING: Could not detect old version tag from StatefulSet, executing anyway\n" }}
+  {{- $execute = .Values.mysql.force2410UserGrantMigration }}
 {{- end }}
-{{- if and $execute .Release.IsUpgrade }}
+{{- if and $execute (include "rondb.isUpgrade" .) }}
 apiVersion: batch/v1
 kind: Job
 metadata:

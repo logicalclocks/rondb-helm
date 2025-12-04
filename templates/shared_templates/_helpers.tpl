@@ -93,7 +93,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 
 {{ define "rondb.ndbmtd.storageSize" -}}
 {{- $ := .root }}
-{{- if $.Release.IsInstall }}
+{{- if include "rondb.isInstall" $ }}
 {{- $memoryGiB := div $.Values.resources.limits.memory.ndbmtdsMiB 1024 | int }}
 {{- $requiredStorage := add 
     (mul $memoryGiB 2.25)
@@ -120,7 +120,8 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- $size := $claim.spec.resources.requests.storage }}
   storage: {{ $size }} # In case of an upgrade use the existing value
 {{- else }}
-{{ fail (printf "Failed to lookup StatefulSet %s" $statefulSetName) }}
+  # Fallback to the value set during via values.yaml 
+  storage: {{ $.Values.resources.requests.storage.ndbmtdGiB | int }}Gi
 {{- end }}
 {{- end }}
 {{- end }}
@@ -320,6 +321,22 @@ true
 
 {{- define "rondb.isExternallyManaged" -}}
 {{- if and .Values.global .Values.global._hopsworks.externalServices .Values.global._hopsworks.externalServices.rondb .Values.global._hopsworks.externalServices.rondb.external -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.isInstall" -}}
+{{- if eq .Values.mode "install" -}}
+true
+{{- else if and (eq .Values.mode "auto") .Release.IsInstall -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.isUpgrade" -}}
+{{- if eq .Values.mode "upgrade" -}}
+true
+{{- else if and (eq .Values.mode "auto") .Release.IsUpgrade -}}
 true
 {{- end -}}
 {{- end -}}

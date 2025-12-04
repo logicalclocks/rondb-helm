@@ -6,7 +6,7 @@
     scripts, if any are provided by the Helm user. The Job will wait for the
     native restore-backup Job to have completed, if the user has provided a backup ID.
 */}}
-{{- if .Release.IsInstall }}
+{{- if include "rondb.isInstall" . }}
 apiVersion: batch/v1
 kind: Job
 metadata:

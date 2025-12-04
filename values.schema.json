@@ -1,6 +1,16 @@
 {
     "$schema": "https://json-schema.org/draft-07/schema#",
     "properties": {
+        "mode": {
+            "type": "string",
+            "description": "Mode of operation for the Helmchart. 'install' will always treat the deployment as a new installation, 'upgrade' will always treat it as an upgrade. 'auto' (default) will treat it as an install if no previous release is found, otherwise as an upgrade.",
+            "enum": [
+                "install",
+                "upgrade",
+                "auto"
+            ],
+            "default": "auto"
+        },
         "imagePullPolicy": {
             "type": "string",
             "description": "The Kubernetes image pull policy",
@@ -894,6 +904,11 @@
                     },
                     "description": "A list of MySQL users and their privileges."
                 },
+                "force2410UserGrantMigration": {
+                    "type": "boolean",
+                    "description": "Whether to force the execution of the 24.10 user privilege migration job that revokes the SET_USER_ID privilege from users that should not have it. This is useful when the automatic detection fails.",
+                    "default": false
+                },
                 "config": {
                     "type": "object",
                     "description": "MySQL configuration options",
@@ -1158,6 +1173,15 @@
                                     "default": 4,
                                     "minimum": 1,
                                     "description": "64GiB is recommended for good performance"
+                                },
+                                "mgmdGiB": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "The size of the statefulSet persistent volume for the RonDB management node",
+                                    "default": null,
+                                    "minimum": 0
                                 },
                                 "ndbmtdGiB": {
                                     "type": "integer",

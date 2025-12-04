@@ -210,6 +210,7 @@ meta:
         secretName: replica-applier-end-to-end-tls
         supplyOwnSecret: false
       name: mysqld-replica-appliers
+mode: auto
 mysql:
   clusterUser: helm
   config:
@@ -221,6 +222,7 @@ mysql:
     enabled: false
     maxUserConnections: 3
     username: exporter
+  force2410UserGrantMigration: false
   sqlInitContent: {}
   supplyOwnSecret: false
   users: []
@@ -281,6 +283,7 @@ resources:
         mgmd: null
       diskColumnGiB: 2
       logGiB: 2
+      mgmdGiB: null
       ndbmtdGiB: 30
       redoLogGiB: 4
       relayLogGiB: 2

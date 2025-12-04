@@ -57,7 +57,7 @@
 {{- end }}
 
 {{- define "rondb.container.waitSingleSetup" -}}
-{{- if .Release.IsInstall }}
+{{- if include "rondb.isInstall" . }}
 - name: wait-single-setup-job
   image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
   imagePullPolicy: {{ $.Values.imagePullPolicy }}
