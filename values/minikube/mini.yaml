@@ -1,3 +1,4 @@
+imagePullPolicy: Always
 benchmarking:
   dbt2:
     numWarehouses: 2
