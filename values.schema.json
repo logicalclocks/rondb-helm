@@ -1181,7 +1181,7 @@
                                     ],
                                     "description": "The size of the statefulSet persistent volume for the RonDB management node",
                                     "default": null,
-                                    "minimum": 0
+                                    "minimum": 1
                                 },
                                 "ndbmtdGiB": {
                                     "type": "integer",
