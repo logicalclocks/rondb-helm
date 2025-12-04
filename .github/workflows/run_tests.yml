@@ -96,6 +96,7 @@ jobs:
             --set clusterSize.maxNumMySQLServers=2 \
             --set clusterSize.minNumRdrs=1 \
             --set clusterSize.maxNumRdrs=2 \
+            --set rondbConfig.TotalMemoryConfig=4096M \
             .
           sleep 10
 
