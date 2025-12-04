@@ -1,3 +1,4 @@
+imagePullPolicy: Always
 benchmarking:
   dbt2:
     numWarehouses: 2
@@ -32,7 +33,7 @@ resources:
       restore: 0.5
     memory:
       benchsMiB: 100
-      ndbmtdsMiB: 2800
+      ndbmtdsMiB: 5120
       rdrsMiB: 500
   requests:
     cpus:
