@@ -120,7 +120,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- $size := $claim.spec.resources.requests.storage }}
   storage: {{ $size }} # In case of an upgrade use the existing value
 {{- else }}
-  # Fallback to the value set during via values.yaml 
+  # Fallback to the value set via values.yaml 
   storage: {{ $.Values.resources.requests.storage.ndbmtdGiB | int }}Gi
 {{- end }}
 {{- end }}
