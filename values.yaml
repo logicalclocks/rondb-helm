@@ -210,7 +210,7 @@ meta:
         secretName: replica-applier-end-to-end-tls
         supplyOwnSecret: false
       name: mysqld-replica-appliers
-mode: ""
+mode: ''
 mysql:
   clusterUser: helm
   config:
