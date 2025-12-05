@@ -283,7 +283,7 @@ resources:
         mgmd: null
       diskColumnGiB: 2
       logGiB: 2
-      mgmdGiB: null
+      mgmdGiB: 1
       ndbmtdGiB: 30
       redoLogGiB: 4
       relayLogGiB: 2

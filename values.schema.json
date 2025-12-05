@@ -1175,17 +1175,14 @@
                                     "description": "64GiB is recommended for good performance"
                                 },
                                 "mgmdGiB": {
-                                    "type": [
-                                        "integer",
-                                        "null"
-                                    ],
-                                    "description": "The size of the statefulSet persistent volume for the RonDB management node",
-                                    "default": null,
+                                    "type":"integer",
+                                    "description": "The size of the statefulSet persistent volume for the RonDB management node. It will be used in new installations or in case of lookup function failing during upgrade in argo deployments.",
+                                    "default": 1,
                                     "minimum": 1
                                 },
                                 "ndbmtdGiB": {
                                     "type": "integer",
-                                    "description": "The size of the statefulSet persistent volume for the RonDB data nodes",
+                                    "description": "The size of the statefulSet persistent volume for the RonDB data nodes. It will be used in new installations or in case of lookup function failing during upgrade in argo deployments.",
                                     "default": 30,
                                     "minimum": 0
                                 },
