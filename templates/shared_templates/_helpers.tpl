@@ -326,17 +326,41 @@ true
 {{- end -}}
 
 {{- define "rondb.isInstall" -}}
+{{- if .Values.mode -}}
 {{- if eq .Values.mode "install" -}}
 true
 {{- else if and (eq .Values.mode "auto") .Release.IsInstall -}}
 true
 {{- end -}}
+{{- else if and .Values.global  .Values.global._hopsworks .Values.global._hopsworks.mode -}}
+{{- if eq .Values.global._hopsworks.mode "install" -}}
+true
+{{- else if and (eq .Values.global._hopsworks.mode "auto") .Release.IsInstall -}}
+true
+{{- end -}}
+{{- else -}}
+{{- if .Release.IsInstall -}}
+true
+{{- end -}}
+{{- end -}}
 {{- end -}}
 
 {{- define "rondb.isUpgrade" -}}
+{{- if .Values.mode -}}
 {{- if eq .Values.mode "upgrade" -}}
 true
 {{- else if and (eq .Values.mode "auto") .Release.IsUpgrade -}}
 true
+{{- end -}}
+{{- else if and .Values.global  .Values.global._hopsworks .Values.global._hopsworks.mode -}}
+{{- if eq .Values.global._hopsworks.mode "upgrade" -}}
+true
+{{- else if and (eq .Values.global._hopsworks.mode "auto") .Release.IsUpgrade -}}
+true
+{{- end -}}
+{{- else -}}
+{{- if .Release.IsUpgrade -}}
+true
+{{- end -}}
 {{- end -}}
 {{- end -}}

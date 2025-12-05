@@ -3,13 +3,14 @@
     "properties": {
         "mode": {
             "type": "string",
-            "description": "Mode of operation for the Helmchart. 'install' will always treat the deployment as a new installation, 'upgrade' will always treat it as an upgrade. 'auto' (default) will treat it as an install if no previous release is found, otherwise as an upgrade.",
+            "description": "Mode of operation for the Helmchart. 'install' will always treat the deployment as a new installation, 'upgrade' will always treat it as an upgrade. 'auto' will treat it as an install if no previous release is found, otherwise as an upgrade. This flag is unset by default. When specified, it takes precedence over the value defined in .Values.global._hopsworks.mode",
             "enum": [
                 "install",
                 "upgrade",
-                "auto"
+                "auto",
+                ""
             ],
-            "default": "auto"
+            "default": ""
         },
         "imagePullPolicy": {
             "type": "string",
