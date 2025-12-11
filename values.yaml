@@ -5,22 +5,24 @@
 # Schema JSON files allow defining restrictions, enums and references.
 # Use script .github/json_to_yaml.py to generate this file.
 backups:
-  enabled: true
+  enabled: null
+  metadataConfigmapName: null
   objectStorageProvider: s3
   pathPrefix: rondb_backup
   s3:
-    bucketName: rondb-helm
+    bucketName: null
     endpoint: null
     keyCredentialsSecret:
-      key: key_id
-      name: aws-credentials
-    provider: AWS
-    region: eu-north-1
+      key: null
+      name: null
+    provider: null
+    region: null
     secretCredentialsSecret:
-      key: access_key
-      name: aws-credentials
+      key: null
+      name: null
     serverSideEncryption: null
-  schedule: '@weekly'
+  schedule: null
+  ttl: null
 benchmarking:
   dbt2:
     numWarehouses: 4
@@ -295,16 +297,16 @@ restoreFromBackup:
   objectStorageProvider: s3
   pathPrefix: rondb_backup
   s3:
-    bucketName: rondb-helm
+    bucketName: null
     endpoint: null
     keyCredentialsSecret:
-      key: key_id
-      name: aws-credentials
-    provider: AWS
-    region: eu-north-1
+      key: null
+      name: null
+    provider: null
+    region: null
     secretCredentialsSecret:
-      key: access_key
-      name: aws-credentials
+      key: null
+      name: null
     serverSideEncryption: null
 rondbConfig:
   ActivateRateLimits: 0

@@ -1565,10 +1565,9 @@
                 "backupId": {
                     "description": "The native backup ID for the backup to restore",
                     "type": [
-                        "integer",
+                        "string",
                         "null"
                     ],
-                    "minimum": 1,
                     "default": null
                 },
                 "pathPrefix": {
@@ -1609,8 +1608,8 @@
             "description": "Whether, how and how often to run regular backups on the cluster",
             "properties": {
                 "enabled": {
-                    "type": "boolean",
-                    "default": true
+                    "type": ["boolean", "null"],
+                    "default": null
                 },
                 "pathPrefix": {
                     "description": "Prefix of RonDB backup in the configured bucket",
@@ -1619,8 +1618,8 @@
                 },
                 "schedule": {
                     "description": "Cron schedule for backups",
-                    "type": "string",
-                    "default": "@weekly"
+                    "type": ["string", "null"],
+                    "default": null
                 },
                 "objectStorageProvider": {
                     "enum": [
@@ -1630,11 +1629,22 @@
                 },
                 "s3": {
                     "$ref": "#/$defs/s3"
+                },
+                "metadataConfigmapName": {
+                    "description": "The name of the configmap to be used to store the backups metadata information.",
+                    "type": ["string", "null"],
+                    "default": null
+                },
+                "ttl": {
+                  "default": null,
+                  "description": "time to live to control when to clean up backups. It is a number followed by either d (days) or h (hours) suffix.",
+                  "pattern": "^\\d+[dh]$",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
-            },
-            "required": [
-                "enabled"
-            ]
+            }
         },
         "globalReplication": {
             "type": "object",
@@ -1841,8 +1851,8 @@
             "type": "object",
             "properties": {
                 "provider": {
-                    "type": "string",
-                    "default": "AWS"
+                    "type": ["string", "null"],
+                    "default": null
                 },
                 "endpoint": {
                     "type": [
@@ -1852,12 +1862,12 @@
                     "default": null
                 },
                 "bucketName": {
-                    "type": "string",
-                    "default": "rondb-helm"
+                    "type": ["string", "null"],
+                    "default": null
                 },
                 "region": {
-                    "type": "string",
-                    "default": "eu-north-1"
+                    "type": ["string", "null"],
+                    "default": null
                 },
                 "serverSideEncryption": {
                     "enum": [
@@ -1872,16 +1882,16 @@
                     "type": "object",
                     "properties": {
                         "name": {
-                            "type": "string",
+                            "type": ["string", "null"],
                             "description": "Name of the Secret",
                             "minLength": 1,
-                            "default": "aws-credentials"
+                            "default": null
                         },
                         "key": {
-                            "type": "string",
+                            "type": ["string", "null"],
                             "description": "Key in the Secret",
                             "minLength": 1,
-                            "default": "key_id"
+                            "default": null
                         }
                     }
                 },
@@ -1889,16 +1899,16 @@
                     "type": "object",
                     "properties": {
                         "name": {
-                            "type": "string",
+                            "type": ["string", "null"],
                             "description": "Name of the Secret",
                             "minLength": 1,
-                            "default": "aws-credentials"
+                            "default": null
                         },
                         "key": {
-                            "type": "string",
+                            "type": ["string", "null"],
                             "description": "Key in the Secret",
                             "minLength": 1,
-                            "default": "access_key"
+                            "default": null
                         }
                     }
                 }

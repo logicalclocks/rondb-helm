@@ -120,6 +120,9 @@ for namespace in ${namespaces[@]}; do
     kubectl get secret $MYSQL_SECRET_NAME --namespace=$CLUSTER_A_NAME -o yaml |
         sed '/namespace/d; /creationTimestamp/d; /resourceVersion/d; /uid/d' |
         kubectl apply --namespace=$namespace -f -
+
+    kubectl -n $namespace annotate secret $MYSQL_SECRET_NAME "meta.helm.sh/release-name=$namespace" "meta.helm.sh/release-namespace=$namespace" --overwrite
+    kubectl -n $namespace label secret $MYSQL_SECRET_NAME "app.kubernetes.io/managed-by=Helm"
 done
 
 ##################################
@@ -143,6 +146,7 @@ helm upgrade -i $CLUSTER_B_NAME \
     --values $backups_values_file \
     --set "clusterSize.minNumRdrs=0" \
     --set "backups.enabled=true" \
+    --set "backups.schedule=@weekly" \
     --set "priorityClass=$CLUSTER_B_NAME" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=true" \
@@ -170,7 +174,7 @@ deleteCluster $CLUSTER_A_NAME
 #########################
 
 kubectl delete job -n $CLUSTER_B_NAME manual-backup || true
-kubectl create job -n $CLUSTER_B_NAME --from=cronjob/create-backup manual-backup
+kubectl create job -n $CLUSTER_B_NAME --from=cronjob/create-rondb-backup manual-backup
 bash .github/wait_job.sh $CLUSTER_B_NAME manual-backup 180
 BACKUP_B_ID=$(getBackupId $CLUSTER_B_NAME)
 echo "BACKUP_B_ID is ${BACKUP_B_ID}"
@@ -196,7 +200,7 @@ helm upgrade -i $CLUSTER_C_NAME \
     --values values/end_to_end_tls.yaml \
     --values $restore_values_file \
     --set "clusterSize.minNumRdrs=0" \
-    --set "restoreFromBackup.backupId=$BACKUP_B_ID" \
+    --set-string "restoreFromBackup.backupId=$BACKUP_B_ID" \
     --set "priorityClass=$CLUSTER_C_NAME" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=true" \
@@ -247,7 +251,7 @@ helm upgrade -i $CLUSTER_D_NAME \
     --values values/end_to_end_tls.yaml \
     --values $restore_values_file \
     --set "clusterSize.minNumRdrs=0" \
-    --set "restoreFromBackup.backupId=$BACKUP_B_ID" \
+    --set-string "restoreFromBackup.backupId=$BACKUP_B_ID" \
     --set "priorityClass=$CLUSTER_D_NAME" \
     --set "mysql.credentialsSecretName=$MYSQL_SECRET_NAME" \
     --set "mysql.supplyOwnSecret=true" \
