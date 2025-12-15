@@ -367,6 +367,20 @@ true
 {{- end -}}
 {{- end -}}
 
+{{- define "rondb.canUseLookupFunc" -}}
+{{- if .mode -}}
+{{- if eq .mode "auto" -}}
+true
+{{- end -}}
+{{- else if and .global .global._hopsworks .global._hopsworks.mode -}}
+{{- if eq .global._hopsworks.mode "auto" -}}
+true
+{{- end -}}
+{{- else -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "rondb.backup.credentials" -}}
 {{- if or (eq .backupConfig.objectStorageProvider "s3") (include "rondb.global.managedObjectStorage.s3" .) (include "rondb.global.minio" .)}}
 {{- $secretName := "" }}
@@ -378,7 +392,11 @@ true
 {{- $secretName = .global._hopsworks.managedObjectStorage.s3.secret.name }}
 {{- $key = .global._hopsworks.managedObjectStorage.s3.secret.access_key_id }}
 {{- end }}
-{{- if and $secretName $key (lookup "v1" "Secret" .namespace $secretName )}}
+{{- $setEnv := and $secretName $key }}
+{{- if include "rondb.canUseLookupFunc" . }}
+{{- $setEnv = and $setEnv (lookup "v1" "Secret" .namespace $secretName ) }}
+{{- end }}
+{{- if $setEnv }}
 - name: AWS_ACCESS_KEY_ID
   valueFrom:
     secretKeyRef:
@@ -398,7 +416,11 @@ true
 {{- $secretName = "aws-credentials" }}
 {{- $key = "secret-access-key" }}
 {{- end }}
-{{- if and $secretName $key (lookup "v1" "Secret" .namespace $secretName) }}
+{{- $setEnv = and $secretName $key }}
+{{- if include "rondb.canUseLookupFunc" . }}
+{{- $setEnv = and $setEnv (lookup "v1" "Secret" .namespace $secretName ) }}
+{{- end }}
+{{- if $setEnv }}
 - name: AWS_SECRET_ACCESS_KEY
   valueFrom:
     secretKeyRef:

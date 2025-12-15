@@ -167,7 +167,7 @@ spec:
           value: /home/hopsworks/data/ndb_data
         - name: BACKUP_ID
           value: {{ include "rondb.restoreFromBackup.backupId" $ | quote }}
-{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace "global" $.Values.global) | indent 8 }}
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace "global" $.Values.global "mode" $.Values.mode) | indent 8 }}
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
         volumeMounts:
@@ -344,7 +344,7 @@ spec:
 {{- end }}
             memory: 300Mi
         env:
-{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.backups "namespace" $.Release.Namespace "global" $.Values.global) | indent 8 }}
+{{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.backups "namespace" $.Release.Namespace "global" $.Values.global "mode" $.Values.mode) | indent 8 }}
         # This will be read by rclone
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
