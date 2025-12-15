@@ -1,0 +1,10 @@
+# Enable backups with ttl enabled and set configmap to store backups metadata information
+backups:
+  enabled: true
+  metadataConfigmapName: rondb-backups-metadata
+  schedule: '@daily'
+  ttl: 30d
+  s3:
+    provider: AWS
+    bucketName: test-bucket
+    region: eu-north-1

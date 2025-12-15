@@ -469,12 +469,13 @@ true
 {{- end -}}
 {{- end -}}
 
-# FIXME add a default value
 {{- define "rondb.backups.schedule" -}}
 {{- if and .Values.backups.enabled .Values.backups.schedule -}}
 {{- .Values.backups.schedule -}}
 {{- else if and (include "rondb.global.backupsEnabled" .) .Values.global._hopsworks.backups.schedule -}}
 {{- .Values.global._hopsworks.backups.schedule -}}
+{{- else -}}
+@weekly
 {{- end -}}
 {{- end -}}
 
