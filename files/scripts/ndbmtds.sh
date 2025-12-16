@@ -2,6 +2,8 @@
 
 # Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
 
+set -euo pipefail
+
 # Requires to calculate Node Id based on Pod name and Node Group
 
 # Equivalent to replication factor of Pod
@@ -98,8 +100,6 @@ else
     echo "[K8s Entrypoint ndbmtd] Available CPUs: $(cat /sys/fs/cgroup/cpuset/cpuset.cpus)"
 fi
 
-# Start ndbmtd in the background and log to stdout
-ndbmtd --nodaemon --ndb-nodeid=$NODE_ID $INITIAL_START --ndb-connectstring=$MGM_CONNECTION_STRING &
-main_pid=$!
-wait $main_pid
-exit $?
+# Start ndbmtd, log to stdout and file
+ndbmtd --nodaemon --ndb-nodeid=$NODE_ID $INITIAL_START --ndb-connectstring=$MGM_CONNECTION_STRING 2>&1 \
+    | tee "${LOG_DIR}/ndb_${NODE_ID}_out.log"
