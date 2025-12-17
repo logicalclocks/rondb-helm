@@ -1,0 +1,84 @@
+# Copyright (c) 2025-2025 Hopsworks AB. All rights reserved.
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rondb-backups-sa
+  namespace: {{ .Release.Namespace }}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rondb-backups
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rondb-backups
+  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: rondb-backups-sa
+roleRef:
+  kind: Role
+  name: rondb-backups
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: create-rondb-crash-data
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ include "rondb.backups.schedule" . | quote}}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            rondbService: {{ include "rondb.labels.rondbService.create-crash-data" $ }}
+        spec:
+{{- include "rondb.PodSecurityContext" $ | indent 10 }}
+          serviceAccountName: rondb-backups-sa
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.backup) | indent 10 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.backup) | indent 10 }}
+          restartPolicy: Never
+          containers:
+          - name: upload-crash-data
+            image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
+            imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 12 }}
+            workingDir: /home/hopsworks
+            command:
+            - /bin/bash
+            - -c
+            - |
+{{ tpl (.Files.Get "files/scripts/upload_crash_data.sh") . | indent 14 }}
+            volumeMounts:
+            - name: rclone-configs
+              mountPath: /home/hopsworks/rclone.conf
+              subPath: rclone.conf
+            env:
+            - name: RCLONE_CONFIG
+              value: /home/hopsworks/rclone.conf
+          volumes:
+          - name: rclone-configs
+            configMap:
+              name: rclone-configs
+
