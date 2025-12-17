@@ -70,7 +70,7 @@ spec:
 {{ include "rondb.resolveOwnIp" $ | indent 12 }}
 
             rdrs -config={{ include "rondb.dataDir" $ }}/rest_api.json 2>&1 \
-                | tee "{{ include "rondb.dataDir" $ }}/log/rdrs_out.log"
+                | tee -a -- "{{ include "rondb.dataDir" $ }}/log/rdrs_out.log"
         ports:
           - containerPort: 4406
           - containerPort: 5406
