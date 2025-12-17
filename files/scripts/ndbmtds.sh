@@ -128,4 +128,4 @@ fi
 
 # Start ndbmtd, log to stdout and file
 ndbmtd --nodaemon --ndb-nodeid=$NODE_ID $INITIAL_START --ndb-connectstring=$MGM_CONNECTION_STRING 2>&1 \
-    | tee "${LOG_DIR}/ndb_${NODE_ID}_out.log"
+    | tee -a -- "${LOG_DIR}/ndb_${NODE_ID}_out.log"

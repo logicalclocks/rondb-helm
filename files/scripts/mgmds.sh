@@ -16,4 +16,4 @@ ndb_mgmd --initial \
     --ndb-nodeid=65 \
     -f "$RONDB_DATA_DIR/config.ini" \
     --configdir="{{ include "rondb.dataDir" $ }}/mgmd" 2>&1 \
-    | tee "${LOG_DIR}/ndb_mgmd.log"
+    | tee -a -- "${LOG_DIR}/ndb_mgmd.log"
