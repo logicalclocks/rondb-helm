@@ -124,6 +124,10 @@ rdrs
 benchmark
 {{- end -}}
 
+{{- define "rondb.labels.rondbService.create-crash-data" -}}
+create-crash-data
+{{- end -}}
+
 {{- define "rondb.labels.rondbService.create-backup" -}}
 create-backup
 {{- end -}}
@@ -142,6 +146,7 @@ restore-backup
 - {{ include "rondb.labels.rondbService.mysqld-exporter" $ }}
 - {{ include "rondb.labels.rondbService.rdrs" $ }}
 - {{ include "rondb.labels.rondbService.benchmark" $ }}
+- {{ include "rondb.labels.rondbService.create-crash-data" $ }}
 - {{ include "rondb.labels.rondbService.create-backup" $ }}
 - {{ include "rondb.labels.rondbService.restore-backup" $ }}
 {{- end -}}
