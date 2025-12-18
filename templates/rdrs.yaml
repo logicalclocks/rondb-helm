@@ -66,9 +66,11 @@ spec:
           - |
             # This is already done in the init container, so having this
             # here is just a sanity check if the main container is restarted.
+            set -euo pipefail
 {{ include "rondb.resolveOwnIp" $ | indent 12 }}
 
-            rdrs2 --config {{ include "rondb.dataDir" $ }}/rest_api.json
+            rdrs2 --config {{ include "rondb.dataDir" $ }}/rest_api.json 2>&1 \
+                | tee -a -- "{{ include "rondb.dataDir" $ }}/log/rdrs_out.log"
         ports:
           - containerPort: 4406
           - containerPort: 5406
