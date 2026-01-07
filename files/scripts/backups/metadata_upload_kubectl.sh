@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+
 
 # Running this on the MySQLd to have root MySQL access; we need permissions
 # for everything we want to back up. Root cannot be used over the network.
