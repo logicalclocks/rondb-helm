@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+
 
 # This is a script to test the backup and restore functionality.
 # It is not actually being used by the CI/CD pipeline, but can be run manually.

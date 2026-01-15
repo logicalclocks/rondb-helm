@@ -1,4 +1,5 @@
-# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
 
 # This file is auto-generated from the values.schema.json file.
 # The file is also used to generate the GitHub Pages documentation.
@@ -90,7 +91,7 @@ images:
     name: rondb
     registry: docker.io
     repository: hopsworks
-    tag: 22.10.17-0.7
+    tag: 22.10.18-0.7
   toolbox:
     name: hwutils
     registry: docker.io
