@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+
 
 cat <<'EOF' >/dev/null
 This runs a test suite with the following steps:
