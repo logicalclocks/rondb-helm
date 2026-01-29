@@ -97,7 +97,7 @@ images:
     name: hwutils
     registry: docker.io
     repository: hopsworks
-    tag: '1.0'
+    tag: '1.2'
   upgrade2410revokegrants:
     name: rondb
     registry: docker.io
