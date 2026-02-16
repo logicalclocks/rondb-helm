@@ -209,7 +209,7 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: rdrs
+  name: {{ .Values.meta.rdrs.statefulSet.name }}
   namespace: {{ .Release.Namespace }}
 spec:
   scaleTargetRef:

@@ -307,6 +307,8 @@ restoreFromBackup:
   backupId: null
   excludeDatabases: []
   excludeTables: []
+  forceDataClear: null
+  inPlace: null
   objectStorageProvider: s3
   pathPrefix: rondb_backup
   s3:

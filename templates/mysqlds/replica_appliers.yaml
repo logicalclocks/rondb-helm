@@ -69,6 +69,7 @@ spec:
       initContainers:
       - name: mysqld-init-datadir
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
@@ -117,6 +118,7 @@ spec:
       - name: mysqld
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" (dict "Values" $.Values "addSysNice" $.Values.meta.mysqld.addSysNiceCapability) | indent 8 }}
         command:
         - /bin/bash
         - -c
@@ -165,10 +167,6 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
 {{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.replicaAppliers.statefulSet.endToEndTls) | indent 8 }}
-        securityContext:
-          capabilities:
-            add:
-              - SYS_NICE
         volumeMounts:
         # Only mount single file, otherwise entire directory becomes read-only
         - name: mysqld-configs
@@ -190,6 +188,7 @@ spec:
       - name: replica-applier-controller
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c

@@ -7,7 +7,7 @@
     scripts, if any are provided by the Helm user. The Job will wait for the
     native restore-backup Job to have completed, if the user has provided a backup ID.
 */}}
-{{- if include "rondb.isInstall" . }}
+{{- if or (include "rondb.isInstall" .) (include "rondb.restoreFromBackup.isInPlace" .) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -37,6 +37,7 @@ spec:
       - name: download-mysql-metadata
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         workingDir: /home/hopsworks
         command:
         - /bin/bash

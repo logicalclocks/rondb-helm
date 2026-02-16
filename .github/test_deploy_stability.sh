@@ -17,10 +17,20 @@ while true; do
         egrep -v "Succeeded" |
         grep -e POD -e POD_PHASE -e "Pending" -e "false")
 
+    # Check that all StatefulSets have their desired replica count.
+    # This catches scenarios where a StatefulSet has 0 pods (e.g. FailedCreate),
+    # which the pod readiness check above would vacuously pass.
+    STS_NOT_READY=$(kubectl get statefulsets -n $K8S_NAMESPACE --no-headers 2>/dev/null | awk '{split($2,a,"/"); if (a[1] != a[2]) print $0}')
+
+    PODS_READY=true
     # lt 2 because of header (keep for readability)
-    if [ $(echo "$NUM_NOT_READY" | wc -l) -lt 2 ]; then
+    if [ $(echo "$NUM_NOT_READY" | wc -l) -ge 2 ]; then
+        PODS_READY=false
+    fi
+
+    if $PODS_READY && [ -z "$STS_NOT_READY" ]; then
         OK_SECONDS=$((OK_SECONDS + SLEEP_SECONDS))
-        echo "All pods have been ready for $OK_SECONDS seconds now"
+        echo "All pods and StatefulSets have been ready for $OK_SECONDS seconds now"
         OK_MINUTES=$((OK_SECONDS / 60))
         if [ $OK_MINUTES -ge $MIN_STABLE_MINUTES ]; then
             echo "The cluster seems stable"
@@ -46,11 +56,25 @@ while true; do
         echo && kubectl top pod -n $K8S_NAMESPACE && echo && echo
         echo && kubectl get node && echo
         echo && kubectl top node && echo
+        if [ -n "$STS_NOT_READY" ]; then
+            echo
+            echo "####################################################"
+            echo "StatefulSets not at desired replica count"
+            echo "####################################################"
+            kubectl get statefulsets -n $K8S_NAMESPACE && echo
+            kubectl describe statefulsets -n $K8S_NAMESPACE && echo
+        fi
         SKIP=0
     else
         SKIP=$((SKIP + 1))
     fi
 
-    echo "Some Pods are pending or not ready yet" && echo
-    echo "$NUM_NOT_READY" && echo
+    if ! $PODS_READY; then
+        echo "Some Pods are pending or not ready yet" && echo
+        echo "$NUM_NOT_READY" && echo
+    fi
+    if [ -n "$STS_NOT_READY" ]; then
+        echo "Some StatefulSets don't have all replicas ready:" && echo
+        echo "$STS_NOT_READY" && echo
+    fi
 done

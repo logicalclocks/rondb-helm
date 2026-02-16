@@ -16,6 +16,7 @@
 - name: wait-one-binlog-server
   image: {{ include "image_address" (dict "image" $.Values.images.rondb) }}
   imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 2 }}
   command:
   - /bin/bash
   - -c
@@ -57,7 +58,7 @@
 {{- end }}
 
 {{- define "rondb.container.waitSingleSetup" -}}
-{{- if include "rondb.isInstall" . }}
+{{- if or (include "rondb.isInstall" .) (and (include "rondb.isUpgrade" .) (include "rondb.restoreFromBackup.isInPlace" .)) }}
 - name: wait-single-setup-job
   image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
   imagePullPolicy: {{ $.Values.imagePullPolicy }}

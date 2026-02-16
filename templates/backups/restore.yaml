@@ -98,6 +98,7 @@ spec:
       - name: restore-ndbmtd-metadata
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
@@ -154,6 +155,7 @@ spec:
       - name: restore-ndbmtd-data
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
@@ -231,6 +233,7 @@ spec:
       - name: restore-backup-indexes
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c
@@ -269,6 +272,7 @@ spec:
       - name: remove-native-backup
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         command:
         - /bin/bash
         - -c

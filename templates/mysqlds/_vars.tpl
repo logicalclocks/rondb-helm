@@ -47,7 +47,11 @@ helm-user-supplied.sql
 
 # A successful Pod can be removed; don't remove the successful Job itself though
 {{- define "rondb.mysqldSetupJobName" -}}
+{{- if include "rondb.restoreFromBackup.backupId" . -}}
+setup-mysqld-dont-remove-{{ include "rondb.restoreFromBackup.backupId" . }}
+{{- else -}}
 setup-mysqld-dont-remove
+{{- end -}}
 {{- end -}}
 
 {{- define "rondb.serviceAccount.restoreWatcher" -}}
