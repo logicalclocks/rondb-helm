@@ -1615,6 +1615,16 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "inPlace": {
+                    "description": "Enable in-place restore on existing cluster. Requires forceDataClear=true.",
+                    "type": ["boolean", "null"],
+                    "default": null
+                },
+                "forceDataClear": {
+                    "description": "Confirm that existing data will be destroyed during in-place restore.",
+                    "type": ["boolean", "null"],
+                    "default": null
                 }
             },
             "required": []

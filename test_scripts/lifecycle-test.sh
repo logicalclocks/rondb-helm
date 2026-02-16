@@ -6,17 +6,17 @@
 
 cat <<'EOF' >/dev/null
 This runs a test suite with the following steps:
-1. [Test: generate data] Setup cluster A, generate data
-2. [Test: replicate from scratch] Setup cluster B, replicate A->B, verify data
-3. Shut down cluster A
-4. [Test: create backup] Create backup B from cluster B
-5. [Test: restore backup] Setup cluster C, restore backup B, verify data
-6. [Test: replicate from primary's backup] Replicate B->C
-7. Shut down cluster B
-8. Setup cluster D, restore B
-9. [Test: replicate from 3rd party backup] Replicate C->D, verify data
+1.  [Test: generate data] Setup cluster A, generate data
+2.  [Test: replicate from scratch] Setup cluster B, replicate A->B, verify data
+3.  Shut down cluster A
+4.  [Test: create backup] Create backup B from cluster B
+5+6. [Test: restore backup + replicate from primary's backup] Setup cluster C, restore backup B, replicate B->C, verify data
+7.  Shut down cluster B
+8.  [Test: replicate from 3rd party backup] Setup cluster D, restore B, replicate C->D, verify data
+9.  [Test: in-place restore safeguard] Verify in-place restore rejected with existing restore jobs
+10. [Test: in-place restore] In-place restore backup B on cluster D, verify data restored, verify post-backup data gone
 
-Essentially: A->B->C->D
+Essentially: A->B->C->D, then in-place restore on D
 EOF
 
 set -e
@@ -86,6 +86,7 @@ stopReplicaAppliers() {
     helm upgrade -i $namespace \
         --namespace=$namespace \
         --reuse-values \
+        --set-string "restoreFromBackup.backupId=" \
         --set "globalReplication.secondary.enabled=false" \
         .
 }
@@ -183,18 +184,23 @@ echo "BACKUP_B_ID is ${BACKUP_B_ID}"
 
 ##########################
 # [Test: restore backup] #
-##########################
+###########################################
+# [Test: replicate from primary's backup] #
+###########################################
 
-# First just restore backup and validate data.
-# Don't start replica appliers just yet.
-# Since we will also be replicating *from* this cluster,
-# we already activate the binlog servers. Better now than
-# that they miss the first heartbeats from the primary.
+# Restore backup and set up replication from primary in a single install.
+# This avoids a separate helm upgrade to clear backupId, which would change
+# binlog server pod specs (removing restore init containers + changing SA),
+# triggering a rolling restart that writes LOST_EVENTS to the binlog.
+# The wait-restore-backup init containers ensure restore completes before
+# binlog servers and replica appliers start.
 
 kubectl create secret generic $BUCKET_SECRET_NAME \
     --namespace=$CLUSTER_C_NAME \
     --from-literal "key_id=${MINIO_ACCESS_KEY}" \
     --from-literal "access_key=${MINIO_SECRET_KEY}"
+
+BINLOG_HOSTS_B=$(getBinlogHostsString $CLUSTER_B_NAME)
 
 helm upgrade -i $CLUSTER_C_NAME \
     --namespace=$CLUSTER_C_NAME . \
@@ -212,26 +218,16 @@ helm upgrade -i $CLUSTER_C_NAME \
     --set "globalReplication.primary.maxNumBinlogServers=$MAX_NUM_BINLOG_SERVERS" \
     --set "meta.binlogServers.statefulSet.name=$BINLOG_SERVER_STATEFUL_SET" \
     --set "meta.binlogServers.headlessClusterIp.name=$BINLOG_SERVER_HEADLESS" \
-
-helm test -n $CLUSTER_C_NAME $CLUSTER_C_NAME --logs --filter name=verify-data
-
-###########################################
-# [Test: replicate from primary's backup] #
-###########################################
-
-# Now also start replicating
-
-BINLOG_HOSTS_B=$(getBinlogHostsString $CLUSTER_B_NAME)
-
-helm upgrade -i $CLUSTER_C_NAME \
-    --namespace=$CLUSTER_C_NAME . \
-    --reuse-values \
     --set "globalReplication.secondary.enabled=true" \
     --set "globalReplication.secondary.replicateFrom.clusterNumber=$CLUSTER_NUMBER_B" \
     --set "globalReplication.secondary.replicateFrom.binlogServerHosts={$BINLOG_HOSTS_B}"
 
 testStability $CLUSTER_C_NAME
-stopReplicaAppliers $CLUSTER_C_NAME
+helm test -n $CLUSTER_C_NAME $CLUSTER_C_NAME --logs --filter name=verify-data
+
+# Scale down replica appliers directly to avoid helm upgrade, which would
+# trigger the backupId validation check (backupId is still set).
+kubectl scale statefulset mysqld-replica-appliers -n $CLUSTER_C_NAME --replicas=0
 deleteCluster $CLUSTER_B_NAME
 
 ###########################################
@@ -265,6 +261,70 @@ helm upgrade -i $CLUSTER_D_NAME \
 helm test -n $CLUSTER_D_NAME $CLUSTER_D_NAME --logs --filter name=verify-data
 
 testStability $CLUSTER_D_NAME
+
+######################################
+# [Test: in-place restore safeguard] #
+#   [Test: in-place restore backup]  #
+######################################
+
+# Run this at the end to avoid interfering with the other tests.
+# We use Cluster D which already has the backup restored.
+
+# Get root password from secret
+MYSQL_ROOT_PASSWORD=$(kubectl get secret $MYSQL_SECRET_NAME -n $CLUSTER_D_NAME -o jsonpath='{.data.root}' | base64 -d)
+
+# Add post-backup data (should NOT exist after restore)
+MYSQLD_POD=$(kubectl get pods -n $CLUSTER_D_NAME -l rondbService=mysqld -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n $CLUSTER_D_NAME $MYSQLD_POD -- mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "INSERT INTO helmtest.t7 VALUES(9999, 9999, NOW(), 'post-backup-data');"
+
+# Verify post-backup data exists
+kubectl exec -n $CLUSTER_D_NAME $MYSQLD_POD -- mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SELECT * FROM helmtest.t7 WHERE id=9999;" | grep -q "post-backup-data"
+echo "Post-backup data verified present before in-place restore"
+
+# Scale down replica appliers directly to avoid helm upgrade, which would
+# delete the restore jobs (they're conditional on backupId being set).
+# The restore jobs must remain for the safeguard test below.
+kubectl scale statefulset mysqld-replica-appliers -n $CLUSTER_D_NAME --replicas=0
+
+# Test safeguard: Try in-place restore WITHOUT deleting old jobs first
+# The pre-upgrade hook should detect the completed restore job and fail
+echo "Testing safeguard: attempting in-place restore with existing restore job..."
+if helm upgrade -i $CLUSTER_D_NAME \
+    --namespace=$CLUSTER_D_NAME . \
+    --reuse-values \
+    --values $restore_values_file \
+    --set-string "restoreFromBackup.backupId=$BACKUP_B_ID" \
+    --set "restoreFromBackup.inPlace=true" \
+    --set "restoreFromBackup.forceDataClear=true" 2>&1; then
+    echo "ERROR: Safeguard failed! Helm upgrade should have failed but succeeded."
+    exit 1
+fi
+echo "Safeguard test PASSED: in-place restore was correctly rejected"
+
+# Now delete the restore jobs to allow a fresh in-place restore
+echo "Deleting restore jobs to allow in-place restore..."
+kubectl delete job "setup-mysqld-dont-remove-$BACKUP_B_ID" -n $CLUSTER_D_NAME --ignore-not-found=true
+kubectl delete job "restore-native-backup-$BACKUP_B_ID" -n $CLUSTER_D_NAME --ignore-not-found=true
+
+# Run in-place restore
+helm upgrade -i $CLUSTER_D_NAME \
+    --namespace=$CLUSTER_D_NAME . \
+    --reuse-values \
+    --values $restore_values_file \
+    --set-string "restoreFromBackup.backupId=$BACKUP_B_ID" \
+    --set "restoreFromBackup.inPlace=true" \
+    --set "restoreFromBackup.forceDataClear=true"
+
+testStability $CLUSTER_D_NAME
+helm test -n $CLUSTER_D_NAME $CLUSTER_D_NAME --logs --filter name=verify-data
+
+# Verify post-backup data is GONE
+MYSQLD_POD=$(kubectl get pods -n $CLUSTER_D_NAME -l rondbService=mysqld -o jsonpath='{.items[0].metadata.name}')
+if kubectl exec -n $CLUSTER_D_NAME $MYSQLD_POD -- mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -e "SELECT * FROM helmtest.t7 WHERE id=9999;" 2>/dev/null | grep -q "post-backup-data"; then
+    echo "ERROR: Post-backup data still exists after in-place restore!"
+    exit 1
+fi
+echo "In-place restore test PASSED"
 
 deleteCluster $CLUSTER_C_NAME
 deleteCluster $CLUSTER_D_NAME

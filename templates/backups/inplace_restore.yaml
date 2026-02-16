@@ -1,0 +1,263 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+{{- if include "rondb.restoreFromBackup.isInPlace" . }}
+{{- if include "rondb.canUseLookupFunc" (dict "global" .Values.global) -}}
+  {{- $restoreJobName := include "rondb.restoreNativeBackupJobname" . -}}
+  {{- $setupJobName := include "rondb.mysqldSetupJobName" . -}}
+  {{- $restoreJob := lookup "batch/v1" "Job" .Release.Namespace $restoreJobName -}}
+  {{- $setupJob := lookup "batch/v1" "Job" .Release.Namespace $setupJobName -}}
+  {{- if and $restoreJob $restoreJob.status (eq (int (default 0 $restoreJob.status.succeeded)) 1) -}}
+    {{- fail (printf "\n\nERROR: In-place restore already completed!\nThe restore job '%s' has already succeeded.\nAborting to prevent accidental data loss.\n\nTo restore again, first delete the completed jobs:\n  kubectl delete job %s %s -n %s\n\nTo return to normal upgrades, disable in-place restore and clear the backup ID:\n  --set restoreFromBackup.inPlace=false --set restoreFromBackup.forceDataClear=false --set-string restoreFromBackup.backupId=\nOr globally:\n  --set global._hopsworks.restoreFromBackup.inPlace=false --set global._hopsworks.restoreFromBackup.forceDataClear=false --set-string global._hopsworks.restoreFromBackup.backupId=\n" $restoreJobName $restoreJobName $setupJobName .Release.Namespace) -}}
+  {{- end -}}
+  {{- if and $setupJob $setupJob.status (eq (int (default 0 $setupJob.status.succeeded)) 1) -}}
+    {{- fail (printf "\n\nERROR: In-place restore already completed!\nThe setup mysqld job '%s' has already succeeded.\nAborting to prevent accidental data loss.\n\nTo restore again, first delete the completed jobs:\n  kubectl delete job %s %s -n %s\n\nTo return to normal upgrades, disable in-place restore and clear the backup ID:\n  --set restoreFromBackup.inPlace=false --set restoreFromBackup.forceDataClear=false --set-string restoreFromBackup.backupId=\nOr globally:\n  --set global._hopsworks.restoreFromBackup.inPlace=false --set global._hopsworks.restoreFromBackup.forceDataClear=false --set-string global._hopsworks.restoreFromBackup.backupId=\n" $setupJobName $restoreJobName $setupJobName .Release.Namespace) -}}
+  {{- end -}}
+{{- end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rondb-inplace-restore-sa
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+{{ include "rondb.serviceAccountAnnotations" $ | indent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rondb-inplace-restore-role
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+rules:
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "statefulsets/scale"]
+    verbs: ["get", "list", "patch", "update"]
+    resourceNames:
+      - {{ .Values.meta.mysqld.statefulSet.name }}
+      - {{ .Values.meta.rdrs.statefulSet.name }}
+      - {{ .Values.meta.binlogServers.statefulSet.name }}
+      - {{ .Values.meta.replicaAppliers.statefulSet.name }}
+      {{- range $g := until (int .Values.clusterSize.numNodeGroups) }}
+      - node-group-{{ $g }}
+      {{- end }}
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["delete"]
+    resourceNames:
+      - {{ .Values.meta.mysqld.statefulSet.name }}
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get"]
+    resourceNames:
+      - {{ include "rondb.restoreNativeBackupJobname" . }}
+      - {{ include "rondb.mysqldSetupJobName" . }}
+  # Pods: need list/watch for kubectl wait with label selectors (can't restrict by resourceNames)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Pods/exec: only needed for data node pods to clean markers
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+    resourceNames:
+      {{- range $g := until (int .Values.clusterSize.numNodeGroups) }}
+      {{- range $r := until (int $.Values.clusterSize.activeDataReplicas) }}
+      - node-group-{{ $g }}-{{ $r }}
+      {{- end }}
+      {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rondb-inplace-restore-rb
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rondb-inplace-restore-role
+subjects:
+  - kind: ServiceAccount
+    name: rondb-inplace-restore-sa
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rondb-inplace-restore-shutdown
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        rondbService: inplace-restore
+    spec:
+      restartPolicy: Never
+      serviceAccountName: rondb-inplace-restore-sa
+{{- include "rondb.PodSecurityContext" $ | indent 6 }}
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.backup) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.backup) | indent 6 }}
+{{- if .Values.priorityClass }}
+      priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end }}
+      containers:
+      - name: shutdown-cluster
+        image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{- include "rondb.ContainerSecurityContext" $ | indent 8 }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          WAIT_TIMEOUT="600s"
+
+          # Check if this backup was already restored successfully
+          # This prevents accidental data loss if user forgets to unset inPlace/forceDataClear
+          RESTORE_STATUS=$(kubectl get job "$RESTORE_JOB_NAME" -n $NAMESPACE -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "")
+          SETUP_MYSQLD_STATUS=$(kubectl get job "$SETUP_MYSQLD_JOB_NAME" -n $NAMESPACE -o jsonpath='{.status.succeeded}' 2>/dev/null || echo "")
+          if [ "$RESTORE_STATUS" = "1" ] || [ "$SETUP_MYSQLD_STATUS" = "1" ]; then
+              echo "============================================================" >&2
+              echo "ERROR: In-place restore already completed!" >&2
+              echo "============================================================" >&2
+              echo "" >&2
+              [ "$RESTORE_STATUS" = "1" ] && echo "The restore job '$RESTORE_JOB_NAME' has already succeeded." >&2
+              [ "$SETUP_MYSQLD_STATUS" = "1" ] && echo "The setup mysqld job '$SETUP_MYSQLD_JOB_NAME' has already succeeded." >&2
+              echo "Aborting to prevent accidental data loss." >&2
+              echo "" >&2
+              echo "If you intended to restore again, first delete the completed jobs:" >&2
+              echo "  kubectl delete job $RESTORE_JOB_NAME -n $NAMESPACE" >&2
+              echo "  kubectl delete job $SETUP_MYSQLD_JOB_NAME -n $NAMESPACE" >&2
+              echo "" >&2
+              echo "To return to normal upgrades, disable in-place restore and clear the backup ID:" >&2
+              echo "  --set restoreFromBackup.inPlace=false --set restoreFromBackup.forceDataClear=false --set-string restoreFromBackup.backupId=" >&2
+              echo "Or globally:" >&2
+              echo "  --set global._hopsworks.restoreFromBackup.inPlace=false --set global._hopsworks.restoreFromBackup.forceDataClear=false --set-string global._hopsworks.restoreFromBackup.backupId=" >&2
+              echo "============================================================" >&2
+              exit 1
+          fi
+
+          echo "=== In-Place Restore: Shutting down cluster ==="
+
+          # 1. Delete old markers while pods are running
+          # Note: ndbmtd container mounts PVC at /srv/hops/mysql-cluster/default_storage
+          echo "Deleting old in-place restore markers..."
+          for ((g = 0; g < $NUM_NODE_GROUPS; g++)); do
+              for ((r = 0; r < $ACTIVE_DATA_REPLICAS; r++)); do
+                  POD_NAME="node-group-$g-$r"
+                  echo "Cleaning markers on $POD_NAME"
+                  kubectl exec -n $NAMESPACE "$POD_NAME" -c ndbmtd -- \
+                      /bin/bash -c 'rm -f /srv/hops/mysql-cluster/default_storage/inplace_restore_done_* /srv/hops/mysql-cluster/default_storage/backup_downloaded_* 2>/dev/null || true' || true
+              done
+          done
+
+          # 2. Delete HPA to prevent race condition (it will be recreated by main upgrade)
+          echo "Deleting MySQLd HPA..."
+          kubectl delete hpa $MYSQLD_STS_NAME -n $NAMESPACE --ignore-not-found=true
+
+          # 3. Scale down RDRS (if enabled)
+          if [ "$MIN_NUM_RDRS" -gt 0 ]; then
+              echo "Scaling down RDRS..."
+              kubectl scale statefulset/$RDRS_STS_NAME -n $NAMESPACE --replicas=0
+          fi
+
+          # 4. Scale down MySQLd
+          echo "Scaling down MySQLd..."
+          kubectl scale statefulset/$MYSQLD_STS_NAME -n $NAMESPACE --replicas=0
+
+          # 5. Scale down binlog servers (if enabled)
+          if [ "$BINLOG_ENABLED" = "true" ]; then
+              echo "Scaling down binlog servers..."
+              kubectl scale statefulset/$BINLOG_STS_NAME -n $NAMESPACE --replicas=0 || true
+          fi
+
+          # 6. Scale down replica appliers (if enabled)
+          if [ "$REPLICA_APPLIER_ENABLED" = "true" ]; then
+              echo "Scaling down replica appliers..."
+              kubectl scale statefulset/$REPLICA_APPLIER_STS_NAME -n $NAMESPACE --replicas=0 || true
+          fi
+
+          # 7. Scale down ALL data node StatefulSets (LAST - after API nodes)
+          echo "Scaling down data nodes..."
+          for ((g = 0; g < $NUM_NODE_GROUPS; g++)); do
+              kubectl scale statefulset/node-group-$g -n $NAMESPACE --replicas=0
+          done
+
+          # 8. Wait for all pods to terminate
+          # Fail the hook if any pods remain stuck (e.g., finalizers, long termination).
+          # Proceeding with an upgrade/restore while pods are still running risks
+          # data corruption or a hung upgrade.
+          #
+          # Each wait is guarded by a pod-existence check because
+          # `kubectl wait --for=delete -l ...` fails with "no matching resources found"
+          # when no pods match the selector (kubectl < 1.28). Since services are
+          # scaled down before data nodes, their pods may already be gone by the
+          # time we reach their wait.
+          wait_for_pod_deletion() {
+              local label=$1
+              local description=$2
+              if kubectl get pod -l "$label" -n $NAMESPACE --no-headers 2>/dev/null | grep -q .; then
+                  echo "Waiting for $description pods to terminate..."
+                  kubectl wait --for=delete pod -l "$label" -n $NAMESPACE --timeout=$WAIT_TIMEOUT
+              else
+                  echo "No $description pods found, skipping wait."
+              fi
+          }
+
+          wait_for_pod_deletion "rondbService=ndbmtd" "data node"
+          wait_for_pod_deletion "rondbService=mysqld" "MySQLd"
+          if [ "$MIN_NUM_RDRS" -gt 0 ]; then
+              wait_for_pod_deletion "rondbService=rdrs" "RDRS"
+          fi
+          if [ "$BINLOG_ENABLED" = "true" ]; then
+              wait_for_pod_deletion "rondbService=binlog-server" "binlog server"
+          fi
+          if [ "$REPLICA_APPLIER_ENABLED" = "true" ]; then
+              wait_for_pod_deletion "rondbService=replica-applier" "replica applier"
+          fi
+
+          echo "=== Cluster shutdown complete ==="
+        env:
+        - name: NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: NUM_NODE_GROUPS
+          value: {{ .Values.clusterSize.numNodeGroups | quote }}
+        - name: ACTIVE_DATA_REPLICAS
+          value: {{ .Values.clusterSize.activeDataReplicas | quote }}
+        - name: MYSQLD_STS_NAME
+          value: {{ .Values.meta.mysqld.statefulSet.name | quote }}
+        - name: RDRS_STS_NAME
+          value: {{ .Values.meta.rdrs.statefulSet.name | quote }}
+        - name: BINLOG_STS_NAME
+          value: {{ .Values.meta.binlogServers.statefulSet.name | quote }}
+        - name: MIN_NUM_RDRS
+          value: {{ .Values.clusterSize.minNumRdrs | quote }}
+        - name: BINLOG_ENABLED
+          value: {{ if .Values.globalReplication.primary.enabled }}"true"{{ else }}"false"{{ end }}
+        - name: REPLICA_APPLIER_ENABLED
+          value: {{ if .Values.globalReplication.secondary.enabled }}"true"{{ else }}"false"{{ end }}
+        - name: REPLICA_APPLIER_STS_NAME
+          value: {{ .Values.meta.replicaAppliers.statefulSet.name | quote }}
+        - name: RESTORE_JOB_NAME
+          value: {{ include "rondb.restoreNativeBackupJobname" . | quote }}
+        - name: SETUP_MYSQLD_JOB_NAME
+          value: {{ include "rondb.mysqldSetupJobName" . | quote }}
+        resources:
+          limits:
+            cpu: 0.5
+            memory: 200Mi
+{{- end }}

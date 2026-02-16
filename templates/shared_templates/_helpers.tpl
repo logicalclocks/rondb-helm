@@ -177,6 +177,7 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
 - name: wait-restore-backup
   image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
   imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 2 }}
   command:
   - /bin/bash
   - -c
@@ -533,8 +534,41 @@ endpoint = {{ .global._hopsworks.managedObjectStorage.s3.endpoint }}
 {{- define "rondb.restoreFromBackup.backupId" -}}
 {{- if .Values.restoreFromBackup.backupId -}}
 {{- .Values.restoreFromBackup.backupId  -}}
-{{- else if and (include  "rondb.global.managedObjectStorage" (dict "global" .Values.global)) .Values.global._hopsworks.restoreFromBackup .Values.global._hopsworks.restoreFromBackup.backupId -}}
+{{- else if and (or (include "rondb.global.managedObjectStorage" (dict "global" .Values.global)) (include "rondb.global.minio" (dict "global" .Values.global))) .Values.global._hopsworks.restoreFromBackup .Values.global._hopsworks.restoreFromBackup.backupId -}}
 {{- .Values.global._hopsworks.restoreFromBackup.backupId -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.restoreFromBackup.inPlace" -}}
+{{- if not (eq .Values.restoreFromBackup.inPlace nil) -}}
+{{- .Values.restoreFromBackup.inPlace -}}
+{{- else if and (or (include "rondb.global.managedObjectStorage" (dict "global" .Values.global)) (include "rondb.global.minio" (dict "global" .Values.global))) .Values.global._hopsworks.restoreFromBackup .Values.global._hopsworks.restoreFromBackup.inPlace -}}
+{{- .Values.global._hopsworks.restoreFromBackup.inPlace -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.restoreFromBackup.forceDataClear" -}}
+{{- if not (eq .Values.restoreFromBackup.forceDataClear nil) -}}
+{{- .Values.restoreFromBackup.forceDataClear -}}
+{{- else if and (or (include "rondb.global.managedObjectStorage" (dict "global" .Values.global)) (include "rondb.global.minio" (dict "global" .Values.global))) .Values.global._hopsworks.restoreFromBackup .Values.global._hopsworks.restoreFromBackup.forceDataClear -}}
+{{- .Values.global._hopsworks.restoreFromBackup.forceDataClear -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.restoreFromBackup.isInPlace" -}}
+{{- if eq (include "rondb.restoreFromBackup.inPlace" .) "true" -}}
+  {{- if not (include "rondb.isUpgrade" .) -}}
+    {{- fail "\n\nERROR: restoreFromBackup.inPlace=true is only supported during 'helm upgrade'.\nAn in-place restore replaces data in an existing cluster and cannot be used during a fresh install.\nTo create a new cluster from a backup, set restoreFromBackup.inPlace=false.\n" -}}
+  {{- end -}}
+  {{- if not (include "rondb.restoreFromBackup.backupId" .) -}}
+    {{- fail "\n\nERROR: restoreFromBackup.inPlace=true requires a backup ID.\nPlease set: --set-string restoreFromBackup.backupId=<backup-id> or global._hopsworks.restoreFromBackup.backupId=<backup-id> \n" -}}
+  {{- end -}}
+  {{- if ne (include "rondb.restoreFromBackup.forceDataClear" .) "true" -}}
+    {{- fail "\n\nERROR: restoreFromBackup.inPlace=true requires explicit acknowledgment that existing data will be destroyed.\nPlease set: --set restoreFromBackup.forceDataClear=true\n\nWARNING: This will permanently delete all existing data in the cluster!\n" -}}
+  {{- end -}}
+true
+{{- else if and (include "rondb.isUpgrade" .) (include "rondb.restoreFromBackup.backupId" .) -}}
+  {{- fail "\n\nERROR: restoreFromBackup.backupId is set during an upgrade but restoreFromBackup.inPlace is not enabled.\n\nIf you intend to restore a backup into this cluster, set:\n  --set restoreFromBackup.inPlace=true --set restoreFromBackup.forceDataClear=true\nOr globally:\n  --set global._hopsworks.restoreFromBackup.inPlace=true --set global._hopsworks.restoreFromBackup.forceDataClear=true\n\nIf you are performing a normal upgrade and do not intend to restore, clear the backup ID:\n  --set-string restoreFromBackup.backupId=\nOr globally:\n  --set-string global._hopsworks.restoreFromBackup.backupId=\n" -}}
 {{- end -}}
 {{- end -}}
 

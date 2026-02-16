@@ -41,7 +41,11 @@ backupRemote
 ---
 
 {{- define "rondb.restoreNativeBackupJobname" -}}
+{{- if include "rondb.restoreFromBackup.backupId" . -}}
+restore-native-backup-{{ include "rondb.restoreFromBackup.backupId" . }}
+{{- else -}}
 restore-native-backup
+{{- end -}}
 {{- end -}}
 
 ---

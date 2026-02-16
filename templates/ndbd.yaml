@@ -142,6 +142,7 @@ spec:
 {{- if include "rondb.restoreFromBackup.backupId" $ }}
       - name: download-backup-to-restore
         image: {{ include "image_address" (dict "image" $.Values.images.toolbox) }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
         # Setting resources in order to be in QoS class Guaranteed
         resources:
           limits:
@@ -261,6 +262,12 @@ spec:
                 fieldPath: metadata.name
           - name: FILE_SYSTEM_PATH
             value: {{ include "rondb.ndbmtd.fileSystemPath" $ }}
+{{- if include "rondb.restoreFromBackup.isInPlace" $ }}
+          - name: FORCE_INITIAL_START
+            value: "true"
+          - name: INPLACE_BACKUP_ID
+            value: {{ include "rondb.restoreFromBackup.backupId" $ | quote }}
+{{- end }}
         startupProbe:
           exec:
             command:

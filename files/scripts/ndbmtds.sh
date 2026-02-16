@@ -107,14 +107,38 @@ if [ -d "$LOG_DIR" ]; then
   fi
 fi
 
-INITIAL_START=
 # This is the first file that is read by the ndbmtd
 # WARNING: This env var needs to be aware of symlinks created here
 FIRST_FILE_READ=$FILE_SYSTEM_PATH/ndb_${NODE_ID}_fs/D1/DBDIH/P0.sysfile
-if [ ! -f "$FIRST_FILE_READ" ]
-then
+
+# Only set marker path if in-place restore mode (env vars set by ndbd.yaml).
+# The marker is stored at the PVC root (RONDB_VOLUME) instead of inside ndb_data
+# because ndb_data is wiped/recreated when starting with --initial. Placing the
+# marker at the volume root ensures it survives an initial start and can be used
+# to decide whether --initial should be run again for a given INPLACE_BACKUP_ID.
+INITIAL_DONE_MARKER=""
+if [ "${FORCE_INITIAL_START:-}" = "true" ] && [ -n "${INPLACE_BACKUP_ID:-}" ]; then
+    INITIAL_DONE_MARKER="${RONDB_VOLUME}/inplace_restore_done_${INPLACE_BACKUP_ID}"
+fi
+
+# Determine if --initial should be used
+INITIAL_START=
+if [ -n "$INITIAL_DONE_MARKER" ]; then
+    # In-place restore mode - check BOTH marker AND P0.sysfile for robustness
+    if [ ! -f "$INITIAL_DONE_MARKER" ]; then
+        echo "[K8s Entrypoint ndbmtd] In-place restore (backup $INPLACE_BACKUP_ID): first start, using --initial"
+        INITIAL_START="--initial"
+        touch "$INITIAL_DONE_MARKER"
+    elif [ ! -f "$FIRST_FILE_READ" ]; then
+        # Marker exists BUT no P0.sysfile = previous --initial was interrupted
+        echo "[K8s Entrypoint ndbmtd] In-place restore: previous --initial was interrupted, retrying"
+        INITIAL_START="--initial"
+    else
+        echo "[K8s Entrypoint ndbmtd] In-place restore: already initialized, skipping --initial"
+    fi
+elif [ ! -f "$FIRST_FILE_READ" ]; then
     echo "[K8s Entrypoint ndbmtd] The file $FIRST_FILE_READ does not exist - we'll do an initial start here"
-    INITIAL_START="--initial"    
+    INITIAL_START="--initial"
 else
     echo "[K8s Entrypoint ndbmtd] The file $FIRST_FILE_READ exists - we have started the ndbmtds here before. No initial start is needed."
 fi
