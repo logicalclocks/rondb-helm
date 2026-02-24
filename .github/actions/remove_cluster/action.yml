@@ -13,7 +13,7 @@ runs:
   steps:
   - name: Delete RonDB Helmchart
     shell: bash
-    run: helm delete --namespace=${{ inputs.namespace }} ${{ inputs.helm_chart }}
+    run: helm delete --namespace=${{ inputs.namespace }} ${{ inputs.helm_chart }} || true
 
   # Can't just use delete Hook, since we want to print the logs of the Pod
   - name: Delete Helm Test Pods

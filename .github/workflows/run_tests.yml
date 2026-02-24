@@ -67,6 +67,9 @@ jobs:
     needs: [lint-test]
     name: Benchmarking, scaling and stability
     if: github.repository == 'logicalclocks/rondb-helm'
+    concurrency:
+      group: self-hosted-runner
+      cancel-in-progress: false
     runs-on: [self-hosted, ARM64]
     env:
       K8S_NAMESPACE: rondb-helm-${{ github.run_id }}-${{ github.run_attempt }}
@@ -79,6 +82,29 @@ jobs:
         run: |
           kubectl version --client
           kubectl get nodes
+
+      - name: Pre-cleanup stale resources
+        run: |
+          # Delete any leftover rondb-helm namespaces from previous cancelled/failed runs
+          for ns in $(kubectl get namespaces -o name | grep 'namespace/rondb-helm-' | cut -d/ -f2); do
+            if [ "$ns" != "$K8S_NAMESPACE" ]; then
+              echo "Cleaning up stale namespace: $ns"
+              helm delete --namespace="$ns" my-rondb 2>/dev/null || true
+              kubectl delete namespace "$ns" --timeout=120s 2>/dev/null || true
+            fi
+          done
+          # Delete any leftover lifecycle test namespaces
+          for ns in cluster-a cluster-b cluster-c cluster-d; do
+            if kubectl get namespace "$ns" &>/dev/null; then
+              echo "Cleaning up stale namespace: $ns"
+              helm delete --namespace="$ns" "$ns" 2>/dev/null || true
+              kubectl delete namespace "$ns" --timeout=120s 2>/dev/null || true
+            fi
+            # Each lifecycle cluster uses its own name as PriorityClass
+            kubectl delete priorityclass "$ns" 2>/dev/null || true
+          done
+          # Delete orphaned PriorityClass if it exists
+          kubectl delete priorityclass rondb-high-priority 2>/dev/null || true
 
       # Static CPU manager policy will only work if the FeatureGate is enabled
       - name: Create original RonDB cluster
@@ -188,6 +214,9 @@ jobs:
     needs: [benchmark-and-stability]
     name: Test Global Replication with backup/restore
     if: github.repository == 'logicalclocks/rondb-helm'
+    concurrency:
+      group: self-hosted-runner
+      cancel-in-progress: false
     runs-on: [self-hosted, ARM64]
     env:
       CLUSTER_A_NAME: cluster-a
@@ -202,6 +231,19 @@ jobs:
         run: |
           kubectl version --client
           kubectl get nodes
+
+      - name: Pre-cleanup stale resources
+        run: |
+          for ns in $CLUSTER_A_NAME $CLUSTER_B_NAME $CLUSTER_C_NAME $CLUSTER_D_NAME; do
+            if kubectl get namespace "$ns" &>/dev/null; then
+              echo "Cleaning up stale namespace: $ns"
+              helm delete --namespace="$ns" "$ns" 2>/dev/null || true
+              kubectl delete namespace "$ns" --timeout=120s 2>/dev/null || true
+            fi
+            # Each cluster uses its own name as PriorityClass
+            kubectl delete priorityclass "$ns" 2>/dev/null || true
+          done
+          kubectl delete priorityclass rondb-high-priority 2>/dev/null || true
 
       - name: Setup MinIO
         run: |
@@ -218,14 +260,14 @@ jobs:
             $CLUSTER_D_NAME
 
       - name: Collect logs
-        if: failure()
+        if: always()
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.CLUSTER_A_NAME }}
           folder_name: ${{ env.CLUSTER_A_NAME }}
 
       - name: Remove cluster
-        if: failure()
+        if: always()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
@@ -233,14 +275,14 @@ jobs:
           helm_chart: ${{ env.CLUSTER_A_NAME }}
 
       - name: Collect logs
-        if: failure()
+        if: always()
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.CLUSTER_B_NAME }}
           folder_name: ${{ env.CLUSTER_B_NAME }}
 
       - name: Remove cluster
-        if: failure()
+        if: always()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
@@ -248,14 +290,14 @@ jobs:
           helm_chart: ${{ env.CLUSTER_B_NAME }}
 
       - name: Collect logs
-        if: failure()
+        if: always()
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.CLUSTER_C_NAME }}
           folder_name: ${{ env.CLUSTER_C_NAME }}
 
       - name: Remove cluster
-        if: failure()
+        if: always()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
@@ -263,14 +305,14 @@ jobs:
           helm_chart: ${{ env.CLUSTER_C_NAME }}
 
       - name: Collect logs
-        if: failure()
+        if: always()
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.CLUSTER_D_NAME }}
           folder_name: ${{ env.CLUSTER_D_NAME }}
 
       - name: Remove cluster
-        if: failure()
+        if: always()
         uses: ./.github/actions/remove_cluster
         timeout-minutes: 4
         with:
