@@ -260,7 +260,7 @@ jobs:
             $CLUSTER_D_NAME
 
       - name: Collect logs
-        if: always()
+        if: failure()
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.CLUSTER_A_NAME }}
@@ -275,7 +275,7 @@ jobs:
           helm_chart: ${{ env.CLUSTER_A_NAME }}
 
       - name: Collect logs
-        if: always()
+        if: failure()
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.CLUSTER_B_NAME }}
@@ -290,7 +290,7 @@ jobs:
           helm_chart: ${{ env.CLUSTER_B_NAME }}
 
       - name: Collect logs
-        if: always()
+        if: failure()
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.CLUSTER_C_NAME }}
@@ -305,7 +305,7 @@ jobs:
           helm_chart: ${{ env.CLUSTER_C_NAME }}
 
       - name: Collect logs
-        if: always()
+        if: failure()
         uses: ./.github/actions/collect_logs
         with:
           namespace: ${{ env.CLUSTER_D_NAME }}
