@@ -248,6 +248,9 @@ rdrs:
     slotsPerNode: 1
   hpa:
     additionalMetrics: []
+  security:
+    apiKey:
+      cacheRefreshIntervalMS: 180000
 resources:
   limits:
     cpus:
