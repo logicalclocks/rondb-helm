@@ -1405,6 +1405,22 @@
                         }
                     }
                 },
+                "security": {
+                    "type": "object",
+                    "properties": {
+                        "apiKey": {
+                            "type": "object",
+                            "properties": {
+                                "cacheRefreshIntervalMS": {
+                                    "type": "integer",
+                                    "description": "How often the API key cache refreshes project associations from the database (in milliseconds). Lower values reduce staleness when project memberships change but increase database load.",
+                                    "default": 180000,
+                                    "minimum": 1000
+                                }
+                            }
+                        }
+                    }
+                },
                 "externalMetadataCluster": {
                     "type": "object",
                     "description": "RDRSs will always be in the cluster of the data, not the metadata",

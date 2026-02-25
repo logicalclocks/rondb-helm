@@ -53,7 +53,8 @@
             "RequireAndVerifyClientCert": false
         },
         "APIKey": {
-            "UseHopsworksAPIKeys": true
+            "UseHopsworksAPIKeys": true,
+            "CacheRefreshIntervalMS": {{ $.Values.rdrs.security.apiKey.cacheRefreshIntervalMS | int }}
         }
     },
     "Log": {
