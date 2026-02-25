@@ -460,7 +460,7 @@ true
 {{- end -}}
 
 {{- define "rondb.backups.isEnabled" -}}
-{{- if hasKey .Values.backups "enabled" -}}
+{{- if and (hasKey .Values.backups "enabled") (not (eq .Values.backups.enabled nil)) -}}
 {{- if .Values.backups.enabled -}}
 true
 {{- end -}}
