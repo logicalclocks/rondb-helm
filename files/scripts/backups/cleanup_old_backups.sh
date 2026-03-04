@@ -17,9 +17,14 @@ fi
 
 echo "Check expired backups in $REMOTE_BACKUP_BASE_DIR with TTL $TTL "
 
+# Only check top-level files (databases.sql, users.sql) to determine backup age.
+# These are always uploaded first (backup-metadata init container) and are at least
+# as old as the nested rondb data files, so their timestamp is a safe TTL indicator.
+# This avoids a slow recursive listing of all objects in the bucket.
 TTL_EXPIRED=$(
-  rclone lsjson --recursive --files-only "$REMOTE_BACKUP_BASE_DIR" --min-age "$TTL" \
-  | jq -r '.[].Path | split("/") | .[0]' \
+  rclone lsf --recursive --files-only "$REMOTE_BACKUP_BASE_DIR" --min-age "$TTL" --max-depth 2 \
+    --include "*/databases.sql" --include "*/users.sql" \
+  | cut -d'/' -f1 \
   | sort -u
 )
 
