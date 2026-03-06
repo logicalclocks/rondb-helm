@@ -1,0 +1,69 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+# PodDisruptionBudgets to ensure availability during node drains (e.g. EKS node group upgrades).
+# Each PDB ensures at least N pods remain available so Kubernetes won't drain a node
+# until replicas on other nodes have been updated and are running.
+# PDBs are skipped when there is only a single replica, as a PDB would block all
+# node drains in that case.
+
+{{- if not (include "rondb.isExternallyManaged" .) -}}
+{{- if $.Values.podDisruptionBudget.ndbmtd.enabled }}
+{{- if gt ($.Values.clusterSize.activeDataReplicas | int) 1 }}
+{{- if ge ($.Values.podDisruptionBudget.ndbmtd.minAvailable | int) ($.Values.clusterSize.activeDataReplicas | int) }}
+{{- fail (printf "podDisruptionBudget.ndbmtd.minAvailable (%d) must be less than clusterSize.activeDataReplicas (%d), otherwise all drains will be blocked" ($.Values.podDisruptionBudget.ndbmtd.minAvailable | int) ($.Values.clusterSize.activeDataReplicas | int)) }}
+{{- end }}
+{{ range $nodeGroup := until ($.Values.clusterSize.numNodeGroups | int) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: node-group-{{ $nodeGroup }}-pdb
+  namespace: {{ $.Release.Namespace }}
+spec:
+  minAvailable: {{ $.Values.podDisruptionBudget.ndbmtd.minAvailable }}
+  selector:
+    matchLabels:
+      rondbService: {{ include "rondb.labels.rondbService.ndbmtd" $ }}
+      nodeGroup: {{ $nodeGroup | quote }}
+{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{- if $.Values.podDisruptionBudget.rdrs.enabled }}
+{{- if gt ($.Values.clusterSize.minNumRdrs | int) 1 }}
+{{- if ge ($.Values.podDisruptionBudget.rdrs.minAvailable | int) ($.Values.clusterSize.minNumRdrs | int) }}
+{{- fail (printf "podDisruptionBudget.rdrs.minAvailable (%d) must be less than clusterSize.minNumRdrs (%d), otherwise all drains will be blocked" ($.Values.podDisruptionBudget.rdrs.minAvailable | int) ($.Values.clusterSize.minNumRdrs | int)) }}
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rdrs-pdb
+  namespace: {{ .Release.Namespace }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.rdrs.minAvailable }}
+  selector:
+    matchLabels:
+      rondbService: {{ include "rondb.labels.rondbService.rdrs" $ }}
+{{- end }}
+{{- end }}
+
+{{- if $.Values.podDisruptionBudget.mysqld.enabled }}
+{{- if gt ($.Values.clusterSize.minNumMySQLServers | int) 1 }}
+{{- if ge ($.Values.podDisruptionBudget.mysqld.minAvailable | int) ($.Values.clusterSize.minNumMySQLServers | int) }}
+{{- fail (printf "podDisruptionBudget.mysqld.minAvailable (%d) must be less than clusterSize.minNumMySQLServers (%d), otherwise all drains will be blocked" ($.Values.podDisruptionBudget.mysqld.minAvailable | int) ($.Values.clusterSize.minNumMySQLServers | int)) }}
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mysqld-pdb
+  namespace: {{ .Release.Namespace }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.mysqld.minAvailable }}
+  selector:
+    matchLabels:
+      rondbService: {{ include "rondb.labels.rondbService.mysqld" $ }}
+{{- end }}
+{{- end }}
