@@ -84,7 +84,7 @@ spec:
             memory: {{ .Values.resources.requests.memory.rdrsMiB }}Mi
         readinessProbe:
           httpGet:
-            path: "0.1.0/ping"
+            path: "0.1.0/health"
             port: 4406
 {{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
             scheme: HTTPS
@@ -94,6 +94,19 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 4
           failureThreshold: 1
+          timeoutSeconds: 2
+        startupProbe:
+          httpGet:
+            path: "0.1.0/ping"
+            port: 4406
+{{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
+            scheme: HTTPS
+{{- else }}
+            scheme: HTTP
+{{- end }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 11
           timeoutSeconds: 2
         livenessProbe:
           httpGet:
