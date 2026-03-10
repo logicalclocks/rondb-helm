@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+
 
 CERT_MANAGER_URL=https://github.com/cert-manager/cert-manager/releases/download/v1.14.3/cert-manager.yaml
 HELM_NGINX_NAME=ingress-nginx

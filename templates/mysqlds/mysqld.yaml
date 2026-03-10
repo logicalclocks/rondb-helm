@@ -1,4 +1,5 @@
-# Copyright (c) 2024-2025 Hopsworks AB. All rights reserved.
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
 
 apiVersion: apps/v1
 kind: StatefulSet
@@ -118,7 +119,7 @@ spec:
         - /bin/bash
         - -c
         - |
-          set -e
+          set -euo pipefail
 
 {{ include "rondb.sedMyCnfFile" (dict
     "startingNodeId" 67
@@ -130,7 +131,8 @@ spec:
           # here is just a sanity check if the main container is restarted.
 {{ include "rondb.resolveOwnIp" $ | indent 10 }}
 
-          mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf
+          mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf 2>&1 \
+              | tee -a -- "$RONDB_DATA_DIR/log/mysqld_${FIRST_NODE_ID}_out.log"
         ports:
           - containerPort: 3306
         resources:
