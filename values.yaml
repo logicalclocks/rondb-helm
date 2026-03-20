@@ -241,6 +241,16 @@ nodeSelector:
   mysqld: {}
   ndbmtd: {}
   rdrs: {}
+podDisruptionBudget:
+  mysqld:
+    enabled: true
+    minAvailable: 1
+  ndbmtd:
+    enabled: true
+    minAvailable: 1
+  rdrs:
+    enabled: true
+    minAvailable: 1
 priorityClass: rondb-high-priority
 rdrs:
   externalMetadataCluster:

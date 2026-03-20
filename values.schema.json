@@ -1826,6 +1826,54 @@
                 }
             }
         },
+        "podDisruptionBudget": {
+            "type": "object",
+            "description": "PodDisruptionBudget configuration per service. Ensures pod availability during voluntary disruptions like node drains and EKS node group upgrades. For single-replica deployments (effective replicas == 1), the PDB is not created even if minAvailable is 1, to avoid blocking node drains. For multi-replica deployments (effective replicas > 1), template rendering will fail if minAvailable is greater than or equal to the effective replica count, because such a PDB would prevent voluntary disruptions. The effective replica count used in these checks is the configured minimum replica count for each service (for example, clusterSize.minNumMySQLServers / clusterSize.minNumRdrs), not any dynamically autoscaled replica count at runtime.",
+            "properties": {
+                "mysqld": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "minAvailable": {
+                            "type": "integer",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    }
+                },
+                "ndbmtd": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "minAvailable": {
+                            "type": "integer",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    }
+                },
+                "rdrs": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "minAvailable": {
+                            "type": "integer",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    }
+                }
+            }
+        },
         "tolerations": {
             "type": "object",
             "description": "These tolerations allow Kubernetes to schedule pods on nodes with matching taints, ensuring proper placement based on cluster policies.",
