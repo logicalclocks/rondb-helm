@@ -8,7 +8,7 @@
   For this we read the Image from the mgmd Pod and extract the version.
   For more information: HWORKS-2315 CLOUD-857
 */}}
-{{- if and (include "rondb.shouldExecute2410Migration" .) (include "rondb.isUpgrade" .) }}
+{{- if and (include "rondb.isUpgrade" .) (include "rondb.shouldExecute2410Migration" .) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
