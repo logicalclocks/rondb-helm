@@ -8,25 +8,7 @@
   For this we read the Image from the mgmd Pod and extract the version.
   For more information: HWORKS-2315 CLOUD-857
 */}}
-{{- $execute := true }}
-{{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName }}
-{{- if $sts }}
-  {{- $containers := get $sts.spec.template.spec "containers" }}
-  {{- if $containers }}
-    {{- range $c := $containers }}
-      {{- if eq $c.name "mgmd" }}
-        {{- $imageSplits := regexSplit ":+" $c.image -1 }}
-        {{- $tag := last $imageSplits }}
-        {{- if semverCompare ">= 24.x" $tag }}
-          {{- $execute = false }}
-        {{- end }}
-      {{- end }}
-    {{- end }}
-  {{- end }}
-{{- else }}
-  {{- $execute = .Values.mysql.force2410UserGrantMigration }}
-{{- end }}
-{{- if and $execute (include "rondb.isUpgrade" .) }}
+{{- if and (include "rondb.isUpgrade" .) (include "rondb.shouldExecute2410Migration" .) }}
 apiVersion: batch/v1
 kind: Job
 metadata:

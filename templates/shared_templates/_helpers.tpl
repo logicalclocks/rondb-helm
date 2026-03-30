@@ -593,3 +593,32 @@ true
 {{- .Values.global._hopsworks.backups.ttl -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "rondb.shouldExecute2410Migration" -}}
+{{- $execute := true -}}
+{{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName -}}
+{{- if $sts -}}
+  {{- $containers := get $sts.spec.template.spec "containers" -}}
+  {{- if $containers -}}
+    {{- range $c := $containers -}}
+      {{- if eq $c.name "mgmd" -}}
+        {{- $imageSplits := regexSplit ":+" $c.image -1 -}}
+        {{- $tag := last $imageSplits -}}
+        {{- $majorStr := regexFind "^[0-9]+" $tag -}}
+        {{- if $majorStr -}}
+          {{- if ge ($majorStr | int) 24 -}}
+            {{- $execute = false -}}
+          {{- end -}}
+        {{- else -}}
+          {{- $execute = $.Values.mysql.force2410UserGrantMigration -}}
+        {{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- else -}}
+  {{- $execute = .Values.mysql.force2410UserGrantMigration -}}
+{{- end -}}
+{{- if $execute -}}
+true
+{{- end -}}
+{{- end -}}
