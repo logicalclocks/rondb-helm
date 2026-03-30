@@ -8,25 +8,7 @@
   The admin privileges will be restored in the new 24.x cluster by the 2410_update_grant_all.yaml Job
   For more information: HWORKS-2315 CLOUD-857
 */}}
-{{- $execute := true }}
-{{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName }}
-{{- if $sts }}
-  {{- $containers := get $sts.spec.template.spec "containers" }}
-  {{- if $containers }}
-    {{- range $c := $containers }}
-      {{- if eq $c.name "mgmd" }}
-        {{- $imageSplits := regexSplit ":+" $c.image -1 }}
-        {{- $major := index (splitList "." (last $imageSplits)) 0 | int }}
-        {{- if ge $major 24 }}
-          {{- $execute = false }}
-        {{- end }}
-      {{- end }}
-    {{- end }}
-  {{- end }}
-{{- else }}
-  {{- $execute = .Values.mysql.force2410UserGrantMigration }}
-{{- end }}
-{{- if and $execute (include "rondb.isUpgrade" .) }}
+{{- if and (include "rondb.shouldExecute2410Migration" .) (include "rondb.isUpgrade" .) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
