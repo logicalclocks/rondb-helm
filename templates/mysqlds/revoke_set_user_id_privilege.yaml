@@ -8,7 +8,7 @@
   The admin privileges will be restored in the new 24.x cluster by the 2410_update_grant_all.yaml Job
   For more information: HWORKS-2315 CLOUD-857
 */}}
-{{- if and (include "rondb.shouldExecute2410Migration" .) (include "rondb.isUpgrade" .) }}
+{{- if and (include "rondb.isUpgrade" .) (include "rondb.shouldExecute2410Migration" .) }}
 apiVersion: batch/v1
 kind: Job
 metadata:
