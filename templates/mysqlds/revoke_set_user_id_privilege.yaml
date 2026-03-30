@@ -16,8 +16,8 @@
     {{- range $c := $containers }}
       {{- if eq $c.name "mgmd" }}
         {{- $imageSplits := regexSplit ":+" $c.image -1 }}
-        {{- $tag := last $imageSplits }}
-        {{- if semverCompare ">= 24.x" $tag }}
+        {{- $major := index (splitList "." (last $imageSplits)) 0 | int }}
+        {{- if ge $major 24 }}
           {{- $execute = false }}
         {{- end }}
       {{- end }}
