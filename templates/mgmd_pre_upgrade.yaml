@@ -1,0 +1,202 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+{{- /*
+  Pre-upgrade ordering hook.
+
+  Helm and the StatefulSet controllers do not coordinate ordering between
+  the MGMd, ndbmtd, and API-tier (mysqld, rdrs, binlog-servers,
+  replica-appliers) StatefulSets. Their rolling updates run concurrently
+  during a chart upgrade, which means there can be a window where the MGMd
+  pod (the only ArbitrationRank=1 node), every mysqld, and every rdrs are
+  all unavailable at the same moment. If a data-node replica is also being
+  rolled in that window, the surviving data node has no arbitrator to
+  consult and self-shuts with NDB Error 2305.
+
+  This hook runs before the main upgrade applies any other manifest. It
+  brings the MGMd StatefulSet to its target pod template (new image, new
+  configIniHash, new config.ini in the mgmd-configs ConfigMap) and waits
+  for it to be Ready and serving (`ndb_mgm -e show`). When the main
+  upgrade then runs, the MGMd StatefulSet's running state already matches
+  the desired state, so MGMd is not rolled again — the rest of the
+  rollout proceeds with a stable, healthy primary arbitrator.
+*/}}
+
+{{- if and (include "rondb.isUpgrade" .) (not (include "rondb.isExternallyManaged" .)) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rondb-mgmd-pre-upgrade-config-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  config.ini: |
+{{ tpl (.Files.Get "files/configs/config.ini") . | indent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rondb-mgmd-pre-upgrade
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rondb-mgmd-pre-upgrade
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["get", "patch", "watch"]
+  resourceNames: [{{ .Values.meta.mgmd.statefulSetName | quote }}]
+- apiGroups: ["apps"]
+  resources: ["statefulsets/status"]
+  verbs: ["get", "watch"]
+  resourceNames: [{{ .Values.meta.mgmd.statefulSetName | quote }}]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "patch"]
+  resourceNames: ["mgmd-configs"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rondb-mgmd-pre-upgrade
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+subjects:
+- kind: ServiceAccount
+  name: rondb-mgmd-pre-upgrade
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: rondb-mgmd-pre-upgrade
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rondb-mgmd-pre-upgrade-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        rondbService: mgmd-pre-upgrade
+    spec:
+      serviceAccountName: rondb-mgmd-pre-upgrade
+      restartPolicy: Never
+{{- include "rondb.PodSecurityContext" $ | indent 6 }}
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.mgmd) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" .Values.tolerations.mgmd) | indent 6 }}
+{{- if .Values.priorityClass }}
+      priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end }}
+      containers:
+      - name: mgmd-pre-upgrade
+        image: {{ include "image_address" (dict "image" .Values.images.toolbox) }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
+        resources:
+          limits:
+            cpu: 0.3
+            memory: 200Mi
+        env:
+        - name: STS_NAME
+          value: {{ .Values.meta.mgmd.statefulSetName | quote }}
+        - name: NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: NEW_IMAGE
+          value: {{ include "image_address" (dict "image" .Values.images.rondb) | quote }}
+        - name: NEW_CONFIG_INI_HASH
+          value: {{ include "rondb.configIniHash" $ | quote }}
+        - name: ROLLOUT_TIMEOUT
+          value: "10m"
+        - name: HEALTHCHECK_RETRIES
+          value: "30"
+        - name: HEALTHCHECK_INTERVAL_SECONDS
+          value: "5"
+        volumeMounts:
+        - name: rendered-config
+          mountPath: /etc/rondb-config
+          readOnly: true
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -euo pipefail
+
+          echo "[mgmd-pre-upgrade] target image:        $NEW_IMAGE"
+          echo "[mgmd-pre-upgrade] target configIniHash: $NEW_CONFIG_INI_HASH"
+
+          echo "[mgmd-pre-upgrade] Updating mgmd-configs ConfigMap to new config.ini"
+          kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
+            | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
+            | kubectl apply -n "$NAMESPACE" -f -
+
+          echo "[mgmd-pre-upgrade] Patching $STS_NAME pod template (image + configIniHash)"
+          kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" --type=strategic -p "$(cat <<EOF
+          {
+            "spec": {
+              "template": {
+                "metadata": {
+                  "annotations": {
+                    "configIniHash": "$NEW_CONFIG_INI_HASH"
+                  }
+                },
+                "spec": {
+                  "containers": [
+                    {"name": "mgmd", "image": "$NEW_IMAGE"}
+                  ]
+                }
+              }
+            }
+          }
+          EOF
+          )"
+
+          echo "[mgmd-pre-upgrade] Waiting for $STS_NAME rollout (timeout: $ROLLOUT_TIMEOUT)"
+          kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
+
+          echo "[mgmd-pre-upgrade] Verifying MGMd is serving (ndb_mgm -e show)"
+          for attempt in $(seq 1 "$HEALTHCHECK_RETRIES"); do
+            if kubectl exec -n "$NAMESPACE" mgmds-0 -- ndb_mgm -e show >/dev/null 2>&1; then
+              echo "[mgmd-pre-upgrade] MGMd healthy after $attempt attempt(s); upgrade may proceed"
+              exit 0
+            fi
+            echo "[mgmd-pre-upgrade] attempt $attempt/$HEALTHCHECK_RETRIES: MGMd not yet serving, sleeping ${HEALTHCHECK_INTERVAL_SECONDS}s"
+            sleep "$HEALTHCHECK_INTERVAL_SECONDS"
+          done
+          echo "[mgmd-pre-upgrade] MGMd did not become healthy within timeout" >&2
+          exit 1
+      volumes:
+      - name: rendered-config
+        configMap:
+          name: rondb-mgmd-pre-upgrade-config-{{ .Release.Revision }}
+{{- end }}
