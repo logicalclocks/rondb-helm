@@ -137,11 +137,11 @@ spec:
         - name: NEW_CONFIG_INI_HASH
           value: {{ include "rondb.configIniHash" $ | quote }}
         - name: ROLLOUT_TIMEOUT
-          value: "10m"
+          value: "3m"
         - name: HEALTHCHECK_RETRIES
           value: "30"
         - name: HEALTHCHECK_INTERVAL_SECONDS
-          value: "5"
+          value: "2"
         volumeMounts:
         - name: rendered-config
           mountPath: /etc/rondb-config
@@ -152,48 +152,72 @@ spec:
         - |
           set -euo pipefail
 
-          echo "[mgmd-pre-upgrade] target image:        $NEW_IMAGE"
-          echo "[mgmd-pre-upgrade] target configIniHash: $NEW_CONFIG_INI_HASH"
+          log() { echo "[mgmd-pre-upgrade] $*"; }
 
-          echo "[mgmd-pre-upgrade] Updating mgmd-configs ConfigMap to new config.ini"
-          kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
-            | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
-            | kubectl apply -n "$NAMESPACE" -f -
+          log "target image:           $NEW_IMAGE"
+          log "target configIniHash:   $NEW_CONFIG_INI_HASH"
+          log "statefulset:            $STS_NAME"
+          log "namespace:              $NAMESPACE"
 
-          echo "[mgmd-pre-upgrade] Patching $STS_NAME pod template (image + configIniHash)"
-          kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" --type=strategic -p "$(cat <<EOF
-          {
-            "spec": {
-              "template": {
-                "metadata": {
-                  "annotations": {
-                    "configIniHash": "$NEW_CONFIG_INI_HASH"
-                  }
-                },
-                "spec": {
-                  "containers": [
-                    {"name": "mgmd", "image": "$NEW_IMAGE"}
-                  ]
-                }
-              }
-            }
-          }
-          EOF
-          )"
+          # Fast-path: if the StatefulSet's pod template already matches the
+          # target image and configIniHash, there is no roll to wait for. We
+          # only verify MGMd is healthy and exit. This is the common case for
+          # upgrades that do not touch MGMd (e.g. scaling-only upgrades).
+          live_image=$(kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" \
+              -o jsonpath='{.spec.template.spec.containers[?(@.name=="mgmd")].image}' \
+              2>/dev/null || echo "")
+          live_hash=$(kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" \
+              -o jsonpath='{.spec.template.metadata.annotations.configIniHash}' \
+              2>/dev/null || echo "")
+          log "live image:             $live_image"
+          log "live configIniHash:     $live_hash"
 
-          echo "[mgmd-pre-upgrade] Waiting for $STS_NAME rollout (timeout: $ROLLOUT_TIMEOUT)"
-          kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" --timeout="$ROLLOUT_TIMEOUT"
+          needs_patch=0
+          [ "$live_image" = "$NEW_IMAGE" ] || needs_patch=1
+          [ "$live_hash"  = "$NEW_CONFIG_INI_HASH" ] || needs_patch=1
 
-          echo "[mgmd-pre-upgrade] Verifying MGMd is serving (ndb_mgm -e show)"
+          if [ "$needs_patch" -eq 1 ]; then
+            log "Updating mgmd-configs ConfigMap to new config.ini"
+            kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
+              | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
+              | kubectl apply -n "$NAMESPACE" -f -
+
+            log "Patching $STS_NAME pod template (image + configIniHash)"
+            patch_json=$(jq -n \
+                --arg image "$NEW_IMAGE" \
+                --arg hash "$NEW_CONFIG_INI_HASH" \
+                '{
+                   spec: {
+                     template: {
+                       metadata: { annotations: { configIniHash: $hash } },
+                       spec: { containers: [ { name: "mgmd", image: $image } ] }
+                     }
+                   }
+                 }')
+            kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" \
+                --type=strategic -p "$patch_json"
+
+            log "Waiting for $STS_NAME rollout (timeout: $ROLLOUT_TIMEOUT)"
+            kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
+                --timeout="$ROLLOUT_TIMEOUT"
+          else
+            log "MGMd already at target image and configIniHash; skipping patch + rollout"
+          fi
+
+          log "Verifying MGMd is serving (ndb_mgm -e show)"
           for attempt in $(seq 1 "$HEALTHCHECK_RETRIES"); do
             if kubectl exec -n "$NAMESPACE" mgmds-0 -- ndb_mgm -e show >/dev/null 2>&1; then
-              echo "[mgmd-pre-upgrade] MGMd healthy after $attempt attempt(s); upgrade may proceed"
+              log "MGMd healthy after $attempt attempt(s); upgrade may proceed"
               exit 0
             fi
-            echo "[mgmd-pre-upgrade] attempt $attempt/$HEALTHCHECK_RETRIES: MGMd not yet serving, sleeping ${HEALTHCHECK_INTERVAL_SECONDS}s"
+            log "attempt $attempt/$HEALTHCHECK_RETRIES: MGMd not yet serving, sleeping ${HEALTHCHECK_INTERVAL_SECONDS}s"
             sleep "$HEALTHCHECK_INTERVAL_SECONDS"
           done
-          echo "[mgmd-pre-upgrade] MGMd did not become healthy within timeout" >&2
+
+          log "MGMd did not become healthy within timeout"
+          log "--- final diagnostics ---"
+          kubectl get pods -n "$NAMESPACE" -l rondbService=mgmd -o wide || true
+          kubectl describe statefulset "$STS_NAME" -n "$NAMESPACE" || true
           exit 1
       volumes:
       - name: rendered-config
