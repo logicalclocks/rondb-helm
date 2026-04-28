@@ -19,9 +19,22 @@
   upgrade then runs, the MGMd StatefulSet's running state already matches
   the desired state, so MGMd is not rolled again — the rest of the
   rollout proceeds with a stable, healthy primary arbitrator.
+
+  Why this template is not gated on `rondb.isUpgrade`:
+  -----------------------------------------------------
+  Argo CD does not run `helm install`/`helm upgrade`; it renders with
+  `helm template` and then syncs. `.Release.IsUpgrade` is therefore
+  always false under Argo, and any helper that bottoms out on it (like
+  `rondb.isUpgrade` when `mode` is unset) would prevent this hook from
+  ever rendering on Argo-managed clusters. To keep the hook compatible
+  with both pure-Helm and Argo CD deployments, the template renders
+  whenever the cluster is not externally-managed; the hook semantics
+  themselves (Helm `pre-upgrade` -> Argo `PreSync`) decide WHEN it runs,
+  and the Job script handles the "MGMd does not exist yet" case (first
+  Argo sync of a fresh install) by exiting cleanly.
 */}}
 
-{{- if and (include "rondb.isUpgrade" .) (not (include "rondb.isExternallyManaged" .)) }}
+{{- if not (include "rondb.isExternallyManaged" .) }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -163,6 +176,18 @@ spec:
           # honour any override of meta.mgmd.statefulSetName.
           POD_NAME="${STS_NAME}-0"
           log "pod:                    $POD_NAME"
+
+          # Fresh-install short-circuit. Under Helm, this template is only
+          # invoked as a `pre-upgrade` hook so it never runs on `helm
+          # install`. Under Argo CD, every sync (including the very first)
+          # fires PreSync hooks, so on a fresh install the StatefulSet does
+          # not exist yet and there is nothing to pre-roll. Exit cleanly
+          # and let Argo's main sync create MGMd from scratch.
+          if ! kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" >/dev/null 2>&1; then
+            log "StatefulSet $STS_NAME not found in namespace $NAMESPACE."
+            log "Treating this sync as an initial install; nothing to pre-roll. Exiting cleanly."
+            exit 0
+          fi
 
           # Read the live pod template fields so we can decide whether a patch
           # is needed. The patch itself is conditional (avoid touching the API
