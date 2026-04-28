@@ -17,6 +17,9 @@ metadata:
     "forReplicaAppliers" true
     "tls" $.Values.meta.replicaAppliers.statefulSet.endToEndTls
 }}
+{{- $ddlDict := dict
+    "tls" $.Values.meta.ddlMySQLd.statefulSet.endToEndTls
+}}
 data:
     my.cnf: |
 {{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $mysqldDict) | indent 6 }}
@@ -24,6 +27,8 @@ data:
 {{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $binlogDict) | indent 6 }}
     my-replica-appliers.cnf: |
 {{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $replicaDict) | indent 6 }}
+    my-ddl-mysqld.cnf: |
+{{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $ddlDict) | indent 6 }}
     run_applier.sh: |
 {{ tpl (.Files.Get "files/scripts/replica_appliers/run_applier.sh") . | indent 6 }}
     get_binlog_position.sh: |

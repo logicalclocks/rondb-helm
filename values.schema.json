@@ -653,12 +653,104 @@
                         "statefulSet",
                         "headlessClusterIp"
                     ]
+                },
+                "ddlMySQLd": {
+                    "type": "object",
+                    "properties": {
+                        "statefulSet": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "default": "ddl-mysqld"
+                                },
+                                "endToEndTls": {
+                                    "type": "object",
+                                    "properties": {
+                                        "enabled": {
+                                            "description": "Whether to use end-to-end encryption for DDL MySQL server Pods.",
+                                            "enabled": "boolean",
+                                            "default": false
+                                        },
+                                        "secretName": {
+                                            "type": "string",
+                                            "description": "Name of the TLS Secret",
+                                            "default": "ddl-mysqld-end-to-end-tls"
+                                        },
+                                        "supplyOwnSecret": {
+                                            "enabled": "boolean",
+                                            "default": false,
+                                            "description": "Whether the Helmchart user will create a TLS Secret outside of this Helmchart. Otherwise we rely on cert-manager to create one."
+                                        },
+                                        "filenames": {
+                                            "$ref": "#/$defs/tlsFilenames"
+                                        }
+                                    },
+                                    "required": [
+                                        "enabled",
+                                        "secretName",
+                                        "supplyOwnSecret",
+                                        "filenames"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "endToEndTls"
+                            ]
+                        },
+                        "headlessClusterIp": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "default": "headless-ddl-mysqld"
+                                },
+                                "port": {
+                                    "type": "integer",
+                                    "default": 3306
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "port"
+                            ]
+                        },
+                        "clusterIp": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "default": "ddl-mysqld"
+                                },
+                                "port": {
+                                    "type": "integer",
+                                    "default": 3306
+                                },
+                                "annotations": {
+                                    "type": "object",
+                                    "default": {}
+                                }
+                            },
+                            "required": [
+                                "name",
+                                "port",
+                                "annotations"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "statefulSet",
+                        "headlessClusterIp",
+                        "clusterIp"
+                    ]
                 }
             },
             "required": [
                 "mgmd",
                 "mysqld",
-                "rdrs"
+                "rdrs",
+                "ddlMySQLd"
             ]
         },
         "images": {
