@@ -84,9 +84,6 @@ rules:
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "list", "watch"]
-- apiGroups: [""]
-  resources: ["pods/exec"]
-  verbs: ["create"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -151,10 +148,6 @@ spec:
           value: {{ include "rondb.configIniHash" $ | quote }}
         - name: ROLLOUT_TIMEOUT
           value: "3m"
-        - name: HEALTHCHECK_RETRIES
-          value: "30"
-        - name: HEALTHCHECK_INTERVAL_SECONDS
-          value: "2"
         volumeMounts:
         - name: rendered-config
           mountPath: /etc/rondb-config
@@ -171,11 +164,6 @@ spec:
           log "target configIniHash:   $NEW_CONFIG_INI_HASH"
           log "statefulset:            $STS_NAME"
           log "namespace:              $NAMESPACE"
-
-          # The pod name for a single-replica StatefulSet is "<sts-name>-0";
-          # honour any override of meta.mgmd.statefulSetName.
-          POD_NAME="${STS_NAME}-0"
-          log "pod:                    $POD_NAME"
 
           # Fresh-install short-circuit. Under Helm, this template is only
           # invoked as a `pre-upgrade` hook so it never runs on `helm
@@ -221,55 +209,55 @@ spec:
           [ -n "$spec_replicas" ] && [ "$updated_replicas" = "$spec_replicas" ] || rollout_converged=false
 
           if [ "$spec_at_target" = "true" ] && [ "$rollout_converged" = "true" ]; then
-            log "StatefulSet already converged at target; skipping patch and rollout-status"
-          else
-            log "Patching: spec_at_target=$spec_at_target rollout_converged=$rollout_converged"
-
-            if [ "$spec_at_target" = "false" ]; then
-              log "Updating mgmd-configs ConfigMap to new config.ini"
-              kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
-                | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
-                | kubectl apply -n "$NAMESPACE" -f -
-
-              log "Patching $STS_NAME pod template (image + configIniHash)"
-              patch_json=$(jq -n \
-                  --arg image "$NEW_IMAGE" \
-                  --arg hash "$NEW_CONFIG_INI_HASH" \
-                  '{
-                     spec: {
-                       template: {
-                         metadata: { annotations: { configIniHash: $hash } },
-                         spec: { containers: [ { name: "mgmd", image: $image } ] }
-                       }
-                     }
-                   }')
-              kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" \
-                  --type=strategic -p "$patch_json"
-            fi
-
-            log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
-            kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
-                --timeout="$ROLLOUT_TIMEOUT"
+            log "StatefulSet already converged at target; nothing to do."
+            log "(.status.readyReplicas == .spec.replicas means the StatefulSet's"
+            log "own readiness probe — 'ndb_mgm -e show' — is already passing.)"
+            exit 0
           fi
 
-          log "Verifying MGMd is serving (ndb_mgm -e show)"
-          for attempt in $(seq 1 "$HEALTHCHECK_RETRIES"); do
-            # Per-attempt request-timeout so a wedged kubectl exec can't
-            # hold the whole script open past helm's hook timeout budget.
-            if kubectl exec --request-timeout=5s -n "$NAMESPACE" "$POD_NAME" \
-                -- ndb_mgm -e show >/dev/null 2>&1; then
-              log "MGMd healthy after $attempt attempt(s); upgrade may proceed"
-              exit 0
-            fi
-            log "attempt $attempt/$HEALTHCHECK_RETRIES: MGMd not yet serving, sleeping ${HEALTHCHECK_INTERVAL_SECONDS}s"
-            sleep "$HEALTHCHECK_INTERVAL_SECONDS"
-          done
+          log "Patching: spec_at_target=$spec_at_target rollout_converged=$rollout_converged"
 
-          log "MGMd did not become healthy within timeout"
-          log "--- final diagnostics ---"
-          kubectl get pods -n "$NAMESPACE" -l rondbService=mgmd -o wide || true
-          kubectl describe statefulset "$STS_NAME" -n "$NAMESPACE" || true
-          exit 1
+          if [ "$spec_at_target" = "false" ]; then
+            log "Updating mgmd-configs ConfigMap to new config.ini"
+            kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
+              | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
+              | kubectl apply -n "$NAMESPACE" -f -
+
+            log "Patching $STS_NAME pod template (image + configIniHash)"
+            patch_json=$(jq -n \
+                --arg image "$NEW_IMAGE" \
+                --arg hash "$NEW_CONFIG_INI_HASH" \
+                '{
+                   spec: {
+                     template: {
+                       metadata: { annotations: { configIniHash: $hash } },
+                       spec: { containers: [ { name: "mgmd", image: $image } ] }
+                     }
+                   }
+                 }')
+            kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" \
+                --type=strategic -p "$patch_json"
+          fi
+
+          log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
+          # `kubectl rollout status` blocks until .status.readyReplicas ==
+          # .spec.replicas (among other invariants), and a Ready pod by
+          # definition has its readiness probe (`ndb_mgm -e show`) passing.
+          # That's the same property a separate `kubectl exec` healthcheck
+          # would verify, so there is no need for an additional healthcheck
+          # step after this — the rollout-status return is itself the
+          # health proof.
+          if ! kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
+              --timeout="$ROLLOUT_TIMEOUT"; then
+            log "rollout-status did not converge within $ROLLOUT_TIMEOUT"
+            log "--- final diagnostics ---"
+            kubectl get pods -n "$NAMESPACE" -l rondbService=mgmd -o wide || true
+            kubectl describe statefulset "$STS_NAME" -n "$NAMESPACE" || true
+            exit 1
+          fi
+
+          log "MGMd is serving the new pod template; upgrade may proceed"
+          exit 0
       volumes:
       - name: rendered-config
         configMap:
