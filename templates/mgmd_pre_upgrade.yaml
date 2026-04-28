@@ -159,10 +159,18 @@ spec:
           log "statefulset:            $STS_NAME"
           log "namespace:              $NAMESPACE"
 
-          # Fast-path: if the StatefulSet's pod template already matches the
-          # target image and configIniHash, there is no roll to wait for. We
-          # only verify MGMd is healthy and exit. This is the common case for
-          # upgrades that do not touch MGMd (e.g. scaling-only upgrades).
+          # The pod name for a single-replica StatefulSet is "<sts-name>-0";
+          # honour any override of meta.mgmd.statefulSetName.
+          POD_NAME="${STS_NAME}-0"
+          log "pod:                    $POD_NAME"
+
+          # Read the live pod template fields so we can decide whether a patch
+          # is needed. The patch itself is conditional (avoid touching the API
+          # when there's nothing to change), but the rollout-status wait below
+          # is unconditional — it must prove the StatefulSet has converged on
+          # the live spec before we let Helm proceed, even if a previous
+          # interrupted upgrade already wrote the target spec but did not
+          # finish rolling.
           live_image=$(kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" \
               -o jsonpath='{.spec.template.spec.containers[?(@.name=="mgmd")].image}' \
               2>/dev/null || echo "")
@@ -196,17 +204,23 @@ spec:
                  }')
             kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" \
                 --type=strategic -p "$patch_json"
-
-            log "Waiting for $STS_NAME rollout (timeout: $ROLLOUT_TIMEOUT)"
-            kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
-                --timeout="$ROLLOUT_TIMEOUT"
           else
-            log "MGMd already at target image and configIniHash; skipping patch + rollout"
+            log "Spec already at target image and configIniHash; no patch needed"
           fi
+
+          # Always wait for the rollout to converge. If the spec already
+          # matches the target and the controller is idle, this returns
+          # immediately. If a previous run patched the spec but was
+          # interrupted before the controller finished the rolling update,
+          # this is what catches it: we will not let Helm proceed while the
+          # MGMd StatefulSet is still mid-roll.
+          log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
+          kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
+              --timeout="$ROLLOUT_TIMEOUT"
 
           log "Verifying MGMd is serving (ndb_mgm -e show)"
           for attempt in $(seq 1 "$HEALTHCHECK_RETRIES"); do
-            if kubectl exec -n "$NAMESPACE" mgmds-0 -- ndb_mgm -e show >/dev/null 2>&1; then
+            if kubectl exec -n "$NAMESPACE" "$POD_NAME" -- ndb_mgm -e show >/dev/null 2>&1; then
               log "MGMd healthy after $attempt attempt(s); upgrade may proceed"
               exit 0
             fi
