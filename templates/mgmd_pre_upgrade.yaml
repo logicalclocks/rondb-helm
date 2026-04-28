@@ -189,63 +189,75 @@ spec:
             exit 0
           fi
 
-          # Read the live pod template fields so we can decide whether a patch
-          # is needed. The patch itself is conditional (avoid touching the API
-          # when there's nothing to change), but the rollout-status wait below
-          # is unconditional — it must prove the StatefulSet has converged on
-          # the live spec before we let Helm proceed, even if a previous
-          # interrupted upgrade already wrote the target spec but did not
-          # finish rolling.
-          live_image=$(kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" \
-              -o jsonpath='{.spec.template.spec.containers[?(@.name=="mgmd")].image}' \
-              2>/dev/null || echo "")
-          live_hash=$(kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" \
-              -o jsonpath='{.spec.template.metadata.annotations.configIniHash}' \
-              2>/dev/null || echo "")
+          # Read live pod-template fields and StatefulSet status. We use the
+          # combination to decide whether the StatefulSet is already
+          # converged at the target — that includes BOTH the spec being at
+          # target AND the controller having finished rolling. If both hold,
+          # there is nothing to do besides verifying health; we do not need
+          # to patch and we do not need to call `kubectl rollout status`,
+          # which was observed to block under CI even on idle StatefulSets.
+          read_sts() {
+            kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" -o jsonpath="$1" 2>/dev/null || echo ""
+          }
+          live_image=$(read_sts '{.spec.template.spec.containers[?(@.name=="mgmd")].image}')
+          live_hash=$(read_sts  '{.spec.template.metadata.annotations.configIniHash}')
+          generation=$(read_sts '{.metadata.generation}')
+          observed=$(read_sts   '{.status.observedGeneration}')
+          spec_replicas=$(read_sts '{.spec.replicas}')
+          ready_replicas=$(read_sts   '{.status.readyReplicas}')
+          updated_replicas=$(read_sts '{.status.updatedReplicas}')
           log "live image:             $live_image"
           log "live configIniHash:     $live_hash"
+          log "generation:             $generation (observed: $observed)"
+          log "replicas spec/ready/updated: $spec_replicas/$ready_replicas/$updated_replicas"
 
-          needs_patch=0
-          [ "$live_image" = "$NEW_IMAGE" ] || needs_patch=1
-          [ "$live_hash"  = "$NEW_CONFIG_INI_HASH" ] || needs_patch=1
+          spec_at_target=true
+          [ "$live_image" = "$NEW_IMAGE"           ] || spec_at_target=false
+          [ "$live_hash"  = "$NEW_CONFIG_INI_HASH" ] || spec_at_target=false
 
-          if [ "$needs_patch" -eq 1 ]; then
-            log "Updating mgmd-configs ConfigMap to new config.ini"
-            kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
-              | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
-              | kubectl apply -n "$NAMESPACE" -f -
+          rollout_converged=true
+          [ -n "$generation" ] && [ -n "$observed" ] && [ "$generation" = "$observed" ] || rollout_converged=false
+          [ -n "$spec_replicas" ] && [ "$ready_replicas"   = "$spec_replicas" ] || rollout_converged=false
+          [ -n "$spec_replicas" ] && [ "$updated_replicas" = "$spec_replicas" ] || rollout_converged=false
 
-            log "Patching $STS_NAME pod template (image + configIniHash)"
-            patch_json=$(jq -n \
-                --arg image "$NEW_IMAGE" \
-                --arg hash "$NEW_CONFIG_INI_HASH" \
-                '{
-                   spec: {
-                     template: {
-                       metadata: { annotations: { configIniHash: $hash } },
-                       spec: { containers: [ { name: "mgmd", image: $image } ] }
-                     }
-                   }
-                 }')
-            kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" \
-                --type=strategic -p "$patch_json"
+          if [ "$spec_at_target" = "true" ] && [ "$rollout_converged" = "true" ]; then
+            log "StatefulSet already converged at target; skipping patch and rollout-status"
           else
-            log "Spec already at target image and configIniHash; no patch needed"
-          fi
+            log "Patching: spec_at_target=$spec_at_target rollout_converged=$rollout_converged"
 
-          # Always wait for the rollout to converge. If the spec already
-          # matches the target and the controller is idle, this returns
-          # immediately. If a previous run patched the spec but was
-          # interrupted before the controller finished the rolling update,
-          # this is what catches it: we will not let Helm proceed while the
-          # MGMd StatefulSet is still mid-roll.
-          log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
-          kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
-              --timeout="$ROLLOUT_TIMEOUT"
+            if [ "$spec_at_target" = "false" ]; then
+              log "Updating mgmd-configs ConfigMap to new config.ini"
+              kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
+                | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
+                | kubectl apply -n "$NAMESPACE" -f -
+
+              log "Patching $STS_NAME pod template (image + configIniHash)"
+              patch_json=$(jq -n \
+                  --arg image "$NEW_IMAGE" \
+                  --arg hash "$NEW_CONFIG_INI_HASH" \
+                  '{
+                     spec: {
+                       template: {
+                         metadata: { annotations: { configIniHash: $hash } },
+                         spec: { containers: [ { name: "mgmd", image: $image } ] }
+                       }
+                     }
+                   }')
+              kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" \
+                  --type=strategic -p "$patch_json"
+            fi
+
+            log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
+            kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
+                --timeout="$ROLLOUT_TIMEOUT"
+          fi
 
           log "Verifying MGMd is serving (ndb_mgm -e show)"
           for attempt in $(seq 1 "$HEALTHCHECK_RETRIES"); do
-            if kubectl exec -n "$NAMESPACE" "$POD_NAME" -- ndb_mgm -e show >/dev/null 2>&1; then
+            # Per-attempt request-timeout so a wedged kubectl exec can't
+            # hold the whole script open past helm's hook timeout budget.
+            if kubectl exec --request-timeout=5s -n "$NAMESPACE" "$POD_NAME" \
+                -- ndb_mgm -e show >/dev/null 2>&1; then
               log "MGMd healthy after $attempt attempt(s); upgrade may proceed"
               exit 0
             fi
