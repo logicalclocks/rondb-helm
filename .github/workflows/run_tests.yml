@@ -330,3 +330,148 @@ jobs:
         run: |
           source ./test_scripts/minio.env
           kubectl delete namespace $MINIO_TENANT_NAMESPACE --timeout=50s || true
+
+  # Cross-version chart upgrade test for the pre-upgrade MGMd hook
+  # (templates/mgmd_pre_upgrade.yaml). Installs the chart at branch-0.7
+  # (which pre-dates the hook) and upgrades to the PR head, then asserts
+  # the upgrade did not trigger arbitration loss (NDB Error 2305) or a
+  # whole-cluster system restart. Requested by maintainer in PR #170 review
+  # comment 3161156784.
+  upgrade-cross-version:
+    needs: [benchmark-and-stability]
+    name: Cross-version chart upgrade (no arbitration loss)
+    if: github.repository == 'logicalclocks/rondb-helm'
+    concurrency:
+      group: self-hosted-runner
+      cancel-in-progress: false
+    runs-on: [self-hosted, ARM64]
+    env:
+      K8S_NAMESPACE: rondb-helm-upgrade-${{ github.run_id }}-${{ github.run_attempt }}
+      RONDB_CLUSTER_NAME: my-rondb
+    steps:
+      - name: Checkout new chart (PR head)
+        uses: actions/checkout@v4
+        with:
+          path: new-chart
+
+      - name: Checkout old chart (branch-0.7, chart 0.7.29 / app 24.10.19)
+        uses: actions/checkout@v4
+        with:
+          repository: logicalclocks/rondb-helm
+          ref: branch-0.7
+          path: old-chart
+
+      - name: Check kubectl (should be Minikube)
+        run: |
+          kubectl version --client
+          kubectl get nodes
+
+      - name: Pre-cleanup stale resources
+        run: |
+          # Delete any leftover rondb-helm namespaces from previous cancelled/failed runs
+          for ns in $(kubectl get namespaces -o name | grep 'namespace/rondb-helm-' | cut -d/ -f2); do
+            if [ "$ns" != "$K8S_NAMESPACE" ]; then
+              echo "Cleaning up stale namespace: $ns"
+              helm delete --namespace="$ns" my-rondb 2>/dev/null || true
+              kubectl delete namespace "$ns" --timeout=120s 2>/dev/null || true
+            fi
+          done
+          kubectl delete priorityclass rondb-high-priority 2>/dev/null || true
+
+      # Install the OLD chart. Sized down so the test fits the minikube
+      # runner; one node-group is enough to exercise arbitration because
+      # both old and new values.yaml default to activeDataReplicas: 2.
+      - name: Install old chart (0.7.29 / 24.10.19)
+        run: |
+          helm install $RONDB_CLUSTER_NAME ./old-chart \
+            --namespace=$K8S_NAMESPACE \
+            --create-namespace \
+            --wait --timeout=15m \
+            --set staticCpuManagerPolicy=true \
+            --set clusterSize.numNodeGroups=1 \
+            --set clusterSize.minNumMySQLServers=1 \
+            --set clusterSize.maxNumMySQLServers=1 \
+            --set clusterSize.minNumRdrs=1 \
+            --set clusterSize.maxNumRdrs=1 \
+            --set rondbConfig.TotalMemoryConfig=2048M
+
+      # Snapshot the current cluster.log line count so the post-upgrade
+      # assertion (A2) only inspects lines emitted during the upgrade
+      # window — the install itself logs "Start phase 0 completed
+      # (system restart)" as part of normal startup.
+      - name: Snapshot cluster.log offset
+        run: |
+          OFFSET=$(kubectl -n $K8S_NAMESPACE exec mgmds-0 -c mgmd -- \
+              wc -l /srv/hops/mysql-cluster/log/cluster.log | awk '{print $1}')
+          echo "Captured cluster.log offset: $OFFSET"
+          echo "$OFFSET" > /tmp/cluster-log-offset.txt
+
+      # --reuse-values is intentional — it mirrors what real users do.
+      # If the new chart's schema rejects values defaulted in 0.7.29,
+      # that is a real finding to surface, not paper over with --set.
+      - name: Upgrade to new chart (PR head)
+        run: |
+          helm upgrade $RONDB_CLUSTER_NAME ./new-chart \
+            --namespace=$K8S_NAMESPACE \
+            --reuse-values \
+            --wait --timeout=15m
+
+      # A1: NDB Error 2305 = "arbitrator decided to shutdown this node".
+      # The exact failure mode the pre-upgrade hook prevents.
+      - name: Assert no arbitration loss (Error 2305)
+        run: |
+          fail=0
+          for pod in $(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
+                         -o jsonpath='{.items[*].metadata.name}'); do
+            echo "Checking $pod for Error 2305"
+            if kubectl -n $K8S_NAMESPACE exec "$pod" -c ndbmtd -- \
+                bash -c 'grep -l "Error: 2305" /srv/hops/mysql-cluster/log/ndb_*_error.log 2>/dev/null'; then
+              echo "::error::Pod $pod logged NDB Error 2305 (arbitration loss) during upgrade"
+              kubectl -n $K8S_NAMESPACE exec "$pod" -c ndbmtd -- \
+                bash -c 'grep -A2 -B2 "Error: 2305" /srv/hops/mysql-cluster/log/ndb_*_error.log' || true
+              fail=1
+            fi
+          done
+          exit $fail
+
+      # A2: A "system restart" line means every data node was down
+      # simultaneously. The slice starts at the snapshotted offset so we
+      # ignore the initial install's own startup messages.
+      - name: Assert no system restart in upgrade window
+        run: |
+          OFFSET=$(cat /tmp/cluster-log-offset.txt)
+          slice=$(kubectl -n $K8S_NAMESPACE exec mgmds-0 -c mgmd -- \
+              tail -n +$((OFFSET + 1)) /srv/hops/mysql-cluster/log/cluster.log)
+          if echo "$slice" | grep -F "Start phase 0 completed (system restart)"; then
+            echo "::error::cluster.log shows a system restart during the upgrade window"
+            exit 1
+          fi
+          echo "No system-restart events in upgrade-window slice (lines after $OFFSET)."
+
+      # A3: Sanity check that the upgrade actually touched MGMd's image.
+      # If --reuse-values produced a no-op or the hook somehow blocked
+      # the spec change, A1/A2 might pass for the wrong reason.
+      - name: Assert MGMd image was upgraded
+        run: |
+          image=$(kubectl -n $K8S_NAMESPACE get sts mgmds \
+              -o jsonpath='{.spec.template.spec.containers[?(@.name=="mgmd")].image}')
+          echo "MGMd image after upgrade: $image"
+          if [[ "$image" == *":24.10.19" ]]; then
+            echo "::error::MGMd image still at 24.10.19 — upgrade did not roll the StatefulSet"
+            exit 1
+          fi
+
+      - name: Collect logs
+        if: always()
+        uses: ./new-chart/.github/actions/collect_logs
+        with:
+          namespace: ${{ env.K8S_NAMESPACE }}
+          folder_name: cross_version_logs
+
+      - name: Remove cluster
+        if: always()
+        uses: ./new-chart/.github/actions/remove_cluster
+        timeout-minutes: 4
+        with:
+          namespace: ${{ env.K8S_NAMESPACE }}
+          helm_chart: ${{ env.RONDB_CLUSTER_NAME }}
