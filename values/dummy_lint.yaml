@@ -64,6 +64,14 @@ meta:
     statefulSet:
       endToEndTls:
         enabled: true
+  ddlMySQLd:
+    enabled: true
+    addSysNiceCapability: true
+    statefulSet:
+      endToEndTls:
+        enabled: true
+    clusterIp:
+      annotations: *dummyAnnotations
   ndbmtd:
     statefulSet:
       podAnnotations: *dummyAnnotations
