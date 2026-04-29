@@ -185,7 +185,7 @@ spec:
 {{- if $.Values.meta.ddlMySQLd.enabled }}
           # 5. Scale down DDL MySQLd
           echo "Scaling down DDL MySQLd..."
-          kubectl scale statefulset/$DDL_MYSQLD_STS_NAME -n $NAMESPACE --replicas=0
+          kubectl scale statefulset/$DDL_MYSQLD_STS_NAME -n $NAMESPACE --replicas=0 || true
 
 {{- end }}
           # 6. Scale down binlog servers (if enabled)

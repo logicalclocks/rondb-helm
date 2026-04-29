@@ -214,6 +214,7 @@ meta:
       name: mysqld-replica-appliers
   ddlMySQLd:
     enabled: false
+    addSysNiceCapability: true
     exporter:
       metricsPort: 9105
     clusterIp:

@@ -41,7 +41,7 @@ spec:
                 - key: rondbService
                   operator: In
                   values:
-                  - {{ include "rondb.labels.rondbService.ddl-mysqld" $ }}
+                  - {{ include "rondb.labels.rondbService.mysqld" $ }}
               topologyKey: kubernetes.io/hostname
           - weight: 80
             podAffinityTerm:
@@ -50,7 +50,7 @@ spec:
                 - key: rondbService
                   operator: In
                   values:
-                  - {{ include "rondb.labels.rondbService.ddl-mysqld" $ }}
+                  - {{ include "rondb.labels.rondbService.mysqld" $ }}
               topologyKey: topology.kubernetes.io/zone
 {{ include "rondb.PodSecurityContext" $ | indent 6 }}
 {{- if .Values.priorityClass }}
@@ -76,6 +76,9 @@ spec:
         $.Values.globalReplication.primary.maxNumBinlogServers
         2
 ) | int }}
+{{/*
+  This is hardcoded here for now 
+*/}}
 {{ tpl (.Files.Get "files/scripts/mysqld_init.sh") (deepCopy $ | mustMerge (dict
     "startingNodeId" $ddlNodeId
     "connectionsPerMySQLd" 1
@@ -104,20 +107,21 @@ spec:
       - name: mysqld
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}
-{{ include "rondb.ContainerSecurityContext" (dict "Values" $.Values "addSysNice" $.Values.meta.mysqld.addSysNiceCapability) | indent 8 }}
+{{ include "rondb.ContainerSecurityContext" (dict "Values" $.Values "addSysNice" $.Values.meta.ddlMySQLd.addSysNiceCapability) | indent 8 }}
         command:
         - /bin/bash
         - -c
         - |
-          set -e
-
+          set -euo pipefail
+{{/*
+  This is hardcoded here for now 
+*/}}
 {{ include "rondb.sedMyCnfFile" (dict
     "startingNodeId" $ddlNodeId
     "connectionsPerMySQLd" 1
     "globalServerIds" (list $ddlServerId)
 ) | indent 10 }}
-
-          mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf
+           mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf 2>&1 | tee -a -- "$RONDB_DATA_DIR/log/mysqld_${FIRST_NODE_ID}_out.log"
         ports:
           - containerPort: 3306
         resources:

@@ -3,7 +3,7 @@
 
 {{ if (or 
     ( and $.Values.meta.mysqld.statefulSet.endToEndTls.enabled (not $.Values.meta.mysqld.statefulSet.endToEndTls.supplyOwnSecret ))
-    ( and $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.enabled (not $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.supplyOwnSecret))
+    ( and $.Values.meta.ddlMySQLd.enabled $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.enabled (not $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.supplyOwnSecret))
     ( and $.Values.meta.binlogServers.statefulSet.endToEndTls.enabled (not $.Values.meta.binlogServers.statefulSet.endToEndTls.supplyOwnSecret))
     ( and $.Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled (not $.Values.meta.replicaAppliers.statefulSet.endToEndTls.supplyOwnSecret))
     ( and $.Values.meta.rdrs.statefulSet.endToEndTls.enabled (not $.Values.meta.rdrs.statefulSet.endToEndTls.supplyOwnSecret))
@@ -39,6 +39,7 @@ spec:
 }}
 {{ include "rondb.certManager.certificate.endToEnd" (deepCopy $ | mustMerge $mysqldDict) }}
 ---
+{{- if $.Values.meta.ddlMySQLd.enabled }}
 {{- $ddlMysqldDict := dict
     "certName" "ddl-mysql-cert"
     "endToEndTls" $.Values.meta.ddlMySQLd.statefulSet.endToEndTls
@@ -48,6 +49,7 @@ spec:
     )
 }}
 {{ include "rondb.certManager.certificate.endToEnd" (deepCopy $ | mustMerge $ddlMysqldDict) }}
+{{- end }}
 ---
 {{- $binlogDict := dict
     "certName" "binlog-cert"

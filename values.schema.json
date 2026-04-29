@@ -662,6 +662,10 @@
                             "description": "Whether to deploy the DDL MySQLd StatefulSet and reserve its NDB node slot.",
                             "default": false
                         },
+                        "addSysNiceCapability": {
+                            "type": "boolean",
+                            "default": true
+                        },   
                         "exporter": {
                             "type": "object",
                             "description": "Configuration for DDL MySQLd exporter",
