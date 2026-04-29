@@ -665,7 +665,7 @@
                         "addSysNiceCapability": {
                             "type": "boolean",
                             "default": true
-                        },   
+                        },
                         "exporter": {
                             "type": "object",
                             "description": "Configuration for DDL MySQLd exporter",
