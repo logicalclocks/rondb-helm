@@ -213,6 +213,9 @@ meta:
         supplyOwnSecret: false
       name: mysqld-replica-appliers
   ddlMySQLd:
+    enabled: false
+    exporter:
+      metricsPort: 9105
     clusterIp:
       annotations: {}
       name: ddl-mysqld

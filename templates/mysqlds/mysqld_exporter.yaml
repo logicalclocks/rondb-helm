@@ -91,3 +91,94 @@ spec:
       port: {{ .Values.meta.mysqld.exporter.metricsPort }}
       targetPort: {{ .Values.meta.mysqld.exporter.metricsPort }}
 {{- end }}
+---
+{{ if and .Values.meta.ddlMySQLd.enabled .Values.mysql.exporter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddl-mysqld-exporter
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rondb
+      rondbService: ddl-mysqld-exporter
+  template:
+    metadata:
+      labels:
+        app: rondb
+        rondbService: ddl-mysqld-exporter
+    spec:
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.mysqld) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.mysqld) | indent 6 }}
+      containers:
+      - name: mysqld-exporter
+        image:  {{ include "image_address" (dict "image" .Values.images.mysqldExporter) }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpus.mysqldExporters }}
+            memory: {{ .Values.resources.limits.memory.mysqldExportersMiB }}Mi
+          requests:
+            cpu: {{ .Values.resources.requests.cpus.mysqldExporters }}
+            memory: {{ .Values.resources.requests.memory.mysqldExportersMiB }}Mi
+        args:
+          - --web.listen-address=:{{ .Values.meta.ddlMySQLd.exporter.metricsPort }}
+        ports:
+          - containerPort: {{ .Values.meta.ddlMySQLd.exporter.metricsPort }}
+            name: metrics-port
+        env:
+          - name: MYSQL_USER
+            value: {{ .Values.mysql.exporter.username }}
+          - name: MYSQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.mysql.credentialsSecretName }}
+                key: {{ .Values.mysql.exporter.username }}
+          - name: MYSQL_HOST
+            value: {{ printf "%s.%s.svc.cluster.local" .Values.meta.ddlMySQLd.clusterIp.name .Release.Namespace }}
+          - name: MYSQL_PORT
+            value: {{ .Values.meta.ddlMySQLd.clusterIp.port | quote }}
+          - name: DATA_SOURCE_NAME
+            value: "$(MYSQL_USER):$(MYSQL_PASSWORD)@($(MYSQL_HOST):$(MYSQL_PORT))/"
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.meta.ddlMySQLd.exporter.metricsPort }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.meta.ddlMySQLd.exporter.metricsPort }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddl-mysqld-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: rondb
+    rondbService: ddl-mysqld-exporter
+  annotations:
+    prometheus.io/path: '/metrics'
+    prometheus.io/port: '{{ .Values.meta.ddlMySQLd.exporter.metricsPort }}'
+    prometheus.io/scheme: 'http'
+    prometheus.io/scrape: 'true'
+spec:
+  selector:
+    app: rondb
+    rondbService: ddl-mysqld-exporter
+  ports:
+    - name: "metrics"
+      protocol: TCP
+      port: {{ .Values.meta.ddlMySQLd.exporter.metricsPort }}
+      targetPort: {{ .Values.meta.ddlMySQLd.exporter.metricsPort }}
+{{- end }}

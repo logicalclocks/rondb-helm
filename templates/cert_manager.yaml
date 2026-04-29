@@ -3,6 +3,7 @@
 
 {{ if (or 
     ( and $.Values.meta.mysqld.statefulSet.endToEndTls.enabled (not $.Values.meta.mysqld.statefulSet.endToEndTls.supplyOwnSecret ))
+    ( and $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.enabled (not $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.supplyOwnSecret))
     ( and $.Values.meta.binlogServers.statefulSet.endToEndTls.enabled (not $.Values.meta.binlogServers.statefulSet.endToEndTls.supplyOwnSecret))
     ( and $.Values.meta.replicaAppliers.statefulSet.endToEndTls.enabled (not $.Values.meta.replicaAppliers.statefulSet.endToEndTls.supplyOwnSecret))
     ( and $.Values.meta.rdrs.statefulSet.endToEndTls.enabled (not $.Values.meta.rdrs.statefulSet.endToEndTls.supplyOwnSecret))
@@ -37,6 +38,16 @@ spec:
     )
 }}
 {{ include "rondb.certManager.certificate.endToEnd" (deepCopy $ | mustMerge $mysqldDict) }}
+---
+{{- $ddlMysqldDict := dict
+    "certName" "ddl-mysql-cert"
+    "endToEndTls" $.Values.meta.ddlMySQLd.statefulSet.endToEndTls
+    "dnsNames" (list
+        (printf "%s.%s.svc.cluster.local" $.Values.meta.ddlMySQLd.clusterIp.name $.Release.Namespace)
+        (printf "%s.%s.svc.cluster.local" $.Values.meta.ddlMySQLd.headlessClusterIp.name $.Release.Namespace)
+    )
+}}
+{{ include "rondb.certManager.certificate.endToEnd" (deepCopy $ | mustMerge $ddlMysqldDict) }}
 ---
 {{- $binlogDict := dict
     "certName" "binlog-cert"

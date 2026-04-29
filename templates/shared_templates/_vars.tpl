@@ -147,7 +147,9 @@ restore-backup
 - {{ include "rondb.labels.rondbService.mysqld" $ }}
 - {{ include "rondb.labels.rondbService.binlog-servers" $ }}
 - {{ include "rondb.labels.rondbService.replica-appliers" $ }}
+{{- if $.Values.meta.ddlMySQLd.enabled }}
 - {{ include "rondb.labels.rondbService.ddl-mysqld" $ }}
+{{- end }}
 - {{ include "rondb.labels.rondbService.mysqld-exporter" $ }}
 - {{ include "rondb.labels.rondbService.rdrs" $ }}
 - {{ include "rondb.labels.rondbService.benchmark" $ }}

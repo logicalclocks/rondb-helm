@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
 
 
+{{- if .Values.meta.ddlMySQLd.enabled }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -28,6 +29,9 @@ spec:
 {{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.mysqld) | indent 6 }}
       serviceAccountName: {{ include "rondb.mysqldServiceAccountName" . }}
       affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+{{- include "rondb.affinity.preferred.ndbdAZs" $ | indent 10 }}      
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 80
@@ -49,6 +53,9 @@ spec:
                   - {{ include "rondb.labels.rondbService.ddl-mysqld" $ }}
               topologyKey: topology.kubernetes.io/zone
 {{ include "rondb.PodSecurityContext" $ | indent 6 }}
+{{- if .Values.priorityClass }}
+      priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end  }}
       initContainers:
       - name: mysqld-init-datadir
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
@@ -197,3 +204,4 @@ spec:
   - protocol: TCP
     port: {{ .Values.meta.ddlMySQLd.clusterIp.port }}
     targetPort: 3306
+{{- end }}
