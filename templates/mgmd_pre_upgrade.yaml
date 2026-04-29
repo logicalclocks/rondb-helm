@@ -20,21 +20,27 @@
   the desired state, so MGMd is not rolled again — the rest of the
   rollout proceeds with a stable, healthy primary arbitrator.
 
-  Why this template is not gated on `rondb.isUpgrade`:
-  -----------------------------------------------------
-  Argo CD does not run `helm install`/`helm upgrade`; it renders with
-  `helm template` and then syncs. `.Release.IsUpgrade` is therefore
-  always false under Argo, and any helper that bottoms out on it (like
-  `rondb.isUpgrade` when `mode` is unset) would prevent this hook from
-  ever rendering on Argo-managed clusters. To keep the hook compatible
-  with both pure-Helm and Argo CD deployments, the template renders
-  whenever the cluster is not externally-managed; the hook semantics
-  themselves (Helm `pre-upgrade` -> Argo `PreSync`) decide WHEN it runs,
-  and the Job script handles the "MGMd does not exist yet" case (first
-  Argo sync of a fresh install) by exiting cleanly.
+  Gating:
+  -------
+  The template renders on `helm upgrade` (`rondb.isUpgrade` true) and
+  is suppressed on `helm install` and on externally-managed clusters.
+  Argo CD deployments must set `mode=upgrade` (or `mode=install` on the
+  very first sync) so `rondb.isUpgrade` resolves correctly under Argo's
+  `helm template` render path, where `.Release.IsUpgrade` is always
+  false. An additional escape hatch is `Values.skipMgmdPreUpgradeRollout`
+  for cluster operators who need to disable the hook entirely without
+  changing chart versions.
+
+  The Job script also handles the "MGMd does not exist yet" case
+  defensively (first Argo sync where `mode=upgrade` is set but the
+  StatefulSet has not been created yet) by exiting cleanly so Argo's
+  main sync can create MGMd from scratch.
 */}}
 
-{{- if not (include "rondb.isExternallyManaged" .) }}
+{{- if and
+    (include "rondb.isUpgrade" .)
+    (not (include "rondb.isExternallyManaged" .))
+    (not .Values.skipMgmdPreUpgradeRollout) }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -44,7 +50,6 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 data:
   config.ini: |
 {{ tpl (.Files.Get "files/configs/config.ini") . | indent 4 }}
@@ -57,7 +62,6 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -67,7 +71,6 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 rules:
 - apiGroups: ["apps"]
   resources: ["statefulsets"]
@@ -93,7 +96,6 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 subjects:
 - kind: ServiceAccount
   name: rondb-mgmd-pre-upgrade
@@ -110,8 +112,9 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    # Hook-weight is set high enough that this hook runs after any other
+    # pre-upgrade hooks the chart defines (e.g. mysql privilege migration).
+    "helm.sh/hook-weight": "10"
 spec:
   backoffLimit: 3
   template:
@@ -219,9 +222,14 @@ spec:
 
           if [ "$spec_at_target" = "false" ]; then
             log "Updating mgmd-configs ConfigMap to new config.ini"
+            # `--field-manager=helm` keeps Helm's main upgrade as the
+            # owner of fields we touch. Under Helm 4 (server-side-apply by
+            # default) this prevents a manager-conflict between this Job
+            # and the subsequent helm-driven apply that would otherwise
+            # leave the resource jointly owned.
             kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
               | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
-              | kubectl apply -n "$NAMESPACE" -f -
+              | kubectl apply -n "$NAMESPACE" --field-manager=helm -f -
 
             log "Patching $STS_NAME pod template (image + configIniHash)"
             patch_json=$(jq -n \
@@ -236,7 +244,7 @@ spec:
                    }
                  }')
             kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" \
-                --type=strategic -p "$patch_json"
+                --type=strategic --field-manager=helm -p "$patch_json"
           fi
 
           log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
