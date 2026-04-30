@@ -125,6 +125,26 @@ meta:
         secretName: binlog-end-to-end-tls
         supplyOwnSecret: false
       name: mysqld-binlog-servers
+  ddlMySQLd:
+    addSysNiceCapability: true
+    clusterIp:
+      annotations: {}
+      name: ddl-mysqld
+      port: 3306
+    enabled: false
+    headlessClusterIp:
+      name: headless-ddl-mysqld
+      port: 3306
+    statefulSet:
+      endToEndTls:
+        enabled: false
+        filenames:
+          ca: null
+          cert: tls.crt
+          key: tls.key
+        secretName: ddl-mysqld-end-to-end-tls
+        supplyOwnSecret: false
+      name: ddl-mysqld
   mgmd:
     headlessClusterIp:
       annotations: {}
