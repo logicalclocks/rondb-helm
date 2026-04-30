@@ -666,16 +666,6 @@
                             "type": "boolean",
                             "default": true
                         },
-                        "exporter": {
-                            "type": "object",
-                            "description": "Configuration for DDL MySQLd exporter",
-                            "properties": {
-                                "metricsPort": {
-                                    "type": "integer",
-                                    "default": 9105
-                                }
-                            }
-                        },
                         "statefulSet": {
                             "type": "object",
                             "properties": {
