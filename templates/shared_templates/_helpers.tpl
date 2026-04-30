@@ -594,6 +594,71 @@ true
 {{- end -}}
 {{- end -}}
 
+{{/*
+TLS settings for rclone calls. backups.tls is a single source of truth for
+both backup and restore traffic (the rclone-configs ConfigMap and the
+rclone-listener sidecar are shared).
+
+The env helper emits nothing when nothing is configured, so existing
+deployments render identically.
+*/}}
+{{- define "rondb.backups.tls.mountPath" -}}
+{{- if and .Values.backups.tls .Values.backups.tls.caBundle .Values.backups.tls.caBundle.mountPath -}}
+{{- .Values.backups.tls.caBundle.mountPath -}}
+{{- else -}}
+/etc/ssl/rondb-ca
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.backups.tls.hasCaBundle" -}}
+{{- if and .Values.backups.tls .Values.backups.tls.caBundle .Values.backups.tls.caBundle.configMapName -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.backups.tls.exportEnv" -}}
+{{- if and (include "rondb.backups.tls.hasCaBundle" .) .Values.backups.tls.caBundle.certFile -}}
+  {{- if or (not (hasKey .Values.backups.tls.caBundle "exportEnv")) .Values.backups.tls.caBundle.exportEnv -}}
+true
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.backups.tls.certPath" -}}
+{{- if include "rondb.backups.tls.exportEnv" . -}}
+{{- printf "%s/%s" (include "rondb.backups.tls.mountPath" .) .Values.backups.tls.caBundle.certFile -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "rondb.backups.tls.env" -}}
+{{- if include "rondb.backups.tls.exportEnv" . }}
+- name: SSL_CERT_FILE
+  value: {{ include "rondb.backups.tls.certPath" . }}
+- name: RCLONE_CA_CERT
+  value: {{ include "rondb.backups.tls.certPath" . }}
+{{- end }}
+{{- if and .Values.backups.tls .Values.backups.tls.insecureSkipVerify }}
+- name: RCLONE_NO_CHECK_CERTIFICATE
+  value: "true"
+{{- end }}
+{{- end -}}
+
+{{- define "rondb.backups.tls.volumeMount" -}}
+{{- if include "rondb.backups.tls.hasCaBundle" . }}
+- name: rondb-backup-ca
+  mountPath: {{ include "rondb.backups.tls.mountPath" . }}
+  readOnly: true
+{{- end }}
+{{- end -}}
+
+{{- define "rondb.backups.tls.volume" -}}
+{{- if include "rondb.backups.tls.hasCaBundle" . }}
+- name: rondb-backup-ca
+  configMap:
+    name: {{ .Values.backups.tls.caBundle.configMapName }}
+{{- end }}
+{{- end -}}
+
 {{- define "rondb.shouldExecute2410Migration" -}}
 {{- $execute := true -}}
 {{- $sts := lookup "apps/v1" "StatefulSet" .Release.Namespace .Values.meta.mgmd.statefulSetName -}}

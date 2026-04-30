@@ -46,12 +46,14 @@ spec:
             - name: RCLONE_CONFIG
               value: /home/hopsworks/rclone.conf
 {{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.backups "namespace" $.Release.Namespace "global" $.Values.global "mode" $.Values.mode) | indent 12 }}
+{{- include "rondb.backups.tls.env" . | indent 12 }}
             volumeMounts:
             - name: rclone-configs
               mountPath: /home/hopsworks/rclone.conf
               subPath: rclone.conf
             - name: backup-id
               mountPath: /home/hopsworks/backup-id
+{{- include "rondb.backups.tls.volumeMount" . | indent 12 }}
           # RonDB contains a native backup protocol, which is launched through
           # the mgm client. It essentially causes every datanode to create a binary
           # backup that it stores locally.
@@ -107,6 +109,7 @@ spec:
             - name: RCLONE_CONFIG
               value: /home/hopsworks/rclone.conf
 {{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.backups "namespace" $.Release.Namespace "global" $.Values.global "mode" $.Values.mode) | indent 12 }}
+{{- include "rondb.backups.tls.env" . | indent 12 }}
             volumeMounts:
             - name: rclone-configs
               mountPath: /home/hopsworks/rclone.conf
@@ -114,6 +117,7 @@ spec:
             - name: backup-id
               mountPath: /home/hopsworks/backup-id
               readOnly: true
+{{- include "rondb.backups.tls.volumeMount" . | indent 12 }}
 {{- end }}
           volumes:
           - name: rclone-configs
@@ -121,5 +125,6 @@ spec:
               name: rclone-configs
           - name: backup-id
             emptyDir: {}
+{{- include "rondb.backups.tls.volume" . | indent 10 }}
 ---
 {{- end -}}

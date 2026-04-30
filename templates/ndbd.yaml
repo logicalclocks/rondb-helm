@@ -172,12 +172,14 @@ spec:
 {{- include "rondb.backup.credentials" (dict "backupConfig" $.Values.restoreFromBackup "namespace" $.Release.Namespace "global" $.Values.global "mode" $.Values.mode) | indent 8 }}
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
+{{- include "rondb.backups.tls.env" $ | indent 8 }}
         volumeMounts:
         - name: rondb-ndbmtd
           mountPath: /home/hopsworks/data
         - name: rclone-configs
           mountPath: /home/hopsworks/rclone.conf
           subPath: rclone.conf
+{{- include "rondb.backups.tls.volumeMount" $ | indent 8 }}
 {{- end }}
       - name: mgmd-dependency-check
         image: {{ include "image_address" (dict "image" $.Values.images.rondb) }}
@@ -356,18 +358,21 @@ spec:
         # This will be read by rclone
         - name: RCLONE_CONFIG
           value: /home/hopsworks/rclone.conf
+{{- include "rondb.backups.tls.env" $ | indent 8 }}
         volumeMounts:
         - name: rondb-ndbmtd
           mountPath: /home/hopsworks/data
         - name: rclone-configs
           mountPath: /home/hopsworks/rclone.conf
           subPath: rclone.conf
+{{- include "rondb.backups.tls.volumeMount" $ | indent 8 }}
 {{- end }}
 {{- if or (include "rondb.backups.isEnabled" $) (include "rondb.restoreFromBackup.backupId" $) }}
       volumes:
       - name: rclone-configs
         configMap:
           name: rclone-configs
+{{- include "rondb.backups.tls.volume" $ | indent 6 }}
 {{- end }}
 ---
 apiVersion: v1

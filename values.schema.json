@@ -1669,6 +1669,45 @@
                     "string",
                     "null"
                   ]
+                },
+                "tls": {
+                    "type": "object",
+                    "description": "TLS settings for rclone calls against the backup S3 endpoint(s). Applies to both backup and restore traffic.",
+                    "properties": {
+                        "caBundle": {
+                            "type": "object",
+                            "description": "Mount a ConfigMap-backed CA bundle into every rclone-using container. The ConfigMap must already exist in the release namespace; the chart references it but does not create it.",
+                            "properties": {
+                                "configMapName": {
+                                    "description": "Name of a ConfigMap in the release namespace containing one or more PEM files.",
+                                    "type": ["string", "null"],
+                                    "default": null
+                                },
+                                "certFile": {
+                                    "description": "Filename within the ConfigMap to use as the bundle (e.g. 'ca-bundle.crt'). Required when exportEnv is true.",
+                                    "type": ["string", "null"],
+                                    "default": null
+                                },
+                                "mountPath": {
+                                    "description": "Path inside the container where the ConfigMap is mounted. Defaults to a dedicated path so the OS trust store at /etc/ssl/certs is not clobbered.",
+                                    "type": "string",
+                                    "default": "/etc/ssl/rondb-ca"
+                                },
+                                "exportEnv": {
+                                    "description": "When true (default), SSL_CERT_FILE and RCLONE_CA_CERT are exported to point at the bundle so rclone and Go's crypto/tls find it. Set to false if mounting over a system trust path with a complete bundle.",
+                                    "type": "boolean",
+                                    "default": true
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "insecureSkipVerify": {
+                            "description": "If true, sets RCLONE_NO_CHECK_CERTIFICATE=true on every rclone-using container. Insecure; use only as a last resort.",
+                            "type": "boolean",
+                            "default": false
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         },
