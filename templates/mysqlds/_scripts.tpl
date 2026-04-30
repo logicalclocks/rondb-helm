@@ -5,6 +5,7 @@
     - Stateful Set of MySQLds           (starting node ID 67)
     - Stateful Set of binlog servers    (starting node ID 67 + MySQLds)
     - Stateful Set of replica appliers  (starting node ID 67 + MySQLds + binlog servers)
+    - DDL server                        (starting node ID 67 + MySQLds + binlog servers + replica appliers)
 
     Hence, we need to know the starting node ID and the number of connections per MySQLd.
 */}}

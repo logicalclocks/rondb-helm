@@ -39,6 +39,9 @@ rules:
     verbs: ["get", "list", "patch", "update"]
     resourceNames:
       - {{ .Values.meta.mysqld.statefulSet.name }}
+      {{- if .Values.meta.ddlMySQLd.enabled }}
+      - {{ .Values.meta.ddlMySQLd.statefulSet.name }}
+      {{- end }}
       - {{ .Values.meta.rdrs.statefulSet.name }}
       - {{ .Values.meta.binlogServers.statefulSet.name }}
       - {{ .Values.meta.replicaAppliers.statefulSet.name }}
@@ -179,25 +182,31 @@ spec:
           echo "Scaling down MySQLd..."
           kubectl scale statefulset/$MYSQLD_STS_NAME -n $NAMESPACE --replicas=0
 
-          # 5. Scale down binlog servers (if enabled)
+{{- if $.Values.meta.ddlMySQLd.enabled }}
+          # 5. Scale down DDL MySQLd
+          echo "Scaling down DDL MySQLd..."
+          kubectl scale statefulset/$DDL_MYSQLD_STS_NAME -n $NAMESPACE --replicas=0 || true
+
+{{- end }}
+          # 6. Scale down binlog servers (if enabled)
           if [ "$BINLOG_ENABLED" = "true" ]; then
               echo "Scaling down binlog servers..."
               kubectl scale statefulset/$BINLOG_STS_NAME -n $NAMESPACE --replicas=0 || true
           fi
 
-          # 6. Scale down replica appliers (if enabled)
+          # 7. Scale down replica appliers (if enabled)
           if [ "$REPLICA_APPLIER_ENABLED" = "true" ]; then
               echo "Scaling down replica appliers..."
               kubectl scale statefulset/$REPLICA_APPLIER_STS_NAME -n $NAMESPACE --replicas=0 || true
           fi
 
-          # 7. Scale down ALL data node StatefulSets (LAST - after API nodes)
+          # 8. Scale down ALL data node StatefulSets (LAST - after API nodes)
           echo "Scaling down data nodes..."
           for ((g = 0; g < $NUM_NODE_GROUPS; g++)); do
               kubectl scale statefulset/node-group-$g -n $NAMESPACE --replicas=0
           done
 
-          # 8. Wait for all pods to terminate
+          # 9. Wait for all pods to terminate
           # Fail the hook if any pods remain stuck (e.g., finalizers, long termination).
           # Proceeding with an upgrade/restore while pods are still running risks
           # data corruption or a hung upgrade.
@@ -220,6 +229,9 @@ spec:
 
           wait_for_pod_deletion "rondbService=ndbmtd" "data node"
           wait_for_pod_deletion "rondbService=mysqld" "MySQLd"
+{{- if $.Values.meta.ddlMySQLd.enabled }}
+          wait_for_pod_deletion "rondbService=ddl-mysqld" "DDL MySQLd"
+{{- end }}
           if [ "$MIN_NUM_RDRS" -gt 0 ]; then
               wait_for_pod_deletion "rondbService=rdrs" "RDRS"
           fi
@@ -240,6 +252,10 @@ spec:
           value: {{ .Values.clusterSize.activeDataReplicas | quote }}
         - name: MYSQLD_STS_NAME
           value: {{ .Values.meta.mysqld.statefulSet.name | quote }}
+        {{- if .Values.meta.ddlMySQLd.enabled }}
+        - name: DDL_MYSQLD_STS_NAME
+          value: {{ .Values.meta.ddlMySQLd.statefulSet.name | quote }}
+        {{- end }}
         - name: RDRS_STS_NAME
           value: {{ .Values.meta.rdrs.statefulSet.name | quote }}
         - name: BINLOG_STS_NAME

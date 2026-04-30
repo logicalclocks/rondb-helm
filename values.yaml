@@ -212,6 +212,28 @@ meta:
         secretName: replica-applier-end-to-end-tls
         supplyOwnSecret: false
       name: mysqld-replica-appliers
+  ddlMySQLd:
+    enabled: false
+    addSysNiceCapability: true
+    exporter:
+      metricsPort: 9105
+    clusterIp:
+      annotations: {}
+      name: ddl-mysqld
+      port: 3306
+    headlessClusterIp:
+      name: headless-ddl-mysqld
+      port: 3306
+    statefulSet:
+      endToEndTls:
+        enabled: false
+        filenames:
+          ca: null
+          cert: tls.crt
+          key: tls.key
+        secretName: ddl-mysqld-end-to-end-tls
+        supplyOwnSecret: false
+      name: ddl-mysqld
 mode: ''
 mysql:
   clusterUser: helm
