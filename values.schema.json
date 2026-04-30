@@ -1684,7 +1684,7 @@
                                     "default": null
                                 },
                                 "certFile": {
-                                    "description": "Filename within the ConfigMap to use as the bundle (e.g. 'ca-bundle.crt'). Required when exportEnv is true.",
+                                    "description": "Filename within the ConfigMap to use as the bundle (e.g. 'ca-bundle.crt'). Required when configMapName is set and exportEnv is true (or unset, since exportEnv defaults to true).",
                                     "type": ["string", "null"],
                                     "default": null
                                 },

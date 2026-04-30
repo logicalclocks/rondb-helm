@@ -617,8 +617,12 @@ true
 {{- end -}}
 
 {{- define "rondb.backups.tls.exportEnv" -}}
-{{- if and (include "rondb.backups.tls.hasCaBundle" .) .Values.backups.tls.caBundle.certFile -}}
-  {{- if or (not (hasKey .Values.backups.tls.caBundle "exportEnv")) .Values.backups.tls.caBundle.exportEnv -}}
+{{- if include "rondb.backups.tls.hasCaBundle" . -}}
+  {{- $exportEnv := or (not (hasKey .Values.backups.tls.caBundle "exportEnv")) .Values.backups.tls.caBundle.exportEnv -}}
+  {{- if $exportEnv -}}
+    {{- if not .Values.backups.tls.caBundle.certFile -}}
+      {{- fail "backups.tls.caBundle.certFile is required when backups.tls.caBundle.configMapName is set and backups.tls.caBundle.exportEnv is true" -}}
+    {{- end -}}
 true
   {{- end -}}
 {{- end -}}
