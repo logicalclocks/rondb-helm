@@ -378,17 +378,26 @@ jobs:
           done
           kubectl delete priorityclass rondb-high-priority 2>/dev/null || true
 
-      # Install the OLD chart. Sized down so the test fits the minikube
-      # runner; one node-group is enough to exercise arbitration because
-      # both old and new values.yaml default to activeDataReplicas: 2.
+      # Install the OLD chart. We overlay the OLD chart's
+      # values/minikube/mini.yaml for resource-request sizing (the same
+      # overlay that benchmark-and-stability uses) — the chart's default
+      # values.yaml has per-pod memory limits and PV requests
+      # (ndbmtdsMiB=5000, ndbmtdGiB=30, redoLogGiB=4, …) that are sized
+      # for production and don't fit the ARM64 minikube runner. The
+      # `--set clusterSize.*` overrides are applied after the values
+      # overlay; in particular `activeDataReplicas=2` is needed because
+      # mini.yaml defaults to 1, and the arbitration scenario A1/A2
+      # asserts only have meaning with at least 2 data-node replicas.
       - name: Install old chart (0.7.29 / 24.10.19)
         run: |
           helm install $RONDB_CLUSTER_NAME ./old-chart \
             --namespace=$K8S_NAMESPACE \
             --create-namespace \
             --wait --timeout=15m \
+            --values ./old-chart/values/minikube/mini.yaml \
             --set staticCpuManagerPolicy=true \
             --set clusterSize.numNodeGroups=1 \
+            --set clusterSize.activeDataReplicas=2 \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=1 \
             --set clusterSize.minNumRdrs=1 \
