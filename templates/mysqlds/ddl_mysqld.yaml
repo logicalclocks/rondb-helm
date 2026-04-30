@@ -1,0 +1,202 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+
+{{- if .Values.meta.ddlMySQLd.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.meta.ddlMySQLd.statefulSet.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: {{ $.Values.meta.ddlMySQLd.headlessClusterIp.name }}
+  replicas: 1
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      rondbService: {{ include "rondb.labels.rondbService.ddl-mysqld" $ }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Retain
+  template:
+    metadata:
+      labels:
+        rondbService: {{ include "rondb.labels.rondbService.ddl-mysqld" $ }}
+      annotations:
+        configIniHash: {{ include "rondb.configIniHash" $ }}
+    spec:
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.mysqld) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.mysqld) | indent 6 }}
+      serviceAccountName: {{ include "rondb.mysqldServiceAccountName" . }}
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+{{- include "rondb.affinity.preferred.ndbdAZs" $ | indent 10 }}      
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 80
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: rondbService
+                  operator: In
+                  values:
+                  - {{ include "rondb.labels.rondbService.mysqld" $ }}
+              topologyKey: kubernetes.io/hostname
+{{ include "rondb.PodSecurityContext" $ | indent 6 }}
+{{- if .Values.priorityClass }}
+      priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end  }}
+      initContainers:
+      - name: mysqld-init-datadir
+        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+{{- $startingNodeIdBinlogServers := add 67 (mul $.Values.clusterSize.maxNumMySQLServers $.Values.rondbConfig.MySQLdSlotsPerNode) }}
+{{- $startingNodeIdReplicaAppliers := add $startingNodeIdBinlogServers $.Values.globalReplication.primary.maxNumBinlogServers }}
+{{- $ddlNodeId := add $startingNodeIdReplicaAppliers 1 }}
+
+{{- $maxTotalMySQLds := (include "rondb.maxTotalMySQLds" $ | int) }}
+{{- $clusterServerIdOffset := (mul $.Values.globalReplication.clusterNumber $maxTotalMySQLds) | int -}}
+{{- $ddlServerId := (add
+        $clusterServerIdOffset
+        $.Values.clusterSize.maxNumMySQLServers
+        $.Values.globalReplication.primary.maxNumBinlogServers
+        2
+) | int }}
+{{/*
+  This is hardcoded here for now 
+*/}}
+{{ tpl (.Files.Get "files/scripts/mysqld_init.sh") (deepCopy $ | mustMerge (dict
+    "startingNodeId" $ddlNodeId
+    "connectionsPerMySQLd" 1
+    "globalServerIds" (list $ddlServerId)
+)) | indent 10 }}
+        env:
+          - name: RONDB_DATA_DIR
+            value: {{ include "rondb.dataDir" $ }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+        volumeMounts:
+        - name: mysqld-configs
+          mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
+          subPath: my-ddl-mysqld.cnf
+        - name: mysql-data-dir
+          mountPath: {{ include "rondb.mysqldDataDir" . }}
+{{/*
+    Always wait for data nodes first so that timeouts are more accurate.
+*/}}
+{{ include "rondb.container.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitSingleSetup" . | indent 6 }}
+{{ include "rondb.container.isDnsResolvable" $ | indent 6 }}
+      containers:
+      - name: mysqld
+        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" (dict "Values" $.Values "addSysNice" $.Values.meta.ddlMySQLd.addSysNiceCapability) | indent 8 }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -euo pipefail
+{{/*
+  This is hardcoded here for now 
+*/}}
+{{ include "rondb.sedMyCnfFile" (dict
+    "startingNodeId" $ddlNodeId
+    "connectionsPerMySQLd" 1
+    "globalServerIds" (list $ddlServerId)
+) | indent 10 }}
+           mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf 2>&1 | tee -a -- "$RONDB_DATA_DIR/log/mysqld_${FIRST_NODE_ID}_out.log"
+        ports:
+          - containerPort: 3306
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpus.mysqlds }}
+            memory: {{ .Values.resources.limits.memory.mysqldMiB }}Mi
+          requests:
+            cpu: {{ .Values.resources.requests.cpus.mysqlds }}
+            memory: {{ .Values.resources.requests.memory.mysqldMiB }}Mi
+        env:
+          - name: RONDB_DATA_DIR
+            value: {{ include "rondb.dataDir" $ }}
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.mysql.credentialsSecretName }}
+                key: root
+          - name: MYSQL_CLUSTER_USER
+            value: {{ .Values.mysql.clusterUser }}
+          - name: MYSQL_CLUSTER_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ $.Values.mysql.credentialsSecretName }}
+                key: {{ .Values.mysql.clusterUser }}
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+{{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.enabled) | indent 8 }}
+        volumeMounts:
+        - name: mysqld-configs
+          mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
+          subPath: my-ddl-mysqld.cnf
+        - name: mysql-data-dir
+          mountPath: {{ include "rondb.mysqldDataDir" . }}
+{{- if $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.enabled }}
+        - name: tls-certificates
+          mountPath: /etc/tls
+          readOnly: true
+{{- end }}
+      volumes:
+      - name: mysqld-configs
+        configMap:
+          name: mysqld-configs
+          defaultMode: 0777
+      - name: mysql-data-dir
+        emptyDir: {}
+{{- if $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.enabled }}
+      - name: tls-certificates
+        secret:
+          secretName: {{ $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.secretName }}
+          optional: false
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.meta.ddlMySQLd.headlessClusterIp.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    rondbService: {{ include "rondb.labels.rondbService.ddl-mysqld" $ }}
+  ports:
+    - protocol: TCP
+      port: {{ .Values.meta.ddlMySQLd.headlessClusterIp.port }}
+      targetPort: 3306
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.meta.ddlMySQLd.clusterIp.name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    {{- range $k, $v := .Values.meta.ddlMySQLd.clusterIp.annotations }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    rondbService: {{ include "rondb.labels.rondbService.ddl-mysqld" $ }}
+  ports:
+  - protocol: TCP
+    port: {{ .Values.meta.ddlMySQLd.clusterIp.port }}
+    targetPort: 3306
+{{- end }}
