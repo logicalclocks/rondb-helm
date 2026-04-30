@@ -50,6 +50,14 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
+    # Clean up after the hook succeeds. Otherwise the Job's failed
+    # backoff-retry pods linger in the namespace (the Job's name
+    # includes `.Release.Revision`, so `before-hook-creation` alone
+    # never matches a previous-revision resource), tripping the
+    # stability check (`.github/test_deploy_stability.sh`) and the
+    # `kubectl get all`-driven wait loop in
+    # `.github/actions/remove_cluster`.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 data:
   config.ini: |
 {{ tpl (.Files.Get "files/configs/config.ini") . | indent 4 }}
@@ -62,6 +70,7 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -71,6 +80,7 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 rules:
 - apiGroups: ["apps"]
   resources: ["statefulsets"]
@@ -96,6 +106,7 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 subjects:
 - kind: ServiceAccount
   name: rondb-mgmd-pre-upgrade
@@ -115,6 +126,12 @@ metadata:
     # Hook-weight is set high enough that this hook runs after any other
     # pre-upgrade hooks the chart defines (e.g. mysql privilege migration).
     "helm.sh/hook-weight": "10"
+    # `hook-succeeded` is required: the Job has `backoffLimit: 3`, so a
+    # transient first-attempt failure (e.g. `kubectl rollout status`
+    # exceeding ROLLOUT_TIMEOUT) is recovered by a retry pod, but the
+    # Failed pod from the first attempt would otherwise persist in the
+    # namespace and confuse downstream stability/cleanup checks.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 3
   template:
