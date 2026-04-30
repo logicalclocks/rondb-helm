@@ -378,38 +378,41 @@ jobs:
           done
           kubectl delete priorityclass rondb-high-priority 2>/dev/null || true
 
-      # Install the OLD chart. Three sizing/config overrides are needed
-      # to make the install fit and start cleanly on the minikube runner:
-      #   1. `--values ./old-chart/values/minikube/mini.yaml` overlays
-      #      the same minikube-friendly resource requests
-      #      benchmark-and-stability uses; the chart's default
-      #      values.yaml is sized for production hardware.
-      #   2. `--set clusterSize.activeDataReplicas=2` overrides
-      #      mini.yaml's default of 1 — A1/A2 only have meaning with
-      #      at least 2 data-node replicas.
-      #   3. `--set backups.enabled=false` disables the rclone-listener
-      #      sidecar on every ndbmtd pod. The OLD chart 0.7.29 ships
-      #      `backups.enabled: true` plus a hardcoded `aws-credentials`
-      #      Secret reference (the chart-default S3 config points at
-      #      a real Hopsworks bucket); without that Secret the sidecar
-      #      crash-loops, pods stay 1/2 Ready forever, and helm --wait
-      #      hits the timeout. The NEW chart (25.10.6) defaults this
-      #      to `null` (falsy) so the override is carried through
-      #      `--reuse-values` as a no-op.
+      # Install the OLD chart. We overlay `values/minikube/small.yaml`
+      # rather than mini.yaml because small.yaml is the OLD chart's
+      # purpose-built config for the `numNodeGroups: 1,
+      # activeDataReplicas: 2` topology this test needs (mini.yaml
+      # targets `activeDataReplicas: 1` and ships smaller memory
+      # tunings — `TransactionMemory: 150M`, `SharedGlobalMemory:
+      # 150M` — that don't allow the 2-replica cluster to form on
+      # the minikube runner). small.yaml provides the right cluster
+      # shape *and* `TransactionMemory: 300M` / `SharedGlobalMemory:
+      # 300M` for replication.
+      #
+      # `--set` overrides on top of small.yaml:
+      #   - `staticCpuManagerPolicy=true` matches benchmark-and-stability.
+      #   - `clusterSize.minNumMySQLServers / maxNumMySQLServers = 1`
+      #     overrides small.yaml's 2 — one mysqld is enough to
+      #     exercise the upgrade path and saves a pod's worth of
+      #     resources on the runner.
+      #   - `rondbConfig.TotalMemoryConfig=2048M` per the test spec.
+      #   - `backups.enabled=false` removes the rclone-listener
+      #     sidecar; the OLD chart 0.7.29 defaults `backups.enabled:
+      #     true` plus a hardcoded `aws-credentials` Secret reference
+      #     that doesn't exist in CI, which would otherwise
+      #     crash-loop the sidecar and block helm --wait. The NEW
+      #     chart (25.10.6) defaults this to `null` so the override
+      #     carries through `--reuse-values` as a no-op.
       - name: Install old chart (0.7.29 / 24.10.19)
         run: |
           helm install $RONDB_CLUSTER_NAME ./old-chart \
             --namespace=$K8S_NAMESPACE \
             --create-namespace \
             --wait --timeout=15m \
-            --values ./old-chart/values/minikube/mini.yaml \
+            --values ./old-chart/values/minikube/small.yaml \
             --set staticCpuManagerPolicy=true \
-            --set clusterSize.numNodeGroups=1 \
-            --set clusterSize.activeDataReplicas=2 \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=1 \
-            --set clusterSize.minNumRdrs=1 \
-            --set clusterSize.maxNumRdrs=1 \
             --set rondbConfig.TotalMemoryConfig=2048M \
             --set backups.enabled=false
 
