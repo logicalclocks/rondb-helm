@@ -132,8 +132,6 @@ meta:
       name: ddl-mysqld
       port: 3306
     enabled: false
-    exporter:
-      metricsPort: 9105
     headlessClusterIp:
       name: headless-ddl-mysqld
       port: 3306
