@@ -610,9 +610,58 @@ jobs:
               tail -n +$((OFFSET + 1)) /srv/hops/mysql-cluster/log/cluster.log)
           if echo "$slice" | grep -F "Start phase 0 completed (system restart)"; then
             echo "::error::cluster.log shows a system restart during the upgrade window"
+            # Dump the full upgrade-window slice so the diagnosis is visible
+            # inline rather than buried in the cross_version_logs artifact.
+            # The slice + context covers data-node connect/disconnect events,
+            # MGMd restart timing, and arbitration decisions — exactly what's
+            # needed to tell C1 (parallel rolling) from C2 (hook-induced
+            # shutdown) from C3 (protocol kick-off).
+            echo "=== full cluster.log slice (lines after $OFFSET) ==="
+            echo "$slice"
             exit 1
           fi
           echo "No system-restart events in upgrade-window slice (lines after $OFFSET)."
+
+      # On any assertion failure, print pod-level evidence so the diagnosis
+      # is visible inline rather than requiring the cross_version_logs
+      # artifact download. Specifically: ndbmtd pod restart history (from
+      # `kubectl describe pod` lastState + container restart counts), recent
+      # events filtered to data-node pods, and each ndbmtd's previous-pod
+      # logs (where the last ~50 lines before the kill live).
+      - name: Diagnostics on upgrade/assertion failure
+        if: failure()
+        run: |
+          echo "=== ndbmtd pod descriptions (restart count, lastState, terminated reason) ==="
+          for pod in $(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
+                         -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- $pod ---"
+            kubectl -n $K8S_NAMESPACE describe pod "$pod" | grep -E \
+              'Restart Count|Last State|Reason|Exit Code|Started:|Finished:|^Events:|^\s+(Normal|Warning)' || true
+          done
+          echo "=== events filtered to ndbmtd pods (creation order) ==="
+          kubectl -n $K8S_NAMESPACE get events --sort-by='.metadata.creationTimestamp' \
+            --field-selector involvedObject.kind=Pod 2>&1 \
+            | grep -E 'node-group|ndbmtd' || true
+          echo "=== ndbmtd previous-pod logs (last 80 lines, the dying breath of the OLD-image pod) ==="
+          for pod in $(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
+                         -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- $pod / ndbmtd (previous) ---"
+            kubectl -n $K8S_NAMESPACE logs "$pod" -c ndbmtd --previous --tail=80 2>&1 || true
+          done
+          echo "=== ndbmtd current-pod logs (last 80 lines, the NEW-image boot story) ==="
+          for pod in $(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
+                         -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- $pod / ndbmtd (current) ---"
+            kubectl -n $K8S_NAMESPACE logs "$pod" -c ndbmtd --tail=80 2>&1 || true
+          done
+          echo "=== StatefulSet update spec (rendered podManagementPolicy + updateStrategy) ==="
+          for sts in $(kubectl -n $K8S_NAMESPACE get statefulset \
+                         -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- $sts ---"
+            kubectl -n $K8S_NAMESPACE get statefulset "$sts" \
+              -o jsonpath='podManagementPolicy={.spec.podManagementPolicy} updateStrategy={.spec.updateStrategy}{"\n"}' \
+              2>&1 || true
+          done
 
       # A3: Sanity check that the upgrade actually touched MGMd's image.
       # If --reuse-values produced a no-op or the hook somehow blocked
