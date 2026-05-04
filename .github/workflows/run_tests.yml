@@ -395,7 +395,14 @@ jobs:
       #     overrides small.yaml's 2 — one mysqld is enough to
       #     exercise the upgrade path and saves a pod's worth of
       #     resources on the runner.
-      #   - `rondbConfig.TotalMemoryConfig=2048M` per the test spec.
+      #   - `rondbConfig.TotalMemoryConfig=4096M` matches the
+      #     known-good value benchmark-and-stability uses. The 1x2
+      #     topology with small.yaml's TransactionMemory=300M /
+      #     SharedGlobalMemory=300M reserves ~3 GB before DataMemory;
+      #     RonDB requires >=3589 MB total for AutomaticMemoryConfig
+      #     to succeed. 2048M would fail in startphase 0 with
+      #     `error 2350: Invalid configuration received from
+      #     Management Server`.
       #   - `backups.enabled=false` removes the rclone-listener
       #     sidecar; the OLD chart 0.7.29 defaults `backups.enabled:
       #     true` plus a hardcoded `aws-credentials` Secret reference
@@ -413,8 +420,33 @@ jobs:
             --set staticCpuManagerPolicy=true \
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=1 \
-            --set rondbConfig.TotalMemoryConfig=2048M \
+            --set rondbConfig.TotalMemoryConfig=4096M \
             --set backups.enabled=false
+
+      # Inline diagnostics on install failure. The install runs `helm
+      # --wait` (silent until success or timeout), so without these
+      # the only signal a future failure leaves in the runner log is
+      # `context deadline exceeded` — debugging requires downloading
+      # the cross_version_logs artifact. Print pod state, events, and
+      # the last lines of every container's current+previous log so
+      # the failure root cause is visible inline.
+      - name: Diagnostics on install failure
+        if: failure()
+        run: |
+          echo "=== pods ==="
+          kubectl -n $K8S_NAMESPACE get pods -o wide || true
+          echo "=== events (last 30, newest first) ==="
+          kubectl -n $K8S_NAMESPACE get events --sort-by='.metadata.creationTimestamp' \
+              | tail -n 30 || true
+          echo "=== ndbmtd / mgmd / rdrs / mysqld container logs (last 50 lines each) ==="
+          for pod in $(kubectl -n $K8S_NAMESPACE get pods -o jsonpath='{.items[*].metadata.name}'); do
+            for c in $(kubectl -n $K8S_NAMESPACE get pod "$pod" -o jsonpath='{.spec.containers[*].name}'); do
+              echo "--- $pod / $c (current) ---"
+              kubectl -n $K8S_NAMESPACE logs "$pod" -c "$c" --tail=50 2>&1 || true
+              echo "--- $pod / $c (previous) ---"
+              kubectl -n $K8S_NAMESPACE logs "$pod" -c "$c" --previous --tail=50 2>&1 || true
+            done
+          done
 
       # Snapshot the current cluster.log line count so the post-upgrade
       # assertion (A2) only inspects lines emitted during the upgrade
