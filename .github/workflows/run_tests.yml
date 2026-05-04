@@ -403,6 +403,13 @@ jobs:
       #     to succeed. 2048M would fail in startphase 0 with
       #     `error 2350: Invalid configuration received from
       #     Management Server`.
+      #   - `resources.limits.memory.ndbmtdsMiB=5120` raises the
+      #     ndbmtd container's cgroup memory limit from small.yaml's
+      #     default 3300 MiB. With TotalMemoryConfig=4096M, RonDB
+      #     auto-config plans ~3 GB of touched pages plus headroom,
+      #     which exceeds 3300 MiB and gets the pod OOM-killed (SIGKILL)
+      #     at startphase 0. 5120 mirrors what mini.yaml uses for the
+      #     same TotalMemoryConfig in benchmark-and-stability.
       #   - `backups.enabled=false` removes the rclone-listener
       #     sidecar; the OLD chart 0.7.29 defaults `backups.enabled:
       #     true` plus a hardcoded `aws-credentials` Secret reference
@@ -421,6 +428,7 @@ jobs:
             --set clusterSize.minNumMySQLServers=1 \
             --set clusterSize.maxNumMySQLServers=1 \
             --set rondbConfig.TotalMemoryConfig=4096M \
+            --set resources.limits.memory.ndbmtdsMiB=5120 \
             --set backups.enabled=false
 
       # Inline diagnostics on install failure. The install runs `helm
@@ -430,6 +438,21 @@ jobs:
       # the cross_version_logs artifact. Print pod state, events, and
       # the last lines of every container's current+previous log so
       # the failure root cause is visible inline.
+      #
+      # Each section answers a specific failure-mode question that
+      # would otherwise force you into the artifact:
+      #   pods / events / container logs — "what's RonDB itself saying?"
+      #   pod descriptions               — "was it OOMKilled? exit code?
+      #                                     signal? lastState reason?"
+      #   container resource limits      — "what cgroup ceiling did the
+      #                                     chart actually render? did
+      #                                     our --set overrides land?"
+      #   node state + top               — "is this node-OOM or
+      #                                     container-cgroup OOM? are we
+      #                                     near node MemoryPressure?"
+      #   helm get values                — "did the --set overrides
+      #                                     resolve to the values we
+      #                                     intended (typo check)?"
       - name: Diagnostics on install failure
         if: failure()
         run: |
@@ -440,6 +463,17 @@ jobs:
               | tail -n 30 || true
           echo "=== ndbmtd / mgmd / rdrs / mysqld container logs (last 50 lines each) ==="
           for pod in $(kubectl -n $K8S_NAMESPACE get pods -o jsonpath='{.items[*].metadata.name}'); do
+            # Init containers first — a pod stuck in Init:N/M (e.g. the
+            # wait-datanodes-dependency / mgmd-dependency-check chain on
+            # mysqlds-0) has its real failure narrative in init logs.
+            # `.spec.containers[*]` does not include init containers, so
+            # iterating it alone silently skips them.
+            for c in $(kubectl -n $K8S_NAMESPACE get pod "$pod" -o jsonpath='{.spec.initContainers[*].name}'); do
+              echo "--- $pod / $c (init, current) ---"
+              kubectl -n $K8S_NAMESPACE logs "$pod" -c "$c" --tail=50 2>&1 || true
+              echo "--- $pod / $c (init, previous) ---"
+              kubectl -n $K8S_NAMESPACE logs "$pod" -c "$c" --previous --tail=50 2>&1 || true
+            done
             for c in $(kubectl -n $K8S_NAMESPACE get pod "$pod" -o jsonpath='{.spec.containers[*].name}'); do
               echo "--- $pod / $c (current) ---"
               kubectl -n $K8S_NAMESPACE logs "$pod" -c "$c" --tail=50 2>&1 || true
@@ -447,6 +481,73 @@ jobs:
               kubectl -n $K8S_NAMESPACE logs "$pod" -c "$c" --previous --tail=50 2>&1 || true
             done
           done
+          echo "=== pod descriptions (lastState.terminated: reason, exitCode, signal) ==="
+          # `kubectl describe pod` prints `Last State: Terminated` with
+          # Reason / Exit Code / Signal / Started / Finished — the direct
+          # answer to "why did this container die" with no inference
+          # required (e.g. Reason=OOMKilled, ExitCode=137 makes
+          # cgroup-OOM unambiguous). Also includes the per-container
+          # `Limits:` block as the kubelet sees it.
+          kubectl -n $K8S_NAMESPACE describe pods || true
+          echo "=== container resource limits as rendered by the chart ==="
+          # Sanity-check that our `--set resources.limits.memory.*`
+          # overrides actually propagated through `helm install` to the
+          # live StatefulSet spec. A typo in the dotted path would
+          # silently no-op and let the cluster boot with whatever the
+          # overlay's default was — exactly the failure shape that
+          # produced the OOM-kill we just debugged.
+          for sts in $(kubectl -n $K8S_NAMESPACE get statefulset \
+                         -o jsonpath='{.items[*].metadata.name}'); do
+            echo "--- statefulset/$sts ---"
+            kubectl -n $K8S_NAMESPACE get statefulset "$sts" \
+              -o jsonpath='{range .spec.template.spec.containers[*]}{.name}: requests={.resources.requests} limits={.resources.limits}{"\n"}{end}' \
+              || true
+            echo
+          done
+          echo "=== node state (MemoryPressure, Allocatable vs Allocated) ==="
+          # Distinguishes container-cgroup OOM (one container killed,
+          # node healthy) from node-level memory exhaustion (node tainted
+          # MemoryPressure=True, multiple pods evicted). The Conditions
+          # block and the Allocated resources table at the bottom of
+          # `describe node` answer this in one screen.
+          kubectl describe nodes || true
+          echo "=== resource utilisation (only printed if metrics-server is up) ==="
+          kubectl top nodes 2>&1 || true
+          kubectl -n $K8S_NAMESPACE top pods 2>&1 || true
+          echo "=== helm release: resolved values (post --set) ==="
+          # `helm get values --all` shows the merged result of the
+          # default values.yaml + --values overlay + every --set, so a
+          # missing/typo'd override is visible at a glance.
+          helm get values $RONDB_CLUSTER_NAME -n $K8S_NAMESPACE --all || true
+          echo "=== helm release: history + status ==="
+          # Catches release-level failures where pod-side diagnostics
+          # are partial or empty: schema rejection that throws after
+          # some manifests have applied, post-render failures, hook
+          # job non-zero exits etc. `helm status` prints the LAST
+          # DEPLOYED stamp, deployed/failed marker, and any
+          # NOTES.txt-rendered tail; `helm history` shows whether the
+          # current revision was a successful deploy or a `failed` one.
+          helm history $RONDB_CLUSTER_NAME -n $K8S_NAMESPACE || true
+          helm status  $RONDB_CLUSTER_NAME -n $K8S_NAMESPACE || true
+          echo "=== persistent volume claims (binding state) ==="
+          # Unbound PVCs are a real minikube failure mode (storageClass
+          # naming drift, hostpath provisioner unhealthy, capacity
+          # exhausted). They surface here as `Pending` rather than
+          # anywhere in the per-pod logs.
+          kubectl -n $K8S_NAMESPACE get pvc -o wide || true
+          for pvc in $(kubectl -n $K8S_NAMESPACE get pvc \
+                         -o jsonpath='{range .items[?(@.status.phase!="Bound")]}{.metadata.name} {end}'); do
+            echo "--- pvc/$pvc (not Bound) ---"
+            kubectl -n $K8S_NAMESPACE describe pvc "$pvc" || true
+          done
+          echo "=== cluster.log tail (mgmd's authoritative cluster narrative) ==="
+          # mgmd's cluster.log records cluster-wide events that no
+          # per-container kubectl-logs view captures: data-node connect
+          # / disconnect, arbitrator decisions (Error 2305 candidates),
+          # GCP rounds, schema-op outcomes. If MGMd itself is down the
+          # exec fails and the `|| true` keeps the step going.
+          kubectl -n $K8S_NAMESPACE exec mgmds-0 -c mgmd -- \
+              tail -n 200 /srv/hops/mysql-cluster/log/cluster.log 2>&1 || true
 
       # Snapshot the current cluster.log line count so the post-upgrade
       # assertion (A2) only inspects lines emitted during the upgrade
