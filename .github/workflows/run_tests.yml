@@ -560,15 +560,27 @@ jobs:
           echo "Captured cluster.log offset: $OFFSET"
           echo "$OFFSET" > /tmp/cluster-log-offset.txt
 
-      # --reuse-values is intentional — it mirrors what real users do.
-      # If the new chart's schema rejects values defaulted in 0.7.29,
-      # that is a real finding to surface, not paper over with --set.
+      # Re-supply the install's values on the upgrade rather than using
+      # `--reuse-values`. Per maintainer guidance, Hopsworks customers
+      # always pass their values files on every `helm upgrade` rather
+      # than relying on `--reuse-values`, so the test mirrors that
+      # flow. Practical effect: the new chart's `values.yaml` defaults
+      # are merged in (filling in any schema-required fields the OLD
+      # chart didn't ship — e.g. `meta.ddlMySQLd` added in HWORKS-2753),
+      # and the operator-supplied overlay + --set carry the
+      # cluster-shape and resource overrides forward.
       - name: Upgrade to new chart (PR head)
         run: |
           helm upgrade $RONDB_CLUSTER_NAME ./new-chart \
             --namespace=$K8S_NAMESPACE \
-            --reuse-values \
-            --wait --timeout=15m
+            --wait --timeout=15m \
+            --values ./old-chart/values/minikube/small.yaml \
+            --set staticCpuManagerPolicy=true \
+            --set clusterSize.minNumMySQLServers=1 \
+            --set clusterSize.maxNumMySQLServers=1 \
+            --set rondbConfig.TotalMemoryConfig=4096M \
+            --set resources.limits.memory.ndbmtdsMiB=5120 \
+            --set backups.enabled=false
 
       # A1: NDB Error 2305 = "arbitrator decided to shutdown this node".
       # The exact failure mode the pre-upgrade hook prevents.
