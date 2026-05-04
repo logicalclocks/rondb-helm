@@ -603,13 +603,29 @@ jobs:
       # A2: A "system restart" line means every data node was down
       # simultaneously. The slice starts at the snapshotted offset so we
       # ignore the initial install's own startup messages.
+      #
+      # Match on the explicit `Start node: N using system restart`
+      # decision line rather than on the `Start phase 0 completed
+      # (system restart)` placeholder. Phases 0 and 1 are logged with
+      # the `(system restart)` tag on *every* ndbmtd boot — including
+      # routine node-restarts during a rolling upgrade — because the
+      # restart-type decision is made after phase 1. By phase 2 the
+      # log line transitions to `(node restart)` if MGMd reports a
+      # live peer. Grepping the placeholder produces a false positive
+      # on every successful rolling upgrade.
+      #
+      # `Start node: <id> using system restart` is logged only when
+      # MGMd has decided the booting node must do a true system
+      # restart (no live peer at decision time, i.e. the cluster lost
+      # quorum). That is exactly the failure mode this assertion
+      # exists to catch.
       - name: Assert no system restart in upgrade window
         run: |
           OFFSET=$(cat /tmp/cluster-log-offset.txt)
           slice=$(kubectl -n $K8S_NAMESPACE exec mgmds-0 -c mgmd -- \
               tail -n +$((OFFSET + 1)) /srv/hops/mysql-cluster/log/cluster.log)
-          if echo "$slice" | grep -F "Start phase 0 completed (system restart)"; then
-            echo "::error::cluster.log shows a system restart during the upgrade window"
+          if echo "$slice" | grep -E 'Start node: [0-9]+ using system restart'; then
+            echo "::error::cluster.log shows a true system restart (lost quorum) during the upgrade window"
             # Dump the full upgrade-window slice so the diagnosis is visible
             # inline rather than buried in the cross_version_logs artifact.
             # The slice + context covers data-node connect/disconnect events,
@@ -620,7 +636,7 @@ jobs:
             echo "$slice"
             exit 1
           fi
-          echo "No system-restart events in upgrade-window slice (lines after $OFFSET)."
+          echo "No true system-restart decisions in upgrade-window slice (lines after $OFFSET)."
 
       # On any assertion failure, print pod-level evidence so the diagnosis
       # is visible inline rather than requiring the cross_version_logs
