@@ -1533,7 +1533,7 @@
                         "boolean",
                         "null"
                     ],
-                    "description": "When true, restricts all connections on the node to IPv4 sockets only. Introduced in RonDB 21.04.5 for Dolphin SuperSockets compatibility. RonDB supports this on both data nodes and API nodes; this chart currently emits it only under [NDBD DEFAULT].",
+                    "description": "When true, restricts all RonDB cluster connections to IPv4 sockets only. Applied under both [NDBD DEFAULT] and [MYSQLD DEFAULT] so it covers data nodes, MySQLds (including binlog/replica appliers/DDL), RDRS, and other API clients. Introduced in RonDB 21.04.5 for Dolphin SuperSockets compatibility.",
                     "default": null
                 },
                 "FullRestartLogs": {
