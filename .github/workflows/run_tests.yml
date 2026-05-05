@@ -587,8 +587,17 @@ jobs:
       - name: Assert no arbitration loss (Error 2305)
         run: |
           fail=0
-          for pod in $(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
-                         -o jsonpath='{.items[*].metadata.name}'); do
+          # Refuse-to-pass if the label selector matches zero pods. Without
+          # this guard, a future chart rename of the `rondbService` label
+          # value would silently iterate zero pods and let A1 pass on a
+          # cluster that hasn't actually been checked.
+          pods=$(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
+                   -o jsonpath='{.items[*].metadata.name}')
+          if [ -z "$pods" ]; then
+            echo "::error::No pods found with label rondbService=ndbmtd — chart may have renamed the label"
+            exit 1
+          fi
+          for pod in $pods; do
             echo "Checking $pod for Error 2305"
             if kubectl -n $K8S_NAMESPACE exec "$pod" -c ndbmtd -- \
                 bash -c 'grep -l "Error: 2305" /srv/hops/mysql-cluster/log/ndb_*_error.log 2>/dev/null'; then
@@ -680,8 +689,14 @@ jobs:
           done
 
       # A3: Sanity check that the upgrade actually touched MGMd's image.
-      # If --reuse-values produced a no-op or the hook somehow blocked
+      # If the values overlay produced a no-op or the hook somehow blocked
       # the spec change, A1/A2 might pass for the wrong reason.
+      #
+      # The hardcoded `:24.10.19` is paired with the OLD-chart pin in the
+      # `Checkout old chart` step (`ref: branch-0.7`, which ships RonDB
+      # 24.10.19). If that pin ever moves to a different OLD-chart
+      # branch, update the version string below so this assertion stays
+      # meaningful — otherwise it will silently pass on any image.
       - name: Assert MGMd image was upgraded
         run: |
           image=$(kubectl -n $K8S_NAMESPACE get sts mgmds \
