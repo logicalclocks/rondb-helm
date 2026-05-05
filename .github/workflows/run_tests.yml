@@ -378,45 +378,24 @@ jobs:
           done
           kubectl delete priorityclass rondb-high-priority 2>/dev/null || true
 
-      # Install the OLD chart. We overlay `values/minikube/small.yaml`
-      # rather than mini.yaml because small.yaml is the OLD chart's
-      # purpose-built config for the `numNodeGroups: 1,
-      # activeDataReplicas: 2` topology this test needs (mini.yaml
-      # targets `activeDataReplicas: 1` and ships smaller memory
-      # tunings — `TransactionMemory: 150M`, `SharedGlobalMemory:
-      # 150M` — that don't allow the 2-replica cluster to form on
-      # the minikube runner). small.yaml provides the right cluster
-      # shape *and* `TransactionMemory: 300M` / `SharedGlobalMemory:
-      # 300M` for replication.
+      # Install the OLD chart with small.yaml — needed for the
+      # `numNodeGroups: 1, activeDataReplicas: 2` topology this test
+      # exercises (mini.yaml ships `activeDataReplicas: 1` and smaller
+      # memory tunings).
       #
-      # `--set` overrides on top of small.yaml:
-      #   - `staticCpuManagerPolicy=true` matches benchmark-and-stability.
-      #   - `clusterSize.minNumMySQLServers / maxNumMySQLServers = 1`
-      #     overrides small.yaml's 2 — one mysqld is enough to
-      #     exercise the upgrade path and saves a pod's worth of
-      #     resources on the runner.
-      #   - `rondbConfig.TotalMemoryConfig=4096M` matches the
-      #     known-good value benchmark-and-stability uses. The 1x2
-      #     topology with small.yaml's TransactionMemory=300M /
-      #     SharedGlobalMemory=300M reserves ~3 GB before DataMemory;
-      #     RonDB requires >=3589 MB total for AutomaticMemoryConfig
-      #     to succeed. 2048M would fail in startphase 0 with
-      #     `error 2350: Invalid configuration received from
-      #     Management Server`.
-      #   - `resources.limits.memory.ndbmtdsMiB=5120` raises the
-      #     ndbmtd container's cgroup memory limit from small.yaml's
-      #     default 3300 MiB. With TotalMemoryConfig=4096M, RonDB
-      #     auto-config plans ~3 GB of touched pages plus headroom,
-      #     which exceeds 3300 MiB and gets the pod OOM-killed (SIGKILL)
-      #     at startphase 0. 5120 mirrors what mini.yaml uses for the
-      #     same TotalMemoryConfig in benchmark-and-stability.
-      #   - `backups.enabled=false` removes the rclone-listener
-      #     sidecar; the OLD chart 0.7.29 defaults `backups.enabled:
-      #     true` plus a hardcoded `aws-credentials` Secret reference
-      #     that doesn't exist in CI, which would otherwise
-      #     crash-loop the sidecar and block helm --wait. The NEW
-      #     chart (25.10.6) defaults this to `null` so the override
-      #     carries through `--reuse-values` as a no-op.
+      # --set overrides:
+      #   - clusterSize.{min,max}NumMySQLServers=1: one mysqld is
+      #     enough to exercise the upgrade and saves runner resources.
+      #   - TotalMemoryConfig=4096M: AutomaticMemoryConfig requires
+      #     >=3589 MB on this 1x2 topology with small.yaml's memory
+      #     reservations; 2048M fails with NDB error 2350.
+      #   - resources.limits.memory.ndbmtdsMiB=5120: small.yaml's 3300
+      #     MiB cap is below what TotalMemoryConfig=4096M needs at
+      #     startphase 0; without this the pod is cgroup-OOM-killed.
+      #   - backups.enabled=false: 0.7.29 defaults `backups.enabled:
+      #     true` with a hardcoded aws-credentials Secret that doesn't
+      #     exist in CI; the new chart defaults to null so this carries
+      #     through as a no-op.
       - name: Install old chart (0.7.29 / 24.10.19)
         run: |
           helm install $RONDB_CLUSTER_NAME ./old-chart \
@@ -431,28 +410,12 @@ jobs:
             --set resources.limits.memory.ndbmtdsMiB=5120 \
             --set backups.enabled=false
 
-      # Inline diagnostics on install failure. The install runs `helm
-      # --wait` (silent until success or timeout), so without these
-      # the only signal a future failure leaves in the runner log is
-      # `context deadline exceeded` — debugging requires downloading
-      # the cross_version_logs artifact. Print pod state, events, and
-      # the last lines of every container's current+previous log so
-      # the failure root cause is visible inline.
-      #
-      # Each section answers a specific failure-mode question that
-      # would otherwise force you into the artifact:
-      #   pods / events / container logs — "what's RonDB itself saying?"
-      #   pod descriptions               — "was it OOMKilled? exit code?
-      #                                     signal? lastState reason?"
-      #   container resource limits      — "what cgroup ceiling did the
-      #                                     chart actually render? did
-      #                                     our --set overrides land?"
-      #   node state + top               — "is this node-OOM or
-      #                                     container-cgroup OOM? are we
-      #                                     near node MemoryPressure?"
-      #   helm get values                — "did the --set overrides
-      #                                     resolve to the values we
-      #                                     intended (typo check)?"
+      # Inline diagnostics on install failure. `helm --wait` is silent
+      # until success or timeout, so without these a failure surfaces
+      # in the runner log only as `context deadline exceeded`. Each
+      # section below targets a specific failure-mode question
+      # (OOMKilled vs node-OOM, --set typos, schema rejection, unbound
+      # PVCs, cluster-wide RonDB events).
       - name: Diagnostics on install failure
         if: failure()
         run: |
@@ -463,11 +426,9 @@ jobs:
               | tail -n 30 || true
           echo "=== ndbmtd / mgmd / rdrs / mysqld container logs (last 50 lines each) ==="
           for pod in $(kubectl -n $K8S_NAMESPACE get pods -o jsonpath='{.items[*].metadata.name}'); do
-            # Init containers first — a pod stuck in Init:N/M (e.g. the
-            # wait-datanodes-dependency / mgmd-dependency-check chain on
-            # mysqlds-0) has its real failure narrative in init logs.
-            # `.spec.containers[*]` does not include init containers, so
-            # iterating it alone silently skips them.
+            # Init containers first — a pod stuck in Init:N/M has its
+            # failure narrative here, and `.spec.containers[*]` alone
+            # silently skips them.
             for c in $(kubectl -n $K8S_NAMESPACE get pod "$pod" -o jsonpath='{.spec.initContainers[*].name}'); do
               echo "--- $pod / $c (init, current) ---"
               kubectl -n $K8S_NAMESPACE logs "$pod" -c "$c" --tail=50 2>&1 || true
@@ -481,21 +442,14 @@ jobs:
               kubectl -n $K8S_NAMESPACE logs "$pod" -c "$c" --previous --tail=50 2>&1 || true
             done
           done
+          # `kubectl describe pod` surfaces lastState.terminated
+          # (Reason=OOMKilled, ExitCode=137, Signal=...) plus per-container
+          # Limits — the direct answer to "why did this container die".
           echo "=== pod descriptions (lastState.terminated: reason, exitCode, signal) ==="
-          # `kubectl describe pod` prints `Last State: Terminated` with
-          # Reason / Exit Code / Signal / Started / Finished — the direct
-          # answer to "why did this container die" with no inference
-          # required (e.g. Reason=OOMKilled, ExitCode=137 makes
-          # cgroup-OOM unambiguous). Also includes the per-container
-          # `Limits:` block as the kubelet sees it.
           kubectl -n $K8S_NAMESPACE describe pods || true
+          # Verifies `--set resources.limits.memory.*` actually
+          # propagated. A typo in the dotted path silently no-ops.
           echo "=== container resource limits as rendered by the chart ==="
-          # Sanity-check that our `--set resources.limits.memory.*`
-          # overrides actually propagated through `helm install` to the
-          # live StatefulSet spec. A typo in the dotted path would
-          # silently no-op and let the cluster boot with whatever the
-          # overlay's default was — exactly the failure shape that
-          # produced the OOM-kill we just debugged.
           for sts in $(kubectl -n $K8S_NAMESPACE get statefulset \
                          -o jsonpath='{.items[*].metadata.name}'); do
             echo "--- statefulset/$sts ---"
@@ -504,48 +458,34 @@ jobs:
               || true
             echo
           done
+          # Distinguishes container-cgroup OOM from node-level memory
+          # pressure (MemoryPressure=True + Allocated resources table).
           echo "=== node state (MemoryPressure, Allocatable vs Allocated) ==="
-          # Distinguishes container-cgroup OOM (one container killed,
-          # node healthy) from node-level memory exhaustion (node tainted
-          # MemoryPressure=True, multiple pods evicted). The Conditions
-          # block and the Allocated resources table at the bottom of
-          # `describe node` answer this in one screen.
           kubectl describe nodes || true
           echo "=== resource utilisation (only printed if metrics-server is up) ==="
           kubectl top nodes 2>&1 || true
           kubectl -n $K8S_NAMESPACE top pods 2>&1 || true
+          # Resolved values (defaults + overlay + every --set). Catches
+          # missing/typo'd overrides at a glance.
           echo "=== helm release: resolved values (post --set) ==="
-          # `helm get values --all` shows the merged result of the
-          # default values.yaml + --values overlay + every --set, so a
-          # missing/typo'd override is visible at a glance.
           helm get values $RONDB_CLUSTER_NAME -n $K8S_NAMESPACE --all || true
+          # Release-level state for failures where pod-side diagnostics
+          # are partial or empty (schema rejection, hook non-zero exit).
           echo "=== helm release: history + status ==="
-          # Catches release-level failures where pod-side diagnostics
-          # are partial or empty: schema rejection that throws after
-          # some manifests have applied, post-render failures, hook
-          # job non-zero exits etc. `helm status` prints the LAST
-          # DEPLOYED stamp, deployed/failed marker, and any
-          # NOTES.txt-rendered tail; `helm history` shows whether the
-          # current revision was a successful deploy or a `failed` one.
           helm history $RONDB_CLUSTER_NAME -n $K8S_NAMESPACE || true
           helm status  $RONDB_CLUSTER_NAME -n $K8S_NAMESPACE || true
+          # Unbound PVCs surface only as Pending; not in pod logs.
           echo "=== persistent volume claims (binding state) ==="
-          # Unbound PVCs are a real minikube failure mode (storageClass
-          # naming drift, hostpath provisioner unhealthy, capacity
-          # exhausted). They surface here as `Pending` rather than
-          # anywhere in the per-pod logs.
           kubectl -n $K8S_NAMESPACE get pvc -o wide || true
           for pvc in $(kubectl -n $K8S_NAMESPACE get pvc \
                          -o jsonpath='{range .items[?(@.status.phase!="Bound")]}{.metadata.name} {end}'); do
             echo "--- pvc/$pvc (not Bound) ---"
             kubectl -n $K8S_NAMESPACE describe pvc "$pvc" || true
           done
+          # Cluster-wide RonDB events (data-node connect/disconnect,
+          # arbitration decisions, GCP rounds) not visible in
+          # per-container logs.
           echo "=== cluster.log tail (mgmd's authoritative cluster narrative) ==="
-          # mgmd's cluster.log records cluster-wide events that no
-          # per-container kubectl-logs view captures: data-node connect
-          # / disconnect, arbitrator decisions (Error 2305 candidates),
-          # GCP rounds, schema-op outcomes. If MGMd itself is down the
-          # exec fails and the `|| true` keeps the step going.
           kubectl -n $K8S_NAMESPACE exec mgmds-0 -c mgmd -- \
               tail -n 200 /srv/hops/mysql-cluster/log/cluster.log 2>&1 || true
 
@@ -560,15 +500,11 @@ jobs:
           echo "Captured cluster.log offset: $OFFSET"
           echo "$OFFSET" > /tmp/cluster-log-offset.txt
 
-      # Re-supply the install's values on the upgrade rather than using
-      # `--reuse-values`. Per maintainer guidance, Hopsworks customers
-      # always pass their values files on every `helm upgrade` rather
-      # than relying on `--reuse-values`, so the test mirrors that
-      # flow. Practical effect: the new chart's `values.yaml` defaults
-      # are merged in (filling in any schema-required fields the OLD
-      # chart didn't ship — e.g. `meta.ddlMySQLd` added in HWORKS-2753),
-      # and the operator-supplied overlay + --set carry the
-      # cluster-shape and resource overrides forward.
+      # Re-supply install values on upgrade (no `--reuse-values`).
+      # Per maintainer, Hopsworks customers always pass values files
+      # on every upgrade. Practical effect: new-chart defaults are
+      # merged in (filling schema-required fields the OLD chart
+      # didn't ship, e.g. `meta.ddlMySQLd` from HWORKS-2753).
       - name: Upgrade to new chart (PR head)
         run: |
           helm upgrade $RONDB_CLUSTER_NAME ./new-chart \
@@ -587,10 +523,8 @@ jobs:
       - name: Assert no arbitration loss (Error 2305)
         run: |
           fail=0
-          # Refuse-to-pass if the label selector matches zero pods. Without
-          # this guard, a future chart rename of the `rondbService` label
-          # value would silently iterate zero pods and let A1 pass on a
-          # cluster that hasn't actually been checked.
+          # Refuse-to-pass on empty selector — guards against silent
+          # pass if the chart ever renames the rondbService label.
           pods=$(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
                    -o jsonpath='{.items[*].metadata.name}')
           if [ -z "$pods" ]; then
@@ -609,25 +543,16 @@ jobs:
           done
           exit $fail
 
-      # A2: A "system restart" line means every data node was down
-      # simultaneously. The slice starts at the snapshotted offset so we
-      # ignore the initial install's own startup messages.
+      # A2: a true system restart means every data node was down
+      # simultaneously. The slice starts at the snapshotted offset so
+      # we skip the install's own startup messages.
       #
-      # Match on the explicit `Start node: N using system restart`
-      # decision line rather than on the `Start phase 0 completed
-      # (system restart)` placeholder. Phases 0 and 1 are logged with
-      # the `(system restart)` tag on *every* ndbmtd boot — including
-      # routine node-restarts during a rolling upgrade — because the
-      # restart-type decision is made after phase 1. By phase 2 the
-      # log line transitions to `(node restart)` if MGMd reports a
-      # live peer. Grepping the placeholder produces a false positive
-      # on every successful rolling upgrade.
-      #
-      # `Start node: <id> using system restart` is logged only when
-      # MGMd has decided the booting node must do a true system
-      # restart (no live peer at decision time, i.e. the cluster lost
-      # quorum). That is exactly the failure mode this assertion
-      # exists to catch.
+      # Match `Start node: N using system restart` (MGMd's explicit
+      # decision), NOT `Start phase 0 completed (system restart)` —
+      # the latter is a placeholder logged on every ndbmtd boot
+      # (including routine node-restarts) before the restart type is
+      # decided at phase 2, so it false-positives on every successful
+      # rolling upgrade.
       - name: Assert no system restart in upgrade window
         run: |
           OFFSET=$(cat /tmp/cluster-log-offset.txt)
@@ -635,24 +560,18 @@ jobs:
               tail -n +$((OFFSET + 1)) /srv/hops/mysql-cluster/log/cluster.log)
           if echo "$slice" | grep -E 'Start node: [0-9]+ using system restart'; then
             echo "::error::cluster.log shows a true system restart (lost quorum) during the upgrade window"
-            # Dump the full upgrade-window slice so the diagnosis is visible
-            # inline rather than buried in the cross_version_logs artifact.
-            # The slice + context covers data-node connect/disconnect events,
-            # MGMd restart timing, and arbitration decisions — exactly what's
-            # needed to tell C1 (parallel rolling) from C2 (hook-induced
-            # shutdown) from C3 (protocol kick-off).
+            # Full slice for inline diagnosis (parallel rolling vs.
+            # hook-induced shutdown vs. protocol kick-off).
             echo "=== full cluster.log slice (lines after $OFFSET) ==="
             echo "$slice"
             exit 1
           fi
           echo "No true system-restart decisions in upgrade-window slice (lines after $OFFSET)."
 
-      # On any assertion failure, print pod-level evidence so the diagnosis
-      # is visible inline rather than requiring the cross_version_logs
-      # artifact download. Specifically: ndbmtd pod restart history (from
-      # `kubectl describe pod` lastState + container restart counts), recent
-      # events filtered to data-node pods, and each ndbmtd's previous-pod
-      # logs (where the last ~50 lines before the kill live).
+      # On assertion failure, print pod-level evidence inline (restart
+      # counts, lastState, ndbmtd-pod events, previous-pod logs, and
+      # each StatefulSet's rendered podManagementPolicy +
+      # updateStrategy) so diagnosis doesn't require an artifact pull.
       - name: Diagnostics on upgrade/assertion failure
         if: failure()
         run: |
@@ -667,13 +586,13 @@ jobs:
           kubectl -n $K8S_NAMESPACE get events --sort-by='.metadata.creationTimestamp' \
             --field-selector involvedObject.kind=Pod 2>&1 \
             | grep -E 'node-group|ndbmtd' || true
-          echo "=== ndbmtd previous-pod logs (last 80 lines, the dying breath of the OLD-image pod) ==="
+          echo "=== ndbmtd previous-pod logs (OLD-image pod's last 80 lines before kill) ==="
           for pod in $(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
                          -o jsonpath='{.items[*].metadata.name}'); do
             echo "--- $pod / ndbmtd (previous) ---"
             kubectl -n $K8S_NAMESPACE logs "$pod" -c ndbmtd --previous --tail=80 2>&1 || true
           done
-          echo "=== ndbmtd current-pod logs (last 80 lines, the NEW-image boot story) ==="
+          echo "=== ndbmtd current-pod logs (NEW-image pod's first 80 lines) ==="
           for pod in $(kubectl -n $K8S_NAMESPACE get pods -l rondbService=ndbmtd \
                          -o jsonpath='{.items[*].metadata.name}'); do
             echo "--- $pod / ndbmtd (current) ---"
@@ -688,15 +607,10 @@ jobs:
               2>&1 || true
           done
 
-      # A3: Sanity check that the upgrade actually touched MGMd's image.
-      # If the values overlay produced a no-op or the hook somehow blocked
-      # the spec change, A1/A2 might pass for the wrong reason.
-      #
-      # The hardcoded `:24.10.19` is paired with the OLD-chart pin in the
-      # `Checkout old chart` step (`ref: branch-0.7`, which ships RonDB
-      # 24.10.19). If that pin ever moves to a different OLD-chart
-      # branch, update the version string below so this assertion stays
-      # meaningful — otherwise it will silently pass on any image.
+      # A3: sanity check that the upgrade actually touched MGMd's image,
+      # so A1/A2 don't pass for the wrong reason. The `:24.10.19` is
+      # paired with the OLD-chart pin (`ref: branch-0.7`); update both
+      # together if you ever change which OLD chart this test runs against.
       - name: Assert MGMd image was upgraded
         run: |
           image=$(kubectl -n $K8S_NAMESPACE get sts mgmds \
