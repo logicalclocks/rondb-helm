@@ -1334,6 +1334,14 @@
                     ],
                     "default": null
                 },
+                "MaxNoOfSchemaObjects": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "description": "Maximum total number of schema objects (tables, ordered indexes, unique hash indexes, etc.) that a data node may allocate. Increase this when the application needs more than the default ~20,300 table-object cap. Only applied if explicitly set; otherwise RonDB's built-in default is used. See https://docs.rondb.com/automatic_memory_config/.",
+                    "default": null
+                },
                 "TransactionMemory": {
                     "type": [
                         "string",
@@ -1487,6 +1495,49 @@
                         "null"
                     ],
                     "description": "The total memory configured by RonDB datanode. By default it is not defined and memory is calculated automatically.",
+                    "default": null
+                },
+                "DataMemory": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Memory available for storing in-memory database records on each data node, in bytes (with optional binary SI suffix, e.g. '4G'). When unset, RonDB's AutomaticMemoryConfig sizes this from the container's memory; only set explicitly to override automatic sizing. Only applied if explicitly set.",
+                    "default": null,
+                    "example": "4G"
+                },
+                "LongMessageBuffer": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "description": "Internal buffer used for passing long messages within and between nodes, in bytes (with optional binary SI suffix). NDB's built-in default is 64M. Only applied if explicitly set.",
+                    "default": null,
+                    "example": "64M"
+                },
+                "TimeBetweenGlobalCheckpoints": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "description": "Time in milliseconds between group commits of transactions to disk. Only applied if explicitly set; otherwise NDB's built-in default is used.",
+                    "default": null,
+                    "example": 2000
+                },
+                "UseOnlyIPv4": {
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "description": "When true, restricts all connections on the node to IPv4 sockets only. Introduced in RonDB 21.04.5 for Dolphin SuperSockets compatibility. Note: this chart emits the setting only under [NDBD DEFAULT], so it is scoped to data nodes. Only applied if explicitly set.",
+                    "default": null
+                },
+                "FullRestartLogs": {
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "description": "Enable full restart logs (RonDB-specific). RonDB's release-build default is false. Only applied if explicitly set.",
                     "default": null
                 }
             },
