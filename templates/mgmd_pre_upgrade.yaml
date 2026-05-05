@@ -45,19 +45,17 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: rondb-mgmd-pre-upgrade-config-{{ .Release.Revision }}
+  # Stable name (no Release.Revision suffix) so `before-hook-creation`
+  # actually matches and replaces the previous revision's ConfigMap.
+  # Argo CD's hook lifecycle treats non-Job hooks as "succeeded" the
+  # moment they're applied, so `hook-succeeded` here would let Argo
+  # delete this ConfigMap before the wave-10 Job mounts it.
+  name: rondb-mgmd-pre-upgrade-config
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    # Clean up after the hook succeeds. Otherwise the Job's failed
-    # backoff-retry pods linger in the namespace (the Job's name
-    # includes `.Release.Revision`, so `before-hook-creation` alone
-    # never matches a previous-revision resource), tripping the
-    # stability check (`.github/test_deploy_stability.sh`) and the
-    # `kubectl get all`-driven wait loop in
-    # `.github/actions/remove_cluster`.
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation
 data:
   config.ini: |
 {{ tpl (.Files.Get "files/configs/config.ini") . | indent 4 }}
@@ -70,7 +68,11 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    # `hook-succeeded` would let Argo CD remove this support resource
+    # before the wave-10 Job that depends on it runs, so we keep
+    # `before-hook-creation` only. Stable names + before-hook-creation
+    # give us idempotent re-creation without the deletion race.
+    "helm.sh/hook-delete-policy": before-hook-creation
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -80,7 +82,7 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation
 rules:
 - apiGroups: ["apps"]
   resources: ["statefulsets"]
@@ -106,7 +108,7 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    "helm.sh/hook-delete-policy": before-hook-creation
 subjects:
 - kind: ServiceAccount
   name: rondb-mgmd-pre-upgrade
@@ -286,5 +288,5 @@ spec:
       volumes:
       - name: rendered-config
         configMap:
-          name: rondb-mgmd-pre-upgrade-config-{{ .Release.Revision }}
+          name: rondb-mgmd-pre-upgrade-config
 {{- end }}
