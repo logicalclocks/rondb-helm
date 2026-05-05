@@ -351,6 +351,7 @@ rondbConfig:
   HeartbeatIntervalDbDb: 5000
   InitialTablespaceSizeGiB: -1
   MaxDMLOperationsPerTransaction: 32768
+  MaxDiskWriteSpeed: null
   MaxNoOfAttributes: null
   MaxNoOfConcurrentOperations: 65536
   MaxNoOfTables: null
