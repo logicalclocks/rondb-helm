@@ -13,12 +13,19 @@
   consult and self-shuts with NDB Error 2305.
 
   This hook runs before the main upgrade applies any other manifest. It
-  brings the MGMd StatefulSet to its target pod template (new image, new
-  configIniHash, new config.ini in the mgmd-configs ConfigMap) and waits
-  for it to be Ready and serving (`ndb_mgm -e show`). When the main
-  upgrade then runs, the MGMd StatefulSet's running state already matches
-  the desired state, so MGMd is not rolled again — the rest of the
-  rollout proceeds with a stable, healthy primary arbitrator.
+  applies the full target MGMd manifest set (StatefulSet, mgmd-configs
+  ConfigMap, headless Service — the same set the chart's main apply
+  would write) using server-side apply with field-manager=helm. When
+  the main upgrade then runs, it sees no diff against the hook-applied
+  state and does not roll MGMd a second time. The rest of the rollout
+  proceeds with a stable, healthy primary arbitrator.
+
+  The full-apply approach (vs. patching only image + configIniHash on
+  the StatefulSet) ensures every pod-template field — nodeSelector,
+  tolerations, resources, probes, sidecars, etc. — reaches MGMd before
+  the main apply runs, closing the silent-gap class of bug where a
+  chart-version bump that changes any of those fields would otherwise
+  trigger a second MGMd roll during the main apply.
 
   Gating:
   -------
@@ -57,8 +64,13 @@ metadata:
     "helm.sh/hook-weight": "-20"
     "helm.sh/hook-delete-policy": before-hook-creation
 data:
-  config.ini: |
-{{ tpl (.Files.Get "files/configs/config.ini") . | indent 4 }}
+  # The full MGMd manifest set (StatefulSet + mgmd-configs ConfigMap +
+  # headless Service) rendered with this release's values. The hook Job
+  # mounts this file and applies it server-side. Keep in sync via the
+  # `rondb.mgmdManifests` named template — the chart's main apply
+  # (templates/mgmd.yaml) renders the same definition.
+  mgmd-manifests.yaml: |
+{{ include "rondb.mgmdManifests" . | indent 4 }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -96,6 +108,10 @@ rules:
   resources: ["configmaps"]
   verbs: ["get", "patch"]
   resourceNames: ["mgmd-configs"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "patch"]
+  resourceNames: [{{ .Values.meta.mgmd.headlessClusterIp.name | quote }}]
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "list", "watch"]
@@ -231,40 +247,20 @@ spec:
           [ -n "$spec_replicas" ] && [ "$updated_replicas" = "$spec_replicas" ] || rollout_converged=false
 
           if [ "$spec_at_target" = "true" ] && [ "$rollout_converged" = "true" ]; then
-            log "StatefulSet already converged at target; nothing to do."
-            log "(.status.readyReplicas == .spec.replicas means the StatefulSet's"
-            log "own readiness probe — 'ndb_mgm -e show' — is already passing.)"
+            log "StatefulSet already at target image/hash and converged; nothing to do."
             exit 0
           fi
 
-          log "Patching: spec_at_target=$spec_at_target rollout_converged=$rollout_converged"
-
-          if [ "$spec_at_target" = "false" ]; then
-            log "Updating mgmd-configs ConfigMap to new config.ini"
-            # `--field-manager=helm` keeps Helm's main upgrade as the
-            # owner of fields we touch. Under Helm 4 (server-side-apply by
-            # default) this prevents a manager-conflict between this Job
-            # and the subsequent helm-driven apply that would otherwise
-            # leave the resource jointly owned.
-            kubectl get configmap mgmd-configs -n "$NAMESPACE" -o json \
-              | jq --rawfile cfg /etc/rondb-config/config.ini '.data["config.ini"] = $cfg' \
-              | kubectl apply -n "$NAMESPACE" --field-manager=helm -f -
-
-            log "Patching $STS_NAME pod template (image + configIniHash)"
-            patch_json=$(jq -n \
-                --arg image "$NEW_IMAGE" \
-                --arg hash "$NEW_CONFIG_INI_HASH" \
-                '{
-                   spec: {
-                     template: {
-                       metadata: { annotations: { configIniHash: $hash } },
-                       spec: { containers: [ { name: "mgmd", image: $image } ] }
-                     }
-                   }
-                 }')
-            kubectl patch statefulset "$STS_NAME" -n "$NAMESPACE" \
-                --type=strategic --field-manager=helm -p "$patch_json"
-          fi
+          # Apply the full target MGMd manifest set rendered into the
+          # mounted ConfigMap. Server-side apply with field-manager=helm
+          # matches Helm's main apply field manager, so the subsequent
+          # main apply sees no diff and does not roll MGMd a second
+          # time. Applying the whole rendered manifest covers every
+          # field — nodeSelector, tolerations, resources, probes,
+          # sidecars, ConfigMap data — not just image and configIniHash.
+          log "Applying target MGMd manifests (server-side, field-manager=helm)"
+          kubectl apply -n "$NAMESPACE" --server-side --field-manager=helm \
+              -f /etc/rondb-config/mgmd-manifests.yaml
 
           log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
           # `kubectl rollout status` blocks until .status.readyReplicas ==
