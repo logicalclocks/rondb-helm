@@ -15,28 +15,6 @@ spec:
   # cluster (using flag --initial), the MGMd will wait for all
   # data nodes to start at the same time.
   podManagementPolicy: Parallel
-  # `podManagementPolicy: Parallel` removes the StatefulSet
-  # controller's "wait for previous pod Ready before terminating
-  # the next" gate that `OrderedReady` enforces. Without an
-  # explicit `maxUnavailable`, that means a chart upgrade can
-  # terminate every ndbmtd replica in a node group simultaneously,
-  # leaving the cluster with no live data nodes. When the new pods
-  # come up they each see no peer alive and enter system-restart
-  # mode (`Start phase 0 completed (system restart)` in cluster.log)
-  # — a brief cluster-wide outage that should never happen on a
-  # rolling upgrade.
-  #
-  # `updateStrategy.rollingUpdate.maxUnavailable: 1` re-introduces
-  # the serial gate for *updates* without changing the parallel
-  # behaviour for fresh-install pod *creation* (which is what
-  # `Parallel` is here for in the first place). Note: this field
-  # is honoured natively from Kubernetes 1.27+ (beta) and 1.31+
-  # (GA); on older clusters it is silently ignored and rolling
-  # updates remain parallel until the cluster is upgraded.
-  updateStrategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 1
   replicas: {{ $.Values.clusterSize.activeDataReplicas }}
   selector:
     # Used by the Deployment to select and manage existing pods with the specified label
