@@ -343,14 +343,19 @@ restoreFromBackup:
     serverSideEncryption: null
 rondbConfig:
   ActivateRateLimits: 0
+  DataMemory: null
   DiskPageBufferMemory: null
   EmptyApiSlots: 8
+  FullRestartLogs: null
   HeartbeatIntervalDbApi: 5000
   HeartbeatIntervalDbDb: 5000
   InitialTablespaceSizeGiB: -1
+  LongMessageBuffer: null
   MaxDMLOperationsPerTransaction: 32768
+  MaxDiskWriteSpeed: null
   MaxNoOfAttributes: null
   MaxNoOfConcurrentOperations: 65536
+  MaxNoOfSchemaObjects: null
   MaxNoOfTables: null
   MaxNoOfTriggers: null
   MySQLdSlotsPerNode: 4
@@ -363,10 +368,12 @@ rondbConfig:
   ReservedConcurrentOperations: null
   SchemaMemory: null
   SharedGlobalMemory: null
+  TimeBetweenGlobalCheckpoints: null
   TotalMemoryConfig: null
   TransactionDeadlockDetectionTimeout: 1500
   TransactionInactiveTimeout: 15000
   TransactionMemory: null
+  UseOnlyIPv4: null
 serviceAccountAnnotations: {}
 staticCpuManagerPolicy: false
 terminationGracePeriodSeconds: 60
