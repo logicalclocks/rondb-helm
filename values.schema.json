@@ -1342,7 +1342,7 @@
                     "description": "Maximum total number of schema objects (tables, ordered indexes, unique hash indexes, etc.) that a data node may allocate. Increase this when the application needs more than the default cap of 20,320 table objects. Only applied if explicitly set; otherwise RonDB's built-in default is used. See https://docs.rondb.com/automatic_memory_config/.",
                     "default": null,
                     "minimum": 20320,
-                    "maximum": 4294967039
+                    "maximum": 200000
                 },
                 "TransactionMemory": {
                     "type": [
