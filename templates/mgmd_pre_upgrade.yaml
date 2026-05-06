@@ -258,8 +258,17 @@ spec:
           # time. Applying the whole rendered manifest covers every
           # field — nodeSelector, tolerations, resources, probes,
           # sidecars, ConfigMap data — not just image and configIniHash.
-          log "Applying target MGMd manifests (server-side, field-manager=helm)"
-          kubectl apply -n "$NAMESPACE" --server-side --field-manager=helm \
+          #
+          # `--force-conflicts` is required because the existing
+          # mgmds/mgmd-configs/headless-mgmds resources may have been
+          # created by Helm 3 client-side apply (no SSA managedFields
+          # tracking), or by a different field-manager. SSA without
+          # force rejects the apply on conflict; with force the hook
+          # takes ownership of the fields it sets. Same content as the
+          # main apply will write, so this is the source-of-truth move
+          # rather than a hostile takeover.
+          log "Applying target MGMd manifests (server-side, field-manager=helm, force-conflicts)"
+          kubectl apply -n "$NAMESPACE" --server-side --field-manager=helm --force-conflicts \
               -f /etc/rondb-config/mgmd-manifests.yaml
 
           log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
