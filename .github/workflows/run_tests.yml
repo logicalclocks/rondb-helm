@@ -561,7 +561,7 @@ jobs:
           if echo "$slice" | grep -E 'Start node: [0-9]+ using system restart'; then
             echo "::error::cluster.log shows a true system restart (lost quorum) during the upgrade window"
             # Full slice for inline diagnosis (parallel rolling vs.
-            # hook-induced shutdown vs. protocol kick-off).
+            # hook-induced shutdown).
             echo "=== full cluster.log slice (lines after $OFFSET) ==="
             echo "$slice"
             exit 1
