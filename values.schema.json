@@ -50,6 +50,11 @@
             "type": "string",
             "default": "rondb-high-priority"
         },
+        "createPriorityClass": {
+            "type": "boolean",
+            "default": true,
+            "description": "Flag to disable the creation of PriorityClass in case it was created beforehand"
+        },
         "enableSecurityContext": {
             "type": "boolean",
             "default": true

@@ -4,10 +4,7 @@
 {{/*
     TODO: Add logic to share PriorityClass between multiple charts
 */}}
-{{ if .Values.priorityClass -}}
-{{- $existingPC := lookup "scheduling.k8s.io/v1" "PriorityClass" "" .Values.priorityClass -}}
-{{- $managedByHelm := and $existingPC (eq (index $existingPC.metadata.annotations "meta.helm.sh/release-name" | default "") .Release.Name) -}}
-{{- if or (not $existingPC) $managedByHelm }}
+{{ if and .Values.createPriorityClass .Values.priorityClass -}}
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
@@ -15,5 +12,4 @@ metadata:
 value: 1000000
 globalDefault: false
 description: "This priority class should be used for rondb service pods only."
-{{- end  }}
 {{- end }}
