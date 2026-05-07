@@ -112,6 +112,7 @@ jobs:
           helm install $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
             --create-namespace \
+            --timeout=15m \
             --values ./values/minikube/mini.yaml \
             --set benchmarking.enabled=true \
             --set staticCpuManagerPolicy=true \
@@ -159,6 +160,7 @@ jobs:
         run: |
           helm upgrade -i $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
+            --timeout=15m \
             --reuse-values \
             --set clusterSize.minNumMySQLServers=2 \
             --set clusterSize.activeDataReplicas=2 \
@@ -178,6 +180,7 @@ jobs:
         run: |
           helm upgrade -i $RONDB_CLUSTER_NAME \
             --namespace=$K8S_NAMESPACE \
+            --timeout=15m \
             --reuse-values \
             --set rondbConfig.EmptyApiSlots=5 \
             .
