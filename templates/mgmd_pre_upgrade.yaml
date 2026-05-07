@@ -180,10 +180,6 @@ spec:
           value: {{ .Values.meta.mgmd.statefulSetName | quote }}
         - name: NAMESPACE
           value: {{ .Release.Namespace | quote }}
-        - name: NEW_IMAGE
-          value: {{ include "image_address" (dict "image" .Values.images.rondb) | quote }}
-        - name: NEW_CONFIG_INI_HASH
-          value: {{ include "rondb.configIniHash" $ | quote }}
         - name: ROLLOUT_TIMEOUT
           value: "3m"
         volumeMounts:
@@ -198,10 +194,8 @@ spec:
 
           log() { echo "[mgmd-pre-upgrade] $*"; }
 
-          log "target image:           $NEW_IMAGE"
-          log "target configIniHash:   $NEW_CONFIG_INI_HASH"
-          log "statefulset:            $STS_NAME"
-          log "namespace:              $NAMESPACE"
+          log "statefulset:    $STS_NAME"
+          log "namespace:      $NAMESPACE"
 
           # Fresh-install short-circuit. Under Helm, this template is only
           # invoked as a `pre-upgrade` hook so it never runs on `helm
