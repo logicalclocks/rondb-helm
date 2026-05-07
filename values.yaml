@@ -375,7 +375,7 @@ rondbConfig:
   TransactionMemory: null
   UseOnlyIPv4: null
 serviceAccountAnnotations: {}
-mgmdPreUpgradeRolloutTimeout: "3m"
+mgmdPreUpgradeRolloutTimeout: "5m"
 skipMgmdPreUpgradeRollout: false
 staticCpuManagerPolicy: false
 terminationGracePeriodSeconds: 60

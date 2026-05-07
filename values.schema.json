@@ -14,8 +14,8 @@
         },
         "mgmdPreUpgradeRolloutTimeout": {
             "type": "string",
-            "description": "Timeout for `kubectl rollout status` inside the MGMd pre-upgrade hook (per attempt). Default 3m, deliberately below Helm's default `helm upgrade --timeout` of 5m so the hook fails with a clear, hook-specific error before Helm's generic outer timeout fires. Increase only if you also raise Helm's `--timeout` (e.g. on slow networks or large image pulls); a larger value at default Helm timeout will race with Helm and produce a generic 'timed out waiting for the condition' error instead of the hook's diagnostic.",
-            "default": "3m"
+            "description": "Timeout for `kubectl rollout status` inside the MGMd pre-upgrade hook (per attempt). Default 5m. Note: Helm's default `helm upgrade --timeout` is also 5m and bounds the whole upgrade including this hook — operators running with that default may see Helm's outer timeout fire first with a generic 'timed out waiting for the condition' message instead of this hook's specific diagnostic. Set Helm's `--timeout` higher (e.g. 15m) on slow networks or large image pulls.",
+            "default": "5m"
         },
         "skipMgmdPreUpgradeRollout": {
             "type": "boolean",
