@@ -15,7 +15,7 @@
   This hook runs before the main upgrade applies any other manifest. It
   applies the full target MGMd manifest set (StatefulSet, mgmd-configs
   ConfigMap, headless Service — the same set the chart's main apply
-  would write) using server-side apply with field-manager=helm. When
+  would write) using client-side apply with field-manager=helm. When
   the main upgrade then runs, it sees no diff against the hook-applied
   state and does not roll MGMd a second time. The rest of the rollout
   proceeds with a stable, healthy primary arbitrator.
@@ -66,9 +66,9 @@ metadata:
 data:
   # The full MGMd manifest set (StatefulSet + mgmd-configs ConfigMap +
   # headless Service) rendered with this release's values. The hook Job
-  # mounts this file and applies it server-side. Keep in sync via the
-  # `rondb.mgmdManifests` named template — the chart's main apply
-  # (templates/mgmd.yaml) renders the same definition.
+  # mounts this file and applies it via client-side `kubectl apply`.
+  # Keep in sync via the `rondb.mgmdManifests` named template — the
+  # chart's main apply (templates/mgmd.yaml) renders the same definition.
   mgmd-manifests.yaml: |
 {{ include "rondb.mgmdManifests" . | indent 4 }}
 ---
@@ -216,31 +216,24 @@ spec:
           # changing would slip past such a check and let Helm's main
           # apply roll MGMd a second time — exactly the silent-gap class
           # of bug the full-apply rewrite exists to close. Instead we
-          # always apply: server-side apply against an already-correct
-          # live state is essentially a no-op (records co-ownership; no
-          # field change), and `kubectl rollout status` returns
-          # immediately on a converged StatefulSet. Steady-state Argo
-          # syncs incur ~1-2 seconds of API traffic per sync — an
+          # always apply: client-side apply against an already-correct
+          # live state is essentially a no-op (kubectl computes the diff
+          # and finds none; no API write), and `kubectl rollout status`
+          # returns immediately on a converged StatefulSet. Steady-state
+          # Argo syncs incur ~1-2 seconds of API traffic per sync — an
           # acceptable price for correctness.
 
           # Apply the full target MGMd manifest set rendered into the
-          # mounted ConfigMap. Server-side apply with field-manager=helm
-          # matches Helm's main apply field manager, so the subsequent
-          # main apply sees no diff and does not roll MGMd a second
-          # time. Applying the whole rendered manifest covers every
-          # field — nodeSelector, tolerations, resources, probes,
-          # sidecars, ConfigMap data — not just image and configIniHash.
-          #
-          # `--force-conflicts` is required because the existing
-          # mgmds/mgmd-configs/headless-mgmds resources may have been
-          # created by Helm 3 client-side apply (no SSA managedFields
-          # tracking), or by a different field-manager. SSA without
-          # force rejects the apply on conflict; with force the hook
-          # takes ownership of the fields it sets. Same content as the
-          # main apply will write, so this is the source-of-truth move
-          # rather than a hostile takeover.
-          log "Applying target MGMd manifests (server-side, field-manager=helm, force-conflicts)"
-          kubectl apply -n "$NAMESPACE" --server-side --field-manager=helm --force-conflicts \
+          # mounted ConfigMap. Client-side apply with field-manager=helm
+          # matches Helm 3's default apply mode, so the hook and the
+          # chart's main apply share the same write semantics; no SSA
+          # managedFields tracking, no field-ownership conflicts, no
+          # need for `--force-conflicts`. Applying the whole rendered
+          # manifest covers every field — nodeSelector, tolerations,
+          # resources, probes, sidecars, ConfigMap data — not just
+          # image and configIniHash.
+          log "Applying target MGMd manifests (client-side, field-manager=helm)"
+          kubectl apply -n "$NAMESPACE" --field-manager=helm \
               -f /etc/rondb-config/mgmd-manifests.yaml
 
           log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
