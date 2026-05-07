@@ -83,6 +83,13 @@ rules:
   resources: ["statefulsets"]
   verbs: ["get", "patch", "watch"]
   resourceNames: [{{ .Values.meta.mgmd.statefulSetName | quote }}]
+# `kubectl rollout status` uses an informer-watcher that calls list
+# before watch. Kubernetes RBAC disallows combining `list` with
+# `resourceNames`, so this rule is broader than the one above and
+# unavoidably grants list on all statefulsets in the namespace.
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["list"]
 - apiGroups: ["apps"]
   resources: ["statefulsets/status"]
   verbs: ["get", "watch"]
