@@ -3,45 +3,34 @@
 {{- /*
   Pre-upgrade ordering hook.
 
-  Helm and the StatefulSet controllers do not coordinate ordering between
-  the MGMd, ndbmtd, and API-tier (mysqld, rdrs, binlog-servers,
-  replica-appliers) StatefulSets. Their rolling updates run concurrently
-  during a chart upgrade, which means there can be a window where the MGMd
-  pod (the only ArbitrationRank=1 node), every mysqld, and every rdrs are
-  all unavailable at the same moment. If a data-node replica is also being
-  rolled in that window, the surviving data node has no arbitrator to
-  consult and self-shuts with NDB Error 2305.
+  Helm doesn't sequence rolling updates across the MGMd, ndbmtd, and
+  API-tier (mysqld, rdrs, …) StatefulSets. Their rollouts overlap
+  during a chart upgrade, so the cluster can briefly have no live
+  MGMd (the only ArbitrationRank=1 node) while ndbmtds are also
+  cycling — the surviving ndbmtd then has no arbitrator and
+  self-shuts with NDB Error 2305.
 
-  This hook runs before the main upgrade applies any other manifest. It
-  applies the full target MGMd manifest set (StatefulSet, mgmd-configs
-  ConfigMap, headless Service — the same set the chart's main apply
-  would write) using client-side apply with field-manager=helm. When
-  the main upgrade then runs, it sees no diff against the hook-applied
-  state and does not roll MGMd a second time. The rest of the rollout
-  proceeds with a stable, healthy primary arbitrator.
-
-  The full-apply approach (vs. patching only image + configIniHash on
-  the StatefulSet) ensures every pod-template field — nodeSelector,
-  tolerations, resources, probes, sidecars, etc. — reaches MGMd before
-  the main apply runs, closing the silent-gap class of bug where a
-  chart-version bump that changes any of those fields would otherwise
-  trigger a second MGMd roll during the main apply.
+  This hook applies the full target MGMd manifest set (StatefulSet,
+  mgmd-configs ConfigMap, headless Service — the same set the chart's
+  main apply writes) before the main upgrade runs. The main apply
+  then sees no diff and doesn't roll MGMd again. Applying the whole
+  rendered manifest (not just image + configIniHash) covers every
+  pod-template field — nodeSelector, tolerations, resources, probes,
+  sidecars — so a chart-version bump touching any of them goes
+  through this hook rather than triggering a second MGMd roll later.
 
   Gating:
-  -------
-  The template renders on `helm upgrade` (`rondb.isUpgrade` true) and
-  is suppressed on `helm install` and on externally-managed clusters.
-  Argo CD deployments must set `mode=upgrade` (or `mode=install` on the
-  very first sync) so `rondb.isUpgrade` resolves correctly under Argo's
-  `helm template` render path, where `.Release.IsUpgrade` is always
-  false. An additional escape hatch is `Values.skipMgmdPreUpgradeRollout`
-  for cluster operators who need to disable the hook entirely without
-  changing chart versions.
+    Helm:    fires on `helm upgrade` (rondb.isUpgrade true);
+             suppressed on install and on externally-managed clusters.
+    Argo CD: customers must set `mode=upgrade` (or `mode=install` on
+             the first sync) since `.Release.IsUpgrade` is always
+             false under `helm template`.
+    Escape:  set `Values.skipMgmdPreUpgradeRollout=true` to disable
+             the hook without changing chart versions.
 
-  The Job script also handles the "MGMd does not exist yet" case
-  defensively (first Argo sync where `mode=upgrade` is set but the
-  StatefulSet has not been created yet) by exiting cleanly so Argo's
-  main sync can create MGMd from scratch.
+  The hook script exits cleanly when the MGMd StatefulSet doesn't
+  exist yet (Argo first-sync case), letting Argo's main sync create
+  MGMd from scratch.
 */}}
 
 {{- if and
@@ -52,11 +41,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  # Stable name (no Release.Revision suffix) so `before-hook-creation`
-  # actually matches and replaces the previous revision's ConfigMap.
-  # Argo CD's hook lifecycle treats non-Job hooks as "succeeded" the
-  # moment they're applied, so `hook-succeeded` here would let Argo
-  # delete this ConfigMap before the wave-10 Job mounts it.
+  # Stable name + before-hook-creation only. hook-succeeded would let
+  # Argo CD delete this ConfigMap before the wave-10 Job mounts it
+  # (Argo treats non-Job hooks as "succeeded" on apply).
   name: rondb-mgmd-pre-upgrade-config
   namespace: {{ .Release.Namespace }}
   annotations:
@@ -64,11 +51,9 @@ metadata:
     "helm.sh/hook-weight": "-20"
     "helm.sh/hook-delete-policy": before-hook-creation
 data:
-  # The full MGMd manifest set (StatefulSet + mgmd-configs ConfigMap +
-  # headless Service) rendered with this release's values. The hook Job
-  # mounts this file and applies it via client-side `kubectl apply`.
-  # Keep in sync via the `rondb.mgmdManifests` named template — the
-  # chart's main apply (templates/mgmd.yaml) renders the same definition.
+  # Full MGMd manifest set rendered with this release's values. Same
+  # definition as the chart's main apply (templates/mgmd.yaml) — both
+  # come from the `rondb.mgmdManifests` named template.
   mgmd-manifests.yaml: |
 {{ include "rondb.mgmdManifests" . | indent 4 }}
 ---
@@ -80,10 +65,8 @@ metadata:
   annotations:
     "helm.sh/hook": pre-upgrade
     "helm.sh/hook-weight": "-20"
-    # `hook-succeeded` would let Argo CD remove this support resource
-    # before the wave-10 Job that depends on it runs, so we keep
-    # `before-hook-creation` only. Stable names + before-hook-creation
-    # give us idempotent re-creation without the deletion race.
+    # before-hook-creation only; hook-succeeded would let Argo CD
+    # delete this support resource before the wave-10 Job runs.
     "helm.sh/hook-delete-policy": before-hook-creation
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -141,14 +124,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": pre-upgrade
-    # Hook-weight is set high enough that this hook runs after any other
-    # pre-upgrade hooks the chart defines (e.g. mysql privilege migration).
+    # Run after other pre-upgrade hooks (revoke-set-user-id-privilege
+    # has no explicit weight so it defaults to 0).
     "helm.sh/hook-weight": "10"
-    # `hook-succeeded` is required: the Job has `backoffLimit: 3`, so a
-    # transient first-attempt failure (e.g. `kubectl rollout status`
-    # exceeding ROLLOUT_TIMEOUT) is recovered by a retry pod, but the
-    # Failed pod from the first attempt would otherwise persist in the
-    # namespace and confuse downstream stability/cleanup checks.
+    # hook-succeeded cleans up backoff-retry pods after success; without
+    # it, a transient first-attempt failure leaves Failed pods that
+    # confuse downstream stability/cleanup checks.
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   backoffLimit: 3
@@ -197,53 +178,27 @@ spec:
           log "statefulset:    $STS_NAME"
           log "namespace:      $NAMESPACE"
 
-          # Fresh-install short-circuit. Under Helm, this template is only
-          # invoked as a `pre-upgrade` hook so it never runs on `helm
-          # install`. Under Argo CD, every sync (including the very first)
-          # fires PreSync hooks, so on a fresh install the StatefulSet does
-          # not exist yet and there is nothing to pre-roll. Exit cleanly
-          # and let Argo's main sync create MGMd from scratch.
+          # Fresh-install short-circuit for Argo CD's first sync, where
+          # PreSync hooks fire before the StatefulSet exists. Under Helm
+          # this hook only runs on upgrade so the case never arises.
           if ! kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" >/dev/null 2>&1; then
-            log "StatefulSet $STS_NAME not found in namespace $NAMESPACE."
-            log "Treating this sync as an initial install; nothing to pre-roll. Exiting cleanly."
+            log "StatefulSet $STS_NAME not found; nothing to pre-roll, exiting."
             exit 0
           fi
 
-          # No fast-path here: we used to short-circuit if the live
-          # image+hash matched the target, but the apply now writes the
-          # whole rendered template. A field outside of image/hash
-          # (nodeSelector, tolerations, resources, probes, sidecars …)
-          # changing would slip past such a check and let Helm's main
-          # apply roll MGMd a second time — exactly the silent-gap class
-          # of bug the full-apply rewrite exists to close. Instead we
-          # always apply: client-side apply against an already-correct
-          # live state is essentially a no-op (kubectl computes the diff
-          # and finds none; no API write), and `kubectl rollout status`
-          # returns immediately on a converged StatefulSet. Steady-state
-          # Argo syncs incur ~1-2 seconds of API traffic per sync — an
-          # acceptable price for correctness.
-
-          # Apply the full target MGMd manifest set rendered into the
-          # mounted ConfigMap. Client-side apply with field-manager=helm
-          # matches Helm 3's default apply mode, so the hook and the
-          # chart's main apply share the same write semantics; no SSA
-          # managedFields tracking, no field-ownership conflicts, no
-          # need for `--force-conflicts`. Applying the whole rendered
-          # manifest covers every field — nodeSelector, tolerations,
-          # resources, probes, sidecars, ConfigMap data — not just
-          # image and configIniHash.
+          # No fast-path. A narrow image+hash check would miss other
+          # field changes (nodeSelector, tolerations, resources, probes,
+          # sidecars) that the full apply now covers. Always apply —
+          # client-side apply is a no-op when nothing differs, and
+          # rollout-status returns immediately if already converged.
           log "Applying target MGMd manifests (client-side, field-manager=helm)"
           kubectl apply -n "$NAMESPACE" --field-manager=helm \
               -f /etc/rondb-config/mgmd-manifests.yaml
 
+          # `kubectl rollout status` returns when the pod is Ready,
+          # which means its readiness probe (`ndb_mgm -e show`) is
+          # passing — that's the health proof too.
           log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
-          # `kubectl rollout status` blocks until .status.readyReplicas ==
-          # .spec.replicas (among other invariants), and a Ready pod by
-          # definition has its readiness probe (`ndb_mgm -e show`) passing.
-          # That's the same property a separate `kubectl exec` healthcheck
-          # would verify, so there is no need for an additional healthcheck
-          # step after this — the rollout-status return is itself the
-          # health proof.
           if ! kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
               --timeout="$ROLLOUT_TIMEOUT"; then
             log "rollout-status did not converge within $ROLLOUT_TIMEOUT"
