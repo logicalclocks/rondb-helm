@@ -215,41 +215,19 @@ spec:
             exit 0
           fi
 
-          # Read live pod-template fields and StatefulSet status. We use the
-          # combination to decide whether the StatefulSet is already
-          # converged at the target — that includes BOTH the spec being at
-          # target AND the controller having finished rolling. If both hold,
-          # there is nothing to do besides verifying health; we do not need
-          # to patch and we do not need to call `kubectl rollout status`,
-          # which was observed to block under CI even on idle StatefulSets.
-          read_sts() {
-            kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" -o jsonpath="$1" 2>/dev/null || echo ""
-          }
-          live_image=$(read_sts '{.spec.template.spec.containers[?(@.name=="mgmd")].image}')
-          live_hash=$(read_sts  '{.spec.template.metadata.annotations.configIniHash}')
-          generation=$(read_sts '{.metadata.generation}')
-          observed=$(read_sts   '{.status.observedGeneration}')
-          spec_replicas=$(read_sts '{.spec.replicas}')
-          ready_replicas=$(read_sts   '{.status.readyReplicas}')
-          updated_replicas=$(read_sts '{.status.updatedReplicas}')
-          log "live image:             $live_image"
-          log "live configIniHash:     $live_hash"
-          log "generation:             $generation (observed: $observed)"
-          log "replicas spec/ready/updated: $spec_replicas/$ready_replicas/$updated_replicas"
-
-          spec_at_target=true
-          [ "$live_image" = "$NEW_IMAGE"           ] || spec_at_target=false
-          [ "$live_hash"  = "$NEW_CONFIG_INI_HASH" ] || spec_at_target=false
-
-          rollout_converged=true
-          [ -n "$generation" ] && [ -n "$observed" ] && [ "$generation" = "$observed" ] || rollout_converged=false
-          [ -n "$spec_replicas" ] && [ "$ready_replicas"   = "$spec_replicas" ] || rollout_converged=false
-          [ -n "$spec_replicas" ] && [ "$updated_replicas" = "$spec_replicas" ] || rollout_converged=false
-
-          if [ "$spec_at_target" = "true" ] && [ "$rollout_converged" = "true" ]; then
-            log "StatefulSet already at target image/hash and converged; nothing to do."
-            exit 0
-          fi
+          # No fast-path here: we used to short-circuit if the live
+          # image+hash matched the target, but the apply now writes the
+          # whole rendered template. A field outside of image/hash
+          # (nodeSelector, tolerations, resources, probes, sidecars …)
+          # changing would slip past such a check and let Helm's main
+          # apply roll MGMd a second time — exactly the silent-gap class
+          # of bug the full-apply rewrite exists to close. Instead we
+          # always apply: server-side apply against an already-correct
+          # live state is essentially a no-op (records co-ownership; no
+          # field change), and `kubectl rollout status` returns
+          # immediately on a converged StatefulSet. Steady-state Argo
+          # syncs incur ~1-2 seconds of API traffic per sync — an
+          # acceptable price for correctness.
 
           # Apply the full target MGMd manifest set rendered into the
           # mounted ConfigMap. Server-side apply with field-manager=helm
