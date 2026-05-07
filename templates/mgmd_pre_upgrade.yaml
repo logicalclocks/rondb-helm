@@ -162,7 +162,7 @@ spec:
         - name: NAMESPACE
           value: {{ .Release.Namespace | quote }}
         - name: ROLLOUT_TIMEOUT
-          value: "3m"
+          value: {{ .Values.mgmdPreUpgradeRolloutTimeout | quote }}
         volumeMounts:
         - name: rendered-config
           mountPath: /etc/rondb-config
