@@ -1474,6 +1474,11 @@
                     "default": null,
                     "example": "20M"
                 },
+                "BackupLogBufferSize": {
+                    "type": "string",
+                    "description": "Buffer that records writes occurring during an online backup; the backup aborts if it fills. Default 16M; increase (e.g. 256M) for write-heavy clusters. See https://docs.rondb.com/rondb_backup/.",
+                    "default": "16M"
+                },
                 "ActivateRateLimits": {
                     "type": "integer",
                     "description": "Activate rate limits handling",
