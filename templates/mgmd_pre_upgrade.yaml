@@ -1,0 +1,224 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+{{- /*
+  Pre-upgrade ordering hook.
+
+  Helm doesn't sequence rolling updates across the MGMd, ndbmtd, and
+  API-tier (mysqld, rdrs, …) StatefulSets. Their rollouts overlap
+  during a chart upgrade, so the cluster can briefly have no live
+  MGMd (the only ArbitrationRank=1 node) while ndbmtds are also
+  cycling — the surviving ndbmtd then has no arbitrator and
+  self-shuts with NDB Error 2305.
+
+  This hook applies the full target MGMd manifest set (StatefulSet,
+  mgmd-configs ConfigMap, headless Service — the same set the chart's
+  main apply writes) before the main upgrade runs. The main apply
+  then sees no diff and doesn't roll MGMd again. Applying the whole
+  rendered manifest (not just image + configIniHash) covers every
+  pod-template field — nodeSelector, tolerations, resources, probes,
+  sidecars — so a chart-version bump touching any of them goes
+  through this hook rather than triggering a second MGMd roll later.
+
+  Gating:
+    Helm:    fires on `helm upgrade` (rondb.isUpgrade true);
+             suppressed on install and on externally-managed clusters.
+    Argo CD: customers must set `mode=upgrade` (or `mode=install` on
+             the first sync) since `.Release.IsUpgrade` is always
+             false under `helm template`.
+    Escape:  set `Values.skipMgmdPreUpgradeRollout=true` to disable
+             the hook without changing chart versions.
+
+  The hook script exits cleanly when the MGMd StatefulSet doesn't
+  exist yet (Argo first-sync case), letting Argo's main sync create
+  MGMd from scratch.
+*/}}
+
+{{- if and
+    (include "rondb.isUpgrade" .)
+    (not (include "rondb.isExternallyManaged" .))
+    (not .Values.skipMgmdPreUpgradeRollout) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # Stable name + before-hook-creation only. hook-succeeded would let
+  # Argo CD delete this ConfigMap before the wave-10 Job mounts it
+  # (Argo treats non-Job hooks as "succeeded" on apply).
+  name: rondb-mgmd-pre-upgrade-config
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+data:
+  # Full MGMd manifest set rendered with this release's values. Same
+  # definition as the chart's main apply (templates/mgmd.yaml) — both
+  # come from the `rondb.mgmdManifests` named template.
+  mgmd-manifests.yaml: |
+{{ include "rondb.mgmdManifests" . | indent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rondb-mgmd-pre-upgrade
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    # before-hook-creation only; hook-succeeded would let Argo CD
+    # delete this support resource before the wave-10 Job runs.
+    "helm.sh/hook-delete-policy": before-hook-creation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rondb-mgmd-pre-upgrade
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+rules:
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["get", "patch", "watch"]
+  resourceNames: [{{ .Values.meta.mgmd.statefulSetName | quote }}]
+# `kubectl rollout status` uses an informer-watcher that calls list
+# before watch. Kubernetes RBAC disallows combining `list` with
+# `resourceNames`, so this rule is broader than the one above and
+# unavoidably grants list on all statefulsets in the namespace.
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  verbs: ["list"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets/status"]
+  verbs: ["get", "watch"]
+  resourceNames: [{{ .Values.meta.mgmd.statefulSetName | quote }}]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "patch"]
+  resourceNames: ["mgmd-configs"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "patch"]
+  resourceNames: [{{ .Values.meta.mgmd.headlessClusterIp.name | quote }}]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rondb-mgmd-pre-upgrade
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-20"
+    "helm.sh/hook-delete-policy": before-hook-creation
+subjects:
+- kind: ServiceAccount
+  name: rondb-mgmd-pre-upgrade
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: rondb-mgmd-pre-upgrade
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rondb-mgmd-pre-upgrade-{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    # Run after other pre-upgrade hooks (revoke-set-user-id-privilege
+    # has no explicit weight so it defaults to 0).
+    "helm.sh/hook-weight": "10"
+    # hook-succeeded cleans up backoff-retry pods after success; without
+    # it, a transient first-attempt failure leaves Failed pods that
+    # confuse downstream stability/cleanup checks.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        rondbService: mgmd-pre-upgrade
+    spec:
+      serviceAccountName: rondb-mgmd-pre-upgrade
+      restartPolicy: Never
+{{- include "rondb.PodSecurityContext" $ | indent 6 }}
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.mgmd) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" .Values.tolerations.mgmd) | indent 6 }}
+{{- if .Values.priorityClass }}
+      priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end }}
+      containers:
+      - name: mgmd-pre-upgrade
+        image: {{ include "image_address" (dict "image" .Values.images.toolbox) }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
+        resources:
+          limits:
+            cpu: 0.3
+            memory: 200Mi
+        env:
+        - name: STS_NAME
+          value: {{ .Values.meta.mgmd.statefulSetName | quote }}
+        - name: NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        - name: ROLLOUT_TIMEOUT
+          value: {{ .Values.mgmdPreUpgradeRolloutTimeout | quote }}
+        volumeMounts:
+        - name: rendered-config
+          mountPath: /etc/rondb-config
+          readOnly: true
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -euo pipefail
+
+          log() { echo "[mgmd-pre-upgrade] $*"; }
+
+          log "statefulset:    $STS_NAME"
+          log "namespace:      $NAMESPACE"
+
+          # Fresh-install short-circuit for Argo CD's first sync, where
+          # PreSync hooks fire before the StatefulSet exists. Under Helm
+          # this hook only runs on upgrade so the case never arises.
+          if ! kubectl get statefulset "$STS_NAME" -n "$NAMESPACE" >/dev/null 2>&1; then
+            log "StatefulSet $STS_NAME not found; nothing to pre-roll, exiting."
+            exit 0
+          fi
+
+          # No fast-path. A narrow image+hash check would miss other
+          # field changes (nodeSelector, tolerations, resources, probes,
+          # sidecars) that the full apply now covers. Always apply —
+          # client-side apply is a no-op when nothing differs, and
+          # rollout-status returns immediately if already converged.
+          log "Applying target MGMd manifests (client-side apply)"
+          kubectl apply -n "$NAMESPACE" \
+              -f /etc/rondb-config/mgmd-manifests.yaml
+
+          # `kubectl rollout status` returns when the pod is Ready,
+          # which means its readiness probe (`ndb_mgm -e show`) is
+          # passing — that's the health proof too.
+          log "Waiting for $STS_NAME rollout to converge (timeout: $ROLLOUT_TIMEOUT)"
+          if ! kubectl rollout status statefulset/"$STS_NAME" -n "$NAMESPACE" \
+              --timeout="$ROLLOUT_TIMEOUT"; then
+            log "rollout-status did not converge within $ROLLOUT_TIMEOUT"
+            log "--- final diagnostics ---"
+            kubectl get pods -n "$NAMESPACE" -l rondbService=mgmd -o wide || true
+            kubectl describe statefulset "$STS_NAME" -n "$NAMESPACE" || true
+            exit 1
+          fi
+
+          log "MGMd is serving the new pod template; upgrade may proceed"
+          exit 0
+      volumes:
+      - name: rendered-config
+        configMap:
+          name: rondb-mgmd-pre-upgrade-config
+{{- end }}

@@ -12,6 +12,16 @@
             ],
             "default": ""
         },
+        "mgmdPreUpgradeRolloutTimeout": {
+            "type": "string",
+            "description": "Timeout for `kubectl rollout status` inside the MGMd pre-upgrade hook (per attempt). Default 5m. Note: Helm's default `helm upgrade --timeout` is also 5m and bounds the whole upgrade including this hook — operators running with that default may see Helm's outer timeout fire first with a generic 'timed out waiting for the condition' message instead of this hook's specific diagnostic. Set Helm's `--timeout` higher (e.g. 15m) on slow networks or large image pulls.",
+            "default": "5m"
+        },
+        "skipMgmdPreUpgradeRollout": {
+            "type": "boolean",
+            "description": "If true, skip the pre-upgrade hook that rolls MGMd to the target image and config before the rest of the chart upgrades. The hook exists to keep at least one ArbitrationRank=1 node reachable while the API tier (mysqld, rdrs) is also rolling, preventing data-node arbitration loss (NDB Error 2305) on chart-wide upgrades. Set this to true only as an escape hatch if the hook itself is misbehaving on your cluster.",
+            "default": false
+        },
         "imagePullPolicy": {
             "type": "string",
             "description": "The Kubernetes image pull policy",

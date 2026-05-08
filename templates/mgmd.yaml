@@ -1,5 +1,7 @@
 # Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
 
+{{- /* Wrapped in a named template so the pre-upgrade hook (mgmd_pre_upgrade.yaml) can apply the same manifest set the chart's main apply produces. */ -}}
+{{- define "rondb.mgmdManifests" -}}
 {{- if not (include "rondb.isExternallyManaged" .) }}
 apiVersion: apps/v1
 kind: StatefulSet
@@ -147,3 +149,5 @@ spec:
   type: ExternalName
   externalName: {{ .Values.global._hopsworks.externalServices.rondb.mgmdHostname }}
 {{- end -}}
+{{- end -}}
+{{ include "rondb.mgmdManifests" . }}
