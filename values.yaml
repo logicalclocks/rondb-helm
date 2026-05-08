@@ -346,6 +346,7 @@ restoreFromBackup:
     serverSideEncryption: null
 rondbConfig:
   ActivateRateLimits: 0
+  BackupLogBufferSize: 16M
   DataMemory: null
   DiskPageBufferMemory: null
   EmptyApiSlots: 8
