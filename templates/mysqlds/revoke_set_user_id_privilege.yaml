@@ -7,6 +7,12 @@
   For this we read the Image from the mgmd Pod and extract the version.
   The admin privileges will be restored in the new 24.x cluster by the 2410_update_grant_all.yaml Job
   For more information: HWORKS-2315 CLOUD-857
+
+  Argo CD note: under Argo, `lookup` returns nil (Argo renders with
+  `helm template`, which has no cluster access by default), so `$execute`
+  falls back to `.Values.mysql.force2410UserGrantMigration`. Argo customers
+  upgrading from a pre-24.x cluster must set that value to true explicitly,
+  and must set `mode=upgrade` so `rondb.isUpgrade` resolves true.
 */}}
 {{- if and (include "rondb.isUpgrade" .) (include "rondb.shouldExecute2410Migration" .) }}
 apiVersion: batch/v1
@@ -16,6 +22,12 @@ metadata:
   namespace: {{ .Release.Namespace }}
   annotations:
     "helm.sh/hook": pre-upgrade
+    # Explicit `before-hook-creation` aligns with Argo CD's documented
+    # recommendation for named pre-upgrade hooks: ensures the previous
+    # run's Job is replaced on every sync/retry rather than left to
+    # collide. Helm 3 defaults to this policy implicitly; making it
+    # explicit keeps Argo CD behaviour predictable.
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   backoffLimit: 5
   parallelism: 1
