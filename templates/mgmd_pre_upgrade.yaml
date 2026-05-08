@@ -198,8 +198,8 @@ spec:
           # sidecars) that the full apply now covers. Always apply —
           # client-side apply is a no-op when nothing differs, and
           # rollout-status returns immediately if already converged.
-          log "Applying target MGMd manifests (client-side, field-manager=helm)"
-          kubectl apply -n "$NAMESPACE" --field-manager=helm \
+          log "Applying target MGMd manifests (client-side apply)"
+          kubectl apply -n "$NAMESPACE" \
               -f /etc/rondb-config/mgmd-manifests.yaml
 
           # `kubectl rollout status` returns when the pod is Ready,
