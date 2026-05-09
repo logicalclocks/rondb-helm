@@ -64,6 +64,11 @@
             "type": "boolean",
             "default": true
         },
+        "forceNodeGroupChange": {
+            "type": "boolean",
+            "description": "Skip the pre-upgrade immutability gate on clusterSize.numNodeGroups. RonDB still cannot add or remove node groups online, so an upgrade that changes numNodeGroups under this flag will break the cluster.",
+            "default": false
+        },
         "serviceAccountAnnotations": {
             "type": "object",
             "default": {}
@@ -1064,6 +1069,7 @@
                 "numNodeGroups": {
                     "type": "integer",
                     "minimum": 1,
+                    "description": "Number of RonDB node groups. Immutable after install — RonDB has no online add/remove. Changing it requires uninstall and reinstall with restoreFromBackup.backupId. Set `mode: upgrade` for ArgoCD or other template-only renderers so the immutability check runs as an in-cluster Job.",
                     "default": 1
                 },
                 "minNumMySQLServers": {
