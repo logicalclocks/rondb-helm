@@ -55,6 +55,7 @@ clusterSize:
   numNodeGroups: 1
 createPriorityClass: true
 enableSecurityContext: true
+forceNodeGroupChange: false
 globalReplication:
   clusterNumber: 1
   primary:
