@@ -198,6 +198,91 @@ jobs:
       - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
 
+      # RONDB-1053: numNodeGroups immutability. Rejection tests run a
+      # real `helm upgrade` — helm 3.13+'s --dry-run=client returns
+      # empty from `lookup` and trips the wrong error branch. Failed
+      # renders and failed pre-upgrade hooks both abort before apply,
+      # so rejections leave the cluster unchanged. The bypass test
+      # uses --dry-run since the check is skipped and the upgrade
+      # would otherwise mutate.
+      - name: numNodeGroups immutability — reject increase
+        run: |
+          set -e
+          if out=$(helm upgrade -i $RONDB_CLUSTER_NAME \
+              --namespace=$K8S_NAMESPACE \
+              --reuse-values \
+              --set clusterSize.numNodeGroups=3 \
+              . 2>&1); then
+            echo "$out"
+            echo "ERROR: helm upgrade should have failed (numNodeGroups 2→3)"
+            exit 1
+          fi
+          echo "$out"
+          echo "$out" | grep -qF "deployed=2, requested=3"
+
+      - name: numNodeGroups immutability — reject decrease
+        run: |
+          set -e
+          if out=$(helm upgrade -i $RONDB_CLUSTER_NAME \
+              --namespace=$K8S_NAMESPACE \
+              --reuse-values \
+              --set clusterSize.numNodeGroups=1 \
+              . 2>&1); then
+            echo "$out"
+            echo "ERROR: helm upgrade should have failed (numNodeGroups 2→1)"
+            exit 1
+          fi
+          echo "$out"
+          echo "$out" | grep -qF "deployed=2, requested=1"
+
+      - name: numNodeGroups immutability — forceNodeGroupChange bypasses
+        run: |
+          set -e
+          out=$(helm upgrade -i $RONDB_CLUSTER_NAME \
+              --namespace=$K8S_NAMESPACE \
+              --reuse-values --dry-run \
+              --set clusterSize.numNodeGroups=3 \
+              --set forceNodeGroupChange=true \
+              . 2>&1) && rc=0 || rc=$?
+          echo "$out"
+          if echo "$out" | grep -qF "clusterSize.numNodeGroups is immutable"; then
+            echo "ERROR: forceNodeGroupChange should have bypassed the immutability check"
+            exit 1
+          fi
+          if [ $rc -ne 0 ]; then
+            echo "ERROR: upgrade with forceNodeGroupChange=true failed (not for immutability reasons); exit=$rc"
+            exit $rc
+          fi
+
+      - name: numNodeGroups immutability — Job branch (mode=upgrade) rejects increase
+        run: |
+          set -e
+          # Job's hook-delete-policy keeps failed runs around so
+          # kubectl logs below can read its stderr.
+          if out=$(helm upgrade -i $RONDB_CLUSTER_NAME \
+              --namespace=$K8S_NAMESPACE \
+              --reuse-values \
+              --set mode=upgrade \
+              --set clusterSize.numNodeGroups=3 \
+              . 2>&1); then
+            echo "$out"
+            echo "ERROR: helm upgrade should have failed via Job hook (mode=upgrade, 2→3)"
+            exit 1
+          fi
+          echo "$out"
+          # Confirms the Job-branch fired (vs. inline render fail).
+          echo "$out" | grep -qF "pre-upgrade hooks failed"
+          # Drift guard: Job error format must match the inline branch.
+          kubectl -n $K8S_NAMESPACE logs \
+              job/$RONDB_CLUSTER_NAME-rondb-topology-check \
+              | grep -qF "deployed=2, requested=3"
+          # Failed hook Jobs aren't covered by the Job's delete policy
+          # and aren't cleaned by `helm uninstall` (they belong to the
+          # failed upgrade, not the last successful release). The
+          # teardown step waits for an empty namespace, so drop it here.
+          kubectl -n $K8S_NAMESPACE delete \
+              job/$RONDB_CLUSTER_NAME-rondb-topology-check
+
       - name: Collect logs
         if: always()
         uses: ./.github/actions/collect_logs
@@ -341,7 +426,7 @@ jobs:
   # whole-cluster system restart. Requested by maintainer in PR #170 review
   # comment 3161156784.
   upgrade-cross-version:
-    needs: [benchmark-and-stability]
+    needs: [test-lifecycle]
     name: Cross-version chart upgrade (no arbitration loss)
     if: github.repository == 'logicalclocks/rondb-helm'
     concurrency:
