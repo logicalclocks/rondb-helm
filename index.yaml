@@ -3,7 +3,7 @@ entries:
   rondb:
   - apiVersion: v2
     appVersion: 26.02.3
-    created: "2026-05-19T09:53:24.989161949Z"
+    created: "2026-05-19T16:47:49.943043634Z"
     description: A Helm chart for RonDBCluster
     digest: ce7e0c1679404cf53cf5ee2ce9f110c5c3153e030b503c12ee51d6c18acbc437
     home: https://www.rondb.com
@@ -31,7 +31,7 @@ entries:
     version: 26.2.9
   - apiVersion: v2
     appVersion: 26.02.3
-    created: "2026-05-19T09:53:24.984505232Z"
+    created: "2026-05-19T16:47:49.937386712Z"
     description: A Helm chart for RonDBCluster
     digest: 50bc36fe53b188750c3de1354f5e45df10ff76c3a3e0ef9bb8c846dbe2597fb4
     home: https://www.rondb.com
@@ -59,7 +59,7 @@ entries:
     version: 26.2.8
   - apiVersion: v2
     appVersion: 26.02.2
-    created: "2026-05-19T09:53:24.978481281Z"
+    created: "2026-05-19T16:47:49.932605402Z"
     description: A Helm chart for RonDBCluster
     digest: 1489c8e846bd27d319ff03c2e83a52be96a2809123eb2464ba6289ab399deb25
     home: https://www.rondb.com
@@ -87,7 +87,7 @@ entries:
     version: 26.2.7
   - apiVersion: v2
     appVersion: 26.02.2
-    created: "2026-05-19T09:53:24.973590662Z"
+    created: "2026-05-19T16:47:49.926728004Z"
     description: A Helm chart for RonDBCluster
     digest: b88e54d752906e4a8ff2323cb99566413a640d24671e478daa776e32955e37f5
     home: https://www.rondb.com
@@ -115,7 +115,7 @@ entries:
     version: 26.2.6
   - apiVersion: v2
     appVersion: 26.02.2
-    created: "2026-05-19T09:53:24.967755261Z"
+    created: "2026-05-19T16:47:49.922189222Z"
     description: A Helm chart for RonDBCluster
     digest: 6ea2fdb6cb3288a7553341c346171555ff1324be7a4d5cdf6f144436c526578f
     home: https://www.rondb.com
@@ -143,7 +143,7 @@ entries:
     version: 26.2.5
   - apiVersion: v2
     appVersion: 26.02.2
-    created: "2026-05-19T09:53:24.961938512Z"
+    created: "2026-05-19T16:47:49.916509096Z"
     description: A Helm chart for RonDBCluster
     digest: c20adce3dd7063120c72149f145421b71ca41868c76c1fdcab7e384f6d4c7d62
     home: https://www.rondb.com
@@ -171,7 +171,7 @@ entries:
     version: 26.2.4
   - apiVersion: v2
     appVersion: 26.02.2
-    created: "2026-05-19T09:53:24.950919444Z"
+    created: "2026-05-19T16:47:49.906362255Z"
     description: A Helm chart for RonDBCluster
     digest: a1af8e11b3605a5e567d8205649c94efe4e3f9ee89d18024e6a718ca09ae7c0e
     home: https://www.rondb.com
@@ -199,7 +199,7 @@ entries:
     version: 26.02.3
   - apiVersion: v2
     appVersion: 26.02.2
-    created: "2026-05-19T09:53:24.956475203Z"
+    created: "2026-05-19T16:47:49.911548235Z"
     description: A Helm chart for RonDBCluster
     digest: a73d245a65e03a483a6da55392e620fa0d0dc240e420dd04bb5b1e41d666e876
     home: https://www.rondb.com
@@ -227,7 +227,7 @@ entries:
     version: 26.2.3
   - apiVersion: v2
     appVersion: 26.02.2
-    created: "2026-05-19T09:53:24.946807555Z"
+    created: "2026-05-19T16:47:49.901871565Z"
     description: A Helm chart for RonDBCluster
     digest: 46bee034084609391fb791e71348e74423ee30e5bb483b62d19e61d87e6e31ad
     home: https://www.rondb.com
@@ -255,7 +255,7 @@ entries:
     version: 26.02.2
   - apiVersion: v2
     appVersion: 26.02.1
-    created: "2026-05-19T09:53:24.941720341Z"
+    created: "2026-05-19T16:47:49.896736351Z"
     description: A Helm chart for RonDBCluster
     digest: cb5ada384981b5573287e6364dbd6426d9fef7f07beab83f7d1f0d788e59e072
     home: https://www.rondb.com
@@ -282,8 +282,36 @@ entries:
     - https://logicalclocks.github.io/rondb-helm/charts/rondb-26.02.1.tgz
     version: 26.02.1
   - apiVersion: v2
+    appVersion: 25.10.8
+    created: "2026-05-19T16:47:49.85330721Z"
+    description: A Helm chart for RonDBCluster
+    digest: 5c3b5ff5cd55ee515b936b2e38abf1fae9a9efff3b78613c3761f701d15a0cd3
+    home: https://www.rondb.com
+    icon: https://uploads-ssl.webflow.com/6013cab68382f702f5481fa8/621f2f69a834b6df8d52cf75_Logo%20-%20Yellow%2C%20on%20black%20BG%404x.png
+    keywords:
+    - RonDB
+    - Database
+    - Distributed
+    - LATS
+    - MySQL
+    - Hopsworks
+    kubeVersion: '>= 1.27.0-0'
+    maintainers:
+    - email: mikael@hopsworks.ai
+      name: Mikael Ronström
+      url: https://github.com/mronstro
+    name: rondb
+    sources:
+    - https://github.com/logicalclocks/rondb
+    - https://github.com/logicalclocks/rondb-docker
+    - https://github.com/logicalclocks/rondb-helm
+    type: application
+    urls:
+    - https://logicalclocks.github.io/rondb-helm/charts/rondb-25.10.10.tgz
+    version: 25.10.10
+  - apiVersion: v2
     appVersion: 25.10.7
-    created: "2026-05-19T09:53:24.93705478Z"
+    created: "2026-05-19T16:47:49.892402183Z"
     description: A Helm chart for RonDBCluster
     digest: d5a9d9e975f968363dfc188b7077b0f8bbf6dc4ba663f055d11f8f4efc30aca0
     home: https://www.rondb.com
@@ -311,7 +339,7 @@ entries:
     version: 25.10.9
   - apiVersion: v2
     appVersion: 25.10.7
-    created: "2026-05-19T09:53:24.932619801Z"
+    created: "2026-05-19T16:47:49.886593411Z"
     description: A Helm chart for RonDBCluster
     digest: a7dd1a68d5036c0f7d8f0f1a94f44da1808fbd28b113d6fb04591e3a66aeb6f4
     home: https://www.rondb.com
@@ -339,7 +367,7 @@ entries:
     version: 25.10.8
   - apiVersion: v2
     appVersion: 25.10.6
-    created: "2026-05-19T09:53:24.927020335Z"
+    created: "2026-05-19T16:47:49.88163646Z"
     description: A Helm chart for RonDBCluster
     digest: 546e6fa9955b771a4aea56a55961f1cd85a1d2ae9ed3b6052aa1c3b6ed3a46cb
     home: https://www.rondb.com
@@ -367,7 +395,7 @@ entries:
     version: 25.10.7
   - apiVersion: v2
     appVersion: 25.10.6
-    created: "2026-05-19T09:53:24.922934886Z"
+    created: "2026-05-19T16:47:49.876528466Z"
     description: A Helm chart for RonDBCluster
     digest: 3d4752c6a575363f336f0ec0280a6c43fddd697ffa96e8fcaf9132b9384bd929
     home: https://www.rondb.com
@@ -395,7 +423,7 @@ entries:
     version: 25.10.6
   - apiVersion: v2
     appVersion: 25.10.6
-    created: "2026-05-19T09:53:24.918135372Z"
+    created: "2026-05-19T16:47:49.872104155Z"
     description: A Helm chart for RonDBCluster
     digest: af2bfa194b93e85f3a6f06b2388fbd618a51c5e55e6f4784a4f2a74f916bc0c5
     home: https://www.rondb.com
@@ -423,7 +451,7 @@ entries:
     version: 25.10.5
   - apiVersion: v2
     appVersion: 25.10.5
-    created: "2026-05-19T09:53:24.914129322Z"
+    created: "2026-05-19T16:47:49.867206102Z"
     description: A Helm chart for RonDBCluster
     digest: 0ef25cdb0536ae7a798136b1410a9d9f0010c0bae616e2a9c23933479ef1cbc6
     home: https://www.rondb.com
@@ -451,7 +479,7 @@ entries:
     version: 25.10.4
   - apiVersion: v2
     appVersion: 25.10.4
-    created: "2026-05-19T09:53:24.909219377Z"
+    created: "2026-05-19T16:47:49.862620211Z"
     description: A Helm chart for RonDBCluster
     digest: 6b2554686909442b0fb04aadd19179355420f063b49fa2b52838b083a0f3aaef
     home: https://www.rondb.com
@@ -479,7 +507,7 @@ entries:
     version: 25.10.3
   - apiVersion: v2
     appVersion: 25.10.4
-    created: "2026-05-19T09:53:24.905178492Z"
+    created: "2026-05-19T16:47:49.858028682Z"
     description: A Helm chart for RonDBCluster
     digest: 6280a355092061e2b9eb225e4187c802878ca83e66683d64cfe39466b3211b70
     home: https://www.rondb.com
@@ -507,7 +535,7 @@ entries:
     version: 25.10.2
   - apiVersion: v2
     appVersion: 25.10.3
-    created: "2026-05-19T09:53:24.900036858Z"
+    created: "2026-05-19T16:47:49.848006365Z"
     description: A Helm chart for RonDBCluster
     digest: 2b8431c28b5155c9ba887bdeb50342b765af76b8eb207a7e1e5af87fbd851869
     home: https://www.rondb.com
@@ -535,7 +563,7 @@ entries:
     version: 25.10.1
   - apiVersion: v2
     appVersion: 25.10.2
-    created: "2026-05-19T09:53:24.896019808Z"
+    created: "2026-05-19T16:47:49.84397151Z"
     description: A Helm chart for RonDBCluster
     digest: 751543b1fbfc5693fc404de38c1f1cc697a3c0285410c431a0d84fc886cf3eba
     home: https://www.rondb.com
@@ -563,7 +591,7 @@ entries:
     version: 25.10.0
   - apiVersion: v2
     appVersion: 24.10.18
-    created: "2026-05-19T09:53:24.890875515Z"
+    created: "2026-05-19T16:47:49.839319266Z"
     description: A Helm chart for RonDBCluster
     digest: 516decdf0a4511db67d75a13cd101f21fa3f41e1c3e05038a1b33a0e7b3042b5
     home: https://www.rondb.com
@@ -591,7 +619,7 @@ entries:
     version: 0.8.2
   - apiVersion: v2
     appVersion: 24.10.18
-    created: "2026-05-19T09:53:24.886218768Z"
+    created: "2026-05-19T16:47:49.835149611Z"
     description: A Helm chart for RonDBCluster
     digest: 51271c6e68b775dd01e38ac1645734ba7fc71d1ef37b780a8bfd0a89c1cc8c7d
     home: https://www.rondb.com
@@ -619,7 +647,7 @@ entries:
     version: 0.8.1
   - apiVersion: v2
     appVersion: 24.10.17
-    created: "2026-05-19T09:53:24.882358714Z"
+    created: "2026-05-19T16:47:49.830271779Z"
     description: A Helm chart for RonDBCluster
     digest: 07c44a22fb7906962542559abdb0f73e45d505d1d51f4f98b881ccd77af3abe8
     home: https://www.rondb.com
@@ -647,7 +675,7 @@ entries:
     version: 0.8.0
   - apiVersion: v2
     appVersion: 24.10.19
-    created: "2026-05-19T09:53:24.852683415Z"
+    created: "2026-05-19T16:47:49.800697023Z"
     description: A Helm chart for RonDBCluster
     digest: 20352d8f81711bb326ccbeb31f70fb6d47b9fdbee0628ebeb032d1cfb8e04383
     home: https://www.rondb.com
@@ -675,7 +703,7 @@ entries:
     version: 0.7.29
   - apiVersion: v2
     appVersion: 24.10.18
-    created: "2026-05-19T09:53:24.848697975Z"
+    created: "2026-05-19T16:47:49.795906389Z"
     description: A Helm chart for RonDBCluster
     digest: 6e577594a9488c7e270d58991da413ea48f6e5a872e4eec017cd661e48c08a78
     home: https://www.rondb.com
@@ -703,7 +731,7 @@ entries:
     version: 0.7.28
   - apiVersion: v2
     appVersion: 24.10.17
-    created: "2026-05-19T09:53:24.843858067Z"
+    created: "2026-05-19T16:47:49.791435538Z"
     description: A Helm chart for RonDBCluster
     digest: 910e58246007b73b57d62181fcd020aac752bca757ecd4aa8c22ddb0cdb73269
     home: https://www.rondb.com
@@ -731,7 +759,7 @@ entries:
     version: 0.7.27
   - apiVersion: v2
     appVersion: 24.10.16
-    created: "2026-05-19T09:53:24.840025295Z"
+    created: "2026-05-19T16:47:49.787519429Z"
     description: A Helm chart for RonDBCluster
     digest: 8d03db16bda00c61c5c14707511ec8aabe1eb90c0a9105f7a790595f4e37f001
     home: https://www.rondb.com
@@ -759,7 +787,7 @@ entries:
     version: 0.7.26
   - apiVersion: v2
     appVersion: 24.10.16
-    created: "2026-05-19T09:53:24.835207701Z"
+    created: "2026-05-19T16:47:49.783499657Z"
     description: A Helm chart for RonDBCluster
     digest: b8998146b29686d3b19c8df27715462ee46a2461c51a60c136c623c917147bee
     home: https://www.rondb.com
@@ -787,7 +815,7 @@ entries:
     version: 0.7.24
   - apiVersion: v2
     appVersion: 24.10.16
-    created: "2026-05-19T09:53:24.830541532Z"
+    created: "2026-05-19T16:47:49.778898323Z"
     description: A Helm chart for RonDBCluster
     digest: b07927ecac72a79df3eb6efba7c5fa2ce5d6c98a86745f0cb441a8f252211486
     home: https://www.rondb.com
@@ -815,7 +843,7 @@ entries:
     version: 0.7.23
   - apiVersion: v2
     appVersion: 24.10.16
-    created: "2026-05-19T09:53:24.826731573Z"
+    created: "2026-05-19T16:47:49.774901765Z"
     description: A Helm chart for RonDBCluster
     digest: b5b191532cb92bc9177ae8bf62a0cbbaba731f564895771802b439ae72c8e54a
     home: https://www.rondb.com
@@ -843,7 +871,7 @@ entries:
     version: 0.7.22
   - apiVersion: v2
     appVersion: 24.10.16
-    created: "2026-05-19T09:53:24.822849347Z"
+    created: "2026-05-19T16:47:49.770223878Z"
     description: A Helm chart for RonDBCluster
     digest: 2a7582a8e96874632e3ae9fa1a5e2fc5645fc048d4ad7ad71f9167d9ccbaa48c
     home: https://www.rondb.com
@@ -871,7 +899,7 @@ entries:
     version: 0.7.21
   - apiVersion: v2
     appVersion: 24.10.15
-    created: "2026-05-19T09:53:24.818692333Z"
+    created: "2026-05-19T16:47:49.766251255Z"
     description: A Helm chart for RonDBCluster
     digest: c4cc05691c2466a37124e377b2372caf8f56fe545a6e6980f8f93441fa4e435f
     home: https://www.rondb.com
@@ -899,7 +927,7 @@ entries:
     version: 0.7.20
   - apiVersion: v2
     appVersion: 24.10.15
-    created: "2026-05-19T09:53:24.810345658Z"
+    created: "2026-05-19T16:47:49.757771027Z"
     description: A Helm chart for RonDBCluster
     digest: c7acee9f7dfeddf602049af99edd486011592b7cac54a69e749cef733341a30e
     home: https://www.rondb.com
@@ -927,7 +955,7 @@ entries:
     version: 0.7.19
   - apiVersion: v2
     appVersion: 24.10.13
-    created: "2026-05-19T09:53:24.806453663Z"
+    created: "2026-05-19T16:47:49.753181616Z"
     description: A Helm chart for RonDBCluster
     digest: ad2c5e3a428ae6e1a0cd615f65ffee4d5d7974ed0e16a5ded70c853e54fa37b0
     home: https://www.rondb.com
@@ -955,7 +983,7 @@ entries:
     version: 0.7.18
   - apiVersion: v2
     appVersion: 24.10.13
-    created: "2026-05-19T09:53:24.801805789Z"
+    created: "2026-05-19T16:47:49.749221351Z"
     description: A Helm chart for RonDBCluster
     digest: 7e4c8e0cfba8e31dc744c2bb9fc28b69b5272ad6ff03342aa825308da8b3e7ea
     home: https://www.rondb.com
@@ -983,7 +1011,7 @@ entries:
     version: 0.7.17
   - apiVersion: v2
     appVersion: 24.10.13
-    created: "2026-05-19T09:53:24.797479495Z"
+    created: "2026-05-19T16:47:49.74468529Z"
     description: A Helm chart for RonDBCluster
     digest: 1921f4a89239133ae2e06ea0b7058c7abf60fd7a4dac966874baabbad7e293e8
     home: https://www.rondb.com
@@ -1011,7 +1039,7 @@ entries:
     version: 0.7.16
   - apiVersion: v2
     appVersion: 24.10.10
-    created: "2026-05-19T09:53:24.793595616Z"
+    created: "2026-05-19T16:47:49.740714299Z"
     description: A Helm chart for RonDBCluster
     digest: f84b6eef77d5e4c9944ed8e239207826c341c5f30b164d245bb13daceb2637bb
     home: https://www.rondb.com
@@ -1039,7 +1067,7 @@ entries:
     version: 0.7.15
   - apiVersion: v2
     appVersion: 24.10.10
-    created: "2026-05-19T09:53:24.789257437Z"
+    created: "2026-05-19T16:47:49.736117086Z"
     description: A Helm chart for RonDBCluster
     digest: 1ee7d150f52feacf314c4b3ac5d3d509c7be933128c450d22ee50a787ed8f48b
     home: https://www.rondb.com
@@ -1067,7 +1095,7 @@ entries:
     version: 0.7.13
   - apiVersion: v2
     appVersion: 24.10.10
-    created: "2026-05-19T09:53:24.785498484Z"
+    created: "2026-05-19T16:47:49.732212184Z"
     description: A Helm chart for RonDBCluster
     digest: 1effb600baca94685aa4502e060ced79cd518c4f0455d152546be1f728264fa2
     home: https://www.rondb.com
@@ -1095,7 +1123,7 @@ entries:
     version: 0.7.12
   - apiVersion: v2
     appVersion: 24.10.10
-    created: "2026-05-19T09:53:24.781137943Z"
+    created: "2026-05-19T16:47:49.72701937Z"
     description: A Helm chart for RonDBCluster
     digest: 005c22ddbeb1437345160fb26053c8a19ca7a6bebdda706dd3b974faafd734d2
     home: https://www.rondb.com
@@ -1123,7 +1151,7 @@ entries:
     version: 0.7.11
   - apiVersion: v2
     appVersion: 24.10.10
-    created: "2026-05-19T09:53:24.777422292Z"
+    created: "2026-05-19T16:47:49.723132674Z"
     description: A Helm chart for RonDBCluster
     digest: b039fd6f5e6911bbf325052a80e2e697e1db0041ce787ae072f3ffdb82009fcc
     home: https://www.rondb.com
@@ -1151,7 +1179,7 @@ entries:
     version: 0.7.10
   - apiVersion: v2
     appVersion: 24.10.10
-    created: "2026-05-19T09:53:24.877003495Z"
+    created: "2026-05-19T16:47:49.826156324Z"
     description: A Helm chart for RonDBCluster
     digest: bc2e98c3519035397fbd3142b0b3732e663d3d50cd0915f38a5aafe4ce81e583
     home: https://www.rondb.com
@@ -1179,7 +1207,7 @@ entries:
     version: 0.7.9
   - apiVersion: v2
     appVersion: 24.10.8
-    created: "2026-05-19T09:53:24.872590562Z"
+    created: "2026-05-19T16:47:49.82177722Z"
     description: A Helm chart for RonDBCluster
     digest: a70d9d1636c01b17ad584beb1ee7932a74049c5d38815e88e2ac684cbed48168
     home: https://www.rondb.com
@@ -1207,7 +1235,7 @@ entries:
     version: 0.7.8
   - apiVersion: v2
     appVersion: 24.10.8
-    created: "2026-05-19T09:53:24.868736089Z"
+    created: "2026-05-19T16:47:49.817891866Z"
     description: A Helm chart for RonDBCluster
     digest: 6f6bb01e90c65b2b4288030704ec0e45bffa8778e30e2a1fa832d270a1f6cbd6
     home: https://www.rondb.com
@@ -1235,7 +1263,7 @@ entries:
     version: 0.7.7
   - apiVersion: v2
     appVersion: 24.10.8
-    created: "2026-05-19T09:53:24.864282728Z"
+    created: "2026-05-19T16:47:49.813239547Z"
     description: A Helm chart for RonDBCluster
     digest: 738598e8f3001e05368b01794b06e5bc03bd879f0437dd8814e9a497adb2f2ab
     home: https://www.rondb.com
@@ -1263,7 +1291,7 @@ entries:
     version: 0.7.6
   - apiVersion: v2
     appVersion: 24.10.8
-    created: "2026-05-19T09:53:24.860652528Z"
+    created: "2026-05-19T16:47:49.809409205Z"
     description: A Helm chart for RonDBCluster
     digest: 3a41e47fbd0362773728a9613f1cf05b478585f4a5ad584b40326350aa0111b4
     home: https://www.rondb.com
@@ -1291,7 +1319,7 @@ entries:
     version: 0.7.4
   - apiVersion: v2
     appVersion: 24.10.8
-    created: "2026-05-19T09:53:24.856762643Z"
+    created: "2026-05-19T16:47:49.804525062Z"
     description: A Helm chart for RonDBCluster
     digest: fac9d350be87d7e3cfb2a4c313849a661e250ad45443cbe2436974965e48ff96
     home: https://www.rondb.com
@@ -1319,7 +1347,7 @@ entries:
     version: 0.7.3
   - apiVersion: v2
     appVersion: 24.10.8
-    created: "2026-05-19T09:53:24.814782425Z"
+    created: "2026-05-19T16:47:49.761600098Z"
     description: A Helm chart for RonDBCluster
     digest: 0d0b4046d579c5bdf356749605bde88d2a917790e1f8aa574fee5e5317d7836d
     home: https://www.rondb.com
@@ -1347,7 +1375,7 @@ entries:
     version: 0.7.2
   - apiVersion: v2
     appVersion: 24.10.3
-    created: "2026-05-19T09:53:24.772930311Z"
+    created: "2026-05-19T16:47:49.718407151Z"
     description: A Helm chart for RonDBCluster
     digest: e133ac82c273a7d6d0ae6b7187da97dd2d156e16eb6d6d58b2785325f2cb51bf
     home: https://www.rondb.com
@@ -1375,7 +1403,7 @@ entries:
     version: 0.7.1
   - apiVersion: v2
     appVersion: 22.10.19-0.7
-    created: "2026-05-19T09:53:24.744780688Z"
+    created: "2026-05-19T16:47:49.688386791Z"
     description: A Helm chart for RonDBCluster
     digest: cc4f6236716bfa2363552d5a9963a612ca2215dc6ce7e3dcaeb52f0c8d979e9c
     home: https://www.rondb.com
@@ -1403,7 +1431,7 @@ entries:
     version: 0.6.34
   - apiVersion: v2
     appVersion: 22.10.18-0.7
-    created: "2026-05-19T09:53:24.74034832Z"
+    created: "2026-05-19T16:47:49.684537491Z"
     description: A Helm chart for RonDBCluster
     digest: d35ef6f16c6e5b523e948b839bd4675e97ed82bbfd8880fb5871dad941bba647
     home: https://www.rondb.com
@@ -1431,7 +1459,7 @@ entries:
     version: 0.6.33
   - apiVersion: v2
     appVersion: 22.10.17-0.7
-    created: "2026-05-19T09:53:24.736583416Z"
+    created: "2026-05-19T16:47:49.680559671Z"
     description: A Helm chart for RonDBCluster
     digest: 4c938b1006e68d8ad2013f638f5a212392a5b446e8bf967ac94c66e30cc12af1
     home: https://www.rondb.com
@@ -1459,7 +1487,7 @@ entries:
     version: 0.6.32
   - apiVersion: v2
     appVersion: 22.10.16-0.7
-    created: "2026-05-19T09:53:24.731821121Z"
+    created: "2026-05-19T16:47:49.676124843Z"
     description: A Helm chart for RonDBCluster
     digest: c47e9513a9615e1df2a8d95d27b092617dd5383115c115d8bff366780ab9874e
     home: https://www.rondb.com
@@ -1487,7 +1515,7 @@ entries:
     version: 0.6.31
   - apiVersion: v2
     appVersion: 22.10.16-0.7
-    created: "2026-05-19T09:53:24.72727734Z"
+    created: "2026-05-19T16:47:49.672191959Z"
     description: A Helm chart for RonDBCluster
     digest: ca26375850ae5752d1433a37e22e6bec7bab13d5a447c968f1501e26e438d638
     home: https://www.rondb.com
@@ -1515,7 +1543,7 @@ entries:
     version: 0.6.30
   - apiVersion: v2
     appVersion: 22.10.15-0.7
-    created: "2026-05-19T09:53:24.719923142Z"
+    created: "2026-05-19T16:47:49.663834468Z"
     description: A Helm chart for RonDBCluster
     digest: 0b6b6bc821eb99f266135af8335a69f0f3be3f00e0d88598f24615fb9cbb8189
     home: https://www.rondb.com
@@ -1543,7 +1571,7 @@ entries:
     version: 0.6.29
   - apiVersion: v2
     appVersion: 22.10.15-0.7
-    created: "2026-05-19T09:53:24.71552717Z"
+    created: "2026-05-19T16:47:49.659175394Z"
     description: A Helm chart for RonDBCluster
     digest: a3a8c21205ab9c5e26b3a292e82499344e4e01bd5654c66b25bdf7927e8e8ad0
     home: https://www.rondb.com
@@ -1571,7 +1599,7 @@ entries:
     version: 0.6.28
   - apiVersion: v2
     appVersion: 22.10.15-0.7
-    created: "2026-05-19T09:53:24.71169568Z"
+    created: "2026-05-19T16:47:49.655192476Z"
     description: A Helm chart for RonDBCluster
     digest: 1122f912f82dcc1c1f8c5b1c8409e7e5286b7ff79aaeaf17c2c0bc6bbf1cbb67
     home: https://www.rondb.com
@@ -1599,7 +1627,7 @@ entries:
     version: 0.6.27
   - apiVersion: v2
     appVersion: 22.10.15-0.7
-    created: "2026-05-19T09:53:24.707302944Z"
+    created: "2026-05-19T16:47:49.650456418Z"
     description: A Helm chart for RonDBCluster
     digest: 2d62f52062d0a6eab7b2fc4f43675bebf40b60199865f5e02ae89a45e4da7de7
     home: https://www.rondb.com
@@ -1627,7 +1655,7 @@ entries:
     version: 0.6.26
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.703198551Z"
+    created: "2026-05-19T16:47:49.646604243Z"
     description: A Helm chart for RonDBCluster
     digest: 046f0d5f752df7ec2540ac84a9bcf07cb932429b51b64411936652c4992504ba
     home: https://www.rondb.com
@@ -1655,7 +1683,7 @@ entries:
     version: 0.6.25
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.699069505Z"
+    created: "2026-05-19T16:47:49.641906883Z"
     description: A Helm chart for RonDBCluster
     digest: 45509d9b2c198d4b00346733404653d66733dbcbd2a5cd732e1dcd852cc969ae
     home: https://www.rondb.com
@@ -1683,7 +1711,7 @@ entries:
     version: 0.6.24
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.694835966Z"
+    created: "2026-05-19T16:47:49.637429177Z"
     description: A Helm chart for RonDBCluster
     digest: fd004de9b1a6bc68264e8be3dff3654cb97001a9963363fed75cd03c41588b56
     home: https://www.rondb.com
@@ -1711,7 +1739,7 @@ entries:
     version: 0.6.22
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.690259278Z"
+    created: "2026-05-19T16:47:49.633216679Z"
     description: A Helm chart for RonDBCluster
     digest: 3b6ef89b70e57f3c0df2ab42361ed31a997ba595e53a6cbac38bd22dfb413a07
     home: https://www.rondb.com
@@ -1739,7 +1767,7 @@ entries:
     version: 0.6.21
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.686361863Z"
+    created: "2026-05-19T16:47:49.629363112Z"
     description: A Helm chart for RonDBCluster
     digest: 090ca55bf586f5a922f5de8f6df6442deadc52670949f62c28956be852ee97ba
     home: https://www.rondb.com
@@ -1767,7 +1795,7 @@ entries:
     version: 0.6.20
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.67822931Z"
+    created: "2026-05-19T16:47:49.620103726Z"
     description: A Helm chart for RonDBCluster
     digest: 4c9c5ce11ff412e4692d91f611e93086ee5aed8eff37fea338581b136d0c0a81
     home: https://www.rondb.com
@@ -1795,7 +1823,7 @@ entries:
     version: 0.6.19
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.673923302Z"
+    created: "2026-05-19T16:47:49.616298451Z"
     description: A Helm chart for RonDBCluster
     digest: 2477a922e77ea68474c0cac1244131f0f288ee732d1ec45aed954893a532073d
     home: https://www.rondb.com
@@ -1823,7 +1851,7 @@ entries:
     version: 0.6.18
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.67001628Z"
+    created: "2026-05-19T16:47:49.612483872Z"
     description: A Helm chart for RonDBCluster
     digest: 769a68708ed7825b1736231d7cde0e80041acb934b8c3a9ebb716a67bbaa930d
     home: https://www.rondb.com
@@ -1851,7 +1879,7 @@ entries:
     version: 0.6.17
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.665482262Z"
+    created: "2026-05-19T16:47:49.607842149Z"
     description: A Helm chart for RonDBCluster
     digest: 1930674de9d16c30d2d0339dc51a890f7faf953ef21fdf7559626f173b2f96ff
     home: https://www.rondb.com
@@ -1879,7 +1907,7 @@ entries:
     version: 0.6.16
   - apiVersion: v2
     appVersion: 22.10.13-0.7
-    created: "2026-05-19T09:53:24.661622528Z"
+    created: "2026-05-19T16:47:49.604072176Z"
     description: A Helm chart for RonDBCluster
     digest: 4926fa7a2879b78e34179f7d6350330518087f9d65b23600f1078ffbb561641e
     home: https://www.rondb.com
@@ -1907,7 +1935,7 @@ entries:
     version: 0.6.15
   - apiVersion: v2
     appVersion: 22.10.12-0.7
-    created: "2026-05-19T09:53:24.657189416Z"
+    created: "2026-05-19T16:47:49.599648445Z"
     description: A Helm chart for RonDBCluster
     digest: 4b2132e8a35faa3c900b30b4b265eb75b0c3b315a352063668d90e511ce5fb4f
     home: https://www.rondb.com
@@ -1935,7 +1963,7 @@ entries:
     version: 0.6.14
   - apiVersion: v2
     appVersion: 22.10.11-0.7
-    created: "2026-05-19T09:53:24.653453887Z"
+    created: "2026-05-19T16:47:49.595185496Z"
     description: A Helm chart for RonDBCluster
     digest: f991c53041d67916de12939846e0b270372ccd25d9fd4d013746278a270958f5
     home: https://www.rondb.com
@@ -1963,7 +1991,7 @@ entries:
     version: 0.6.13
   - apiVersion: v2
     appVersion: 22.10.11-0.7
-    created: "2026-05-19T09:53:24.648466105Z"
+    created: "2026-05-19T16:47:49.591439049Z"
     description: A Helm chart for RonDBCluster
     digest: e8eb435a7908d06e6c2fea3c441c090badde183aebb0ae1d7da402313ee78f50
     home: https://www.rondb.com
@@ -1991,7 +2019,7 @@ entries:
     version: 0.6.13-1
   - apiVersion: v2
     appVersion: 22.10.11-0.7
-    created: "2026-05-19T09:53:24.643643605Z"
+    created: "2026-05-19T16:47:49.586684252Z"
     description: A Helm chart for RonDBCluster
     digest: 22a190e4fd3106c7625cf40d7dc4924898dc3f328971ecd3f76ddb16e9d51408
     home: https://www.rondb.com
@@ -2019,7 +2047,7 @@ entries:
     version: 0.6.12
   - apiVersion: v2
     appVersion: 22.10.11-0.7
-    created: "2026-05-19T09:53:24.639943353Z"
+    created: "2026-05-19T16:47:49.582871596Z"
     description: A Helm chart for RonDBCluster
     digest: 220bc944056f15a5390a19a73aa8532abfd84a60797d9d19d15c4d6a538ff1bf
     home: https://www.rondb.com
@@ -2047,7 +2075,7 @@ entries:
     version: 0.6.11
   - apiVersion: v2
     appVersion: 22.10.11-0.7
-    created: "2026-05-19T09:53:24.636268989Z"
+    created: "2026-05-19T16:47:49.57821119Z"
     description: A Helm chart for RonDBCluster
     digest: 4cf65848a79dd3122a6b20327dc2c3a73d7c297e59e7cb39b5d35dc9d22eda09
     home: https://www.rondb.com
@@ -2075,7 +2103,7 @@ entries:
     version: 0.6.10
   - apiVersion: v2
     appVersion: 22.10.10-0.7
-    created: "2026-05-19T09:53:24.76929397Z"
+    created: "2026-05-19T16:47:49.71367575Z"
     description: A Helm chart for RonDBCluster
     digest: 5a2c4aeac0f04ef3a2c52870dde1cda509222986c334a51c86b97039f6d4d4b7
     home: https://www.rondb.com
@@ -2103,7 +2131,7 @@ entries:
     version: 0.6.9
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.76470355Z"
+    created: "2026-05-19T16:47:49.70979985Z"
     description: A Helm chart for RonDBCluster
     digest: 064ccee0f417595feb1ab502530bcc74ca8538bf413463a53f59df0803c2d937
     home: https://www.rondb.com
@@ -2131,7 +2159,7 @@ entries:
     version: 0.6.8
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.760932604Z"
+    created: "2026-05-19T16:47:49.705952653Z"
     description: A Helm chart for RonDBCluster
     digest: f0e1074fdde2788ae866371b1fd3eaa83c07d4827bf231cb22c9abc2ee688a1c
     home: https://www.rondb.com
@@ -2159,7 +2187,7 @@ entries:
     version: 0.6.7
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.756436322Z"
+    created: "2026-05-19T16:47:49.701066017Z"
     description: A Helm chart for RonDBCluster
     digest: 5dd36efc4e9afb4f27ebad4a7c8e042343d9fe3c43855b3cbe62dc51bd118b32
     home: https://www.rondb.com
@@ -2187,7 +2215,7 @@ entries:
     version: 0.6.6
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.752210651Z"
+    created: "2026-05-19T16:47:49.697280752Z"
     description: A Helm chart for RonDBCluster
     digest: 23c54d89a4a71c3a1908191bb8d64eca5b3131d54bb8c2175c2df2b94b122e9b
     home: https://www.rondb.com
@@ -2215,7 +2243,7 @@ entries:
     version: 0.6.5
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.748674829Z"
+    created: "2026-05-19T16:47:49.69271503Z"
     description: A Helm chart for RonDBCluster
     digest: c83de7e8f00328a7a0f45cc784de8d89bbbd4102b8aaa0660c9e02603236e703
     home: https://www.rondb.com
@@ -2243,7 +2271,7 @@ entries:
     version: 0.6.4
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.723579502Z"
+    created: "2026-05-19T16:47:49.667537782Z"
     description: A Helm chart for RonDBCluster
     digest: 67e643b5952949e2cd7af96e23dc2332165dc9a54eeda16dc2620f818ec53603
     home: https://www.rondb.com
@@ -2271,7 +2299,7 @@ entries:
     version: 0.6.3
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.681968025Z"
+    created: "2026-05-19T16:47:49.624852147Z"
     description: A Helm chart for RonDBCluster
     digest: 607e895ed497d418fd936b3271e6c65839dbfedf2355e564811ade5eb8ebaf0e
     home: https://www.rondb.com
@@ -2299,7 +2327,7 @@ entries:
     version: 0.6.2
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.631569023Z"
+    created: "2026-05-19T16:47:49.574325677Z"
     description: A Helm chart for RonDBCluster
     digest: ba15d3538ee1b6eb6fd80d9485b709e06d4c39f1869e3614301fe9c6a9b8b241
     home: https://www.rondb.com
@@ -2327,7 +2355,7 @@ entries:
     version: 0.6.1
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.628090269Z"
+    created: "2026-05-19T16:47:49.569900098Z"
     description: A Helm chart for RonDBCluster
     digest: 43fb0389e51fef681c24074525d98878fdea6d59a4f095ee23aa2aebb9cf7404
     home: https://www.rondb.com
@@ -2355,7 +2383,7 @@ entries:
     version: 0.6.0
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.623781396Z"
+    created: "2026-05-19T16:47:49.566233027Z"
     description: A Helm chart for RonDBCluster
     digest: ba42446dc66c4d0b836cff41cf00b30e188d5aa2563780e9553cabcadb72694e
     home: https://www.rondb.com
@@ -2383,7 +2411,7 @@ entries:
     version: 0.5.0
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.620295017Z"
+    created: "2026-05-19T16:47:49.561774059Z"
     description: A Helm chart for RonDBCluster
     digest: a925e0579c9fe412a0c0be03eaccc5597a06c6000901f8301bd440f14ce41d0c
     home: https://www.rondb.com
@@ -2411,7 +2439,7 @@ entries:
     version: 0.4.0
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.616025186Z"
+    created: "2026-05-19T16:47:49.558125346Z"
     description: A Helm chart for RonDBCluster
     digest: c6bb55fc6fd8ce0bade257314d0574ca0169270422440584b5c1eee792126dec
     home: https://www.rondb.com
@@ -2439,7 +2467,7 @@ entries:
     version: 0.3.0
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.61256169Z"
+    created: "2026-05-19T16:47:49.553701135Z"
     description: A Helm chart for RonDBCluster
     digest: fa0df84d28e87cfe87afbffa29289a182db7c6184df2192de214e2591dbd6537
     home: https://www.rondb.com
@@ -2467,7 +2495,7 @@ entries:
     version: 0.2.1-dev
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.608201249Z"
+    created: "2026-05-19T16:47:49.550082817Z"
     description: A Helm chart for RonDBCluster
     digest: 43bcf84f0439bf1368867b6d74c8263b6af0ac50ff76dfe72aef94202e12f23c
     home: https://www.rondb.com
@@ -2495,7 +2523,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.604732383Z"
+    created: "2026-05-19T16:47:49.545743802Z"
     description: A Helm chart for RonDBCluster
     digest: f94eff92707e1ea2216c86c52ba82ae98ddc97f73c498f58dab6e48926f6c446
     home: https://www.rondb.com
@@ -2523,7 +2551,7 @@ entries:
     version: 0.2.0-dev
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.600489251Z"
+    created: "2026-05-19T16:47:49.542040488Z"
     description: A Helm chart for RonDBCluster
     digest: 2893d4191fc8e007087d39ab6439b9e1c09d75de305a7c74843e6592f2184ccb
     home: https://www.rondb.com
@@ -2551,7 +2579,7 @@ entries:
     version: 0.1.1-dev
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.596522015Z"
+    created: "2026-05-19T16:47:49.537658734Z"
     description: A Helm chart for RonDBCluster
     digest: d3c3734bea080fd543596d17447a6f87ec8e80ca562b62bd9b3e10d9e361db21
     home: https://www.rondb.com
@@ -2579,7 +2607,7 @@ entries:
     version: 0.1.0
   - apiVersion: v2
     appVersion: 22.10.7-0.7
-    created: "2026-05-19T09:53:24.593451602Z"
+    created: "2026-05-19T16:47:49.534357735Z"
     description: A Helm chart for RonDBCluster
     digest: 80ab7c8bc0a5493b77e0e2ea1cd0d4f091d773898c2e4514ed8aa8eab4211a76
     home: https://www.rondb.com
@@ -2605,4 +2633,4 @@ entries:
     urls:
     - https://logicalclocks.github.io/rondb-helm/charts/rondb-0.1.0-dev.tgz
     version: 0.1.0-dev
-generated: "2026-05-19T09:53:24.59010183Z"
+generated: "2026-05-19T16:47:49.530124312Z"
