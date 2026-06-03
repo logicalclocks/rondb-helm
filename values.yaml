@@ -367,6 +367,7 @@ rondbConfig:
   MySQLdSlotsPerNode: 4
   OsCpuOverhead: null
   OsStaticOverhead: null
+  PartitionsPerNode: null
   RdrsMetadataSlotsPerNode: 1
   RdrsSlotsPerNode: 1
   RedoBuffer: null
