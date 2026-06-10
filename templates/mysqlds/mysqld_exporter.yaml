@@ -40,6 +40,7 @@ spec:
         args:
           - --web.listen-address=:{{ .Values.meta.mysqld.exporter.metricsPort }}
           - --exporter.max-open-conns={{ .Values.mysql.exporter.maxOpenConnections }}
+          - --no-collect.slave_status
         ports:
           - containerPort: {{ .Values.meta.mysqld.exporter.metricsPort }}
             name: metrics-port
