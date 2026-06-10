@@ -361,6 +361,7 @@ rondbConfig:
   MaxNoOfSchemaObjects: null
   MaxNoOfTables: null
   MaxNoOfTriggers: null
+  MaxRRGroupSize: null
   MySQLdSlotsPerNode: 4
   OsCpuOverhead: null
   OsStaticOverhead: null
@@ -378,6 +379,7 @@ rondbConfig:
   TransactionInactiveTimeout: 15000
   TransactionMemory: null
   UseOnlyIPv4: null
+  UseTcInRRGroup: null
 serviceAccountAnnotations: {}
 skipMgmdPreUpgradeRollout: false
 staticCpuManagerPolicy: false
