@@ -1498,6 +1498,24 @@
                     "description": "Number of partitions per data node used when creating new tables. When null, RonDB chooses based on AutomaticThreadConfig / NumCPUs (typically the number of LDM threads). Only affects tables created after the change; existing tables are not repartitioned.",
                     "default": null
                 },
+                "UseTcInRRGroup": {
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "description": "When true, each recv thread distributes connections only to TC threads within the same Round Robin (RR) group; when false, it distributes them across all TC threads. RonDB default is true.",
+                    "default": null
+                },
+                "MaxRRGroupSize": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "description": "Max size of a Round Robin (RR) group. RonDB default is 8; allowed range is 8 to 32.",
+                    "minimum": 8,
+                    "maximum": 32,
+                    "default": null
+                },
                 "ActivateRateLimits": {
                     "type": "integer",
                     "description": "Activate rate limits handling",
