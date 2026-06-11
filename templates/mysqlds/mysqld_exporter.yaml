@@ -2,6 +2,9 @@
 
 
 {{ if .Values.mysql.exporter.enabled }}
+{{- if gt (.Values.mysql.exporter.maxOpenConnections | int) (.Values.mysql.exporter.maxUserConnections | int) }}
+{{- fail (printf "mysql.exporter.maxOpenConnections (%d) must not exceed mysql.exporter.maxUserConnections (%d), otherwise scrapes will be throttled by the exporter user's MAX_USER_CONNECTIONS grant" (.Values.mysql.exporter.maxOpenConnections | int) (.Values.mysql.exporter.maxUserConnections | int)) }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,6 +39,8 @@ spec:
             memory: {{ .Values.resources.requests.memory.mysqldExportersMiB }}Mi
         args:
           - --web.listen-address=:{{ .Values.meta.mysqld.exporter.metricsPort }}
+          - --exporter.max-open-conns={{ .Values.mysql.exporter.maxOpenConnections }}
+          - --no-collect.slave_status
         ports:
           - containerPort: {{ .Values.meta.mysqld.exporter.metricsPort }}
             name: metrics-port

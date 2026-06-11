@@ -245,6 +245,7 @@ mysql:
   credentialsSecretName: mysql-passwords
   exporter:
     enabled: false
+    maxOpenConnections: 1
     maxUserConnections: 3
     username: exporter
   force2410UserGrantMigration: false
