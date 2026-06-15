@@ -88,7 +88,7 @@ images:
     name: mysqld_exporter
     registry: docker.hops.works
     repository: hopsworks
-    tag: 0.11.4
+    tag: 0.11.5
   rondb:
     name: rondb
     registry: docker.io
@@ -244,6 +244,7 @@ mysql:
   credentialsSecretName: mysql-passwords
   exporter:
     enabled: false
+    maxOpenConnections: 1
     maxUserConnections: 3
     username: exporter
   force2410UserGrantMigration: false

@@ -884,7 +884,7 @@
                         },
                         "tag": {
                             "type": "string",
-                            "default": "0.11.4"
+                            "default": "0.11.5"
                         }
                     }
                 }
@@ -930,6 +930,12 @@
                         "username": {
                             "type": "string",
                             "default": "exporter"
+                        },
+                        "maxOpenConnections": {
+                            "type": "integer",
+                            "description": "Maximum number of open connections to the database per scrape. 1 (default) serializes all collectors onto a single connection; higher values let independent collectors run concurrently but may incur higher load on the database. Should not exceed maxUserConnections.",
+                            "default": 1,
+                            "minimum": 1
                         },
                         "maxUserConnections": {
                             "type": "integer",
