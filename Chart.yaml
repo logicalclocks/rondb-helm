@@ -10,7 +10,7 @@ version: 25.10.11
 
 # This is the version number of the application being deployed. This version number should be
 # incremented each time you make changes to the application.
-appVersion: 25.10.11
+appVersion: 25.10.12
 
 # kubeVersion: A SemVer range of compatible Kubernetes versions (optional)
 kubeVersion: ">= 1.27.0-0"
