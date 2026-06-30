@@ -14,62 +14,63 @@ runs:
   steps:
     - name: Set config
       shell: bash
-      run: mkdir -p ${{ inputs.folder_name }}
+      run: |
+        mkdir -p ${{ inputs.folder_name }}
+        printf "Collecting Kubernetes diagnostics for namespace %s\n" "${{ inputs.namespace }}" > ${{ inputs.folder_name }}/summary.txt
 
     - name: List Pods
       shell: bash
-      run: kubectl get pods -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/pods.txt
+      run: kubectl get pods -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/pods.txt 2>&1 || true
 
     - name: List all
       shell: bash
-      run: kubectl get all -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/all.txt
+      run: kubectl get all -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/all.txt 2>&1 || true
 
     - name: Save events
       shell: bash
-      run: kubectl get events -n ${{ inputs.namespace }} --sort-by='.metadata.creationTimestamp' > ${{ inputs.folder_name }}/all_events.txt
+      run: kubectl get events -n ${{ inputs.namespace }} --sort-by='.metadata.creationTimestamp' > ${{ inputs.folder_name }}/all_events.txt 2>&1 || true
 
     - name: Describe top
       shell: bash
-      run: kubectl top pods -n ${{ inputs.namespace }} > ${{ inputs.folder_name }}/top.txt
+      run: kubectl top pods -n ${{ inputs.namespace }} > ${{ inputs.folder_name }}/top.txt 2>&1 || true
 
     - name: Get nodes
       shell: bash
       run: |
-        kubectl get nodes -o wide > ${{ inputs.folder_name }}/nodes.txt
-        kubectl top nodes >> ${{ inputs.folder_name }}/nodes.txt
+        kubectl get nodes -o wide > ${{ inputs.folder_name }}/nodes.txt 2>&1 || true
+        kubectl top nodes >> ${{ inputs.folder_name }}/nodes.txt 2>&1 || true
 
     - name: Describe Deployments
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/deployments
-        kubectl get deployments -n ${{ inputs.namespace }} -o wide
-        for dep in $(kubectl get deployments -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe deployment -n ${{ inputs.namespace }} $dep > ${{ inputs.folder_name }}/deployments/$dep.txt || true
+        kubectl get deployments -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/deployments.txt 2>&1 || true
+        for dep in $(kubectl get deployments -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true); do
+          kubectl describe deployment -n ${{ inputs.namespace }} $dep > ${{ inputs.folder_name }}/deployments/$dep.txt 2>&1 || true
         done
 
     - name: Describe StatefulSets
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/statefulsets
-        kubectl get statefulsets -n ${{ inputs.namespace }} -o wide
-        mkdir -p ${{ inputs.folder_name }}/statefulsets
-        for sts in $(kubectl get statefulsets -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe statefulset -n ${{ inputs.namespace }} $sts > ${{ inputs.folder_name }}/statefulsets/$sts.txt || true
+        kubectl get statefulsets -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/statefulsets.txt 2>&1 || true
+        for sts in $(kubectl get statefulsets -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true); do
+          kubectl describe statefulset -n ${{ inputs.namespace }} $sts > ${{ inputs.folder_name }}/statefulsets/$sts.txt 2>&1 || true
         done
 
     - name: Pod logs
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/pods/logs
-        for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
+        for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true); do
           mkdir -p ${{ inputs.folder_name }}/pods/logs/$pod
-          for container in $(kubectl get pods -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.containers[*].name}'); do
-            kubectl logs -n ${{ inputs.namespace }} $pod $container > ${{ inputs.folder_name }}/pods/logs/$pod/$container.log || true
-            kubectl logs -n ${{ inputs.namespace }} $pod $container --previous > ${{ inputs.folder_name }}/pods/logs/$pod/$container.previous.log || true
+          for container in $(kubectl get pod -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || true); do
+            kubectl logs -n ${{ inputs.namespace }} $pod -c $container > ${{ inputs.folder_name }}/pods/logs/$pod/$container.log 2>&1 || true
+            kubectl logs -n ${{ inputs.namespace }} $pod -c $container --previous > ${{ inputs.folder_name }}/pods/logs/$pod/$container.previous.log 2>&1 || true
           done
-          for container in $(kubectl get pods -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.initContainers[*].name}'); do
-            kubectl logs -n ${{ inputs.namespace }} $pod $container > ${{ inputs.folder_name }}/pods/logs/$pod/$container.log || true
-            kubectl logs -n ${{ inputs.namespace }} $pod $container --previous > ${{ inputs.folder_name }}/pods/logs/$pod/$container.previous.log || true
+          for container in $(kubectl get pod -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.initContainers[*].name}' 2>/dev/null || true); do
+            kubectl logs -n ${{ inputs.namespace }} $pod -c $container > ${{ inputs.folder_name }}/pods/logs/$pod/$container.log 2>&1 || true
+            kubectl logs -n ${{ inputs.namespace }} $pod -c $container --previous > ${{ inputs.folder_name }}/pods/logs/$pod/$container.previous.log 2>&1 || true
           done
         done
 
@@ -77,35 +78,40 @@ runs:
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/pods/describe
-        for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe pod -n ${{ inputs.namespace }} $pod > ${{ inputs.folder_name }}/pods/describe/$pod.txt || true
+        for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true); do
+          kubectl describe pod -n ${{ inputs.namespace }} $pod > ${{ inputs.folder_name }}/pods/describe/$pod.txt 2>&1 || true
         done
 
     - name: PVC logs
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/pvc
-        for p in $(kubectl get pvc -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe pvc -n ${{ inputs.namespace }} $p > ${{ inputs.folder_name }}/pvc/$p.txt || true
+        for p in $(kubectl get pvc -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true); do
+          kubectl describe pvc -n ${{ inputs.namespace }} $p > ${{ inputs.folder_name }}/pvc/$p.txt 2>&1 || true
         done
 
     - name: PV logs
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/pv
-        for p in $(kubectl get pv -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
-          kubectl describe pv -n ${{ inputs.namespace }} $p > ${{ inputs.folder_name }}/pv/$p.txt || true
+        for p in $(kubectl get pvc -n ${{ inputs.namespace }} -o jsonpath='{.items[*].spec.volumeName}' 2>/dev/null || true); do
+          kubectl describe pv $p > ${{ inputs.folder_name }}/pv/$p.txt 2>&1 || true
         done
 
     - name: CRDs definitions
       shell: bash
-      run: kubectl get crd -A > ${{ inputs.folder_name }}/crds.txt
+      run: kubectl get crd -A > ${{ inputs.folder_name }}/crds.txt 2>&1 || true
 
     - name: Print MGMd cluster.log
       shell: bash
-      run: kubectl exec mgmds-0 --namespace ${{ inputs.namespace }} -c mgmd -- cat /srv/hops/mysql-cluster/log/cluster.log > ${{ inputs.folder_name }}/cluster.log
+      run: |
+        mkdir -p ${{ inputs.folder_name }}/mgmd
+        kubectl logs mgmds-0 --namespace ${{ inputs.namespace }} -c mgmd > ${{ inputs.folder_name }}/mgmd/mgmd.log 2>&1 || true
+        kubectl logs mgmds-0 --namespace ${{ inputs.namespace }} -c mgmd --previous > ${{ inputs.folder_name }}/mgmd/mgmd.previous.log 2>&1 || true
+        kubectl exec mgmds-0 --namespace ${{ inputs.namespace }} -c mgmd -- cat /srv/hops/mysql-cluster/log/cluster.log > ${{ inputs.folder_name }}/cluster.log 2>&1 || true
 
     - name: Save artifacts
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.folder_name }}

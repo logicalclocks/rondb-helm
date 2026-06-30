@@ -25,7 +25,7 @@ runs:
           fetch-bench-results \
           -c idle-results-fetcher \
           -n ${{ inputs.namespace }} \
-          -- cat ${{ inputs.bench_dir }}/sysbench/final_result.txt
+          -- cat ${{ inputs.bench_dir }}/sysbench/final_result.txt || true
 
     - name: Fetch entire RonDB benchmarking output
       shell: bash
@@ -34,11 +34,12 @@ runs:
         kubectl cp \
           ${{ inputs.namespace }}/fetch-bench-results:${{ inputs.bench_dir }} \
           -c idle-results-fetcher \
-          ${{ inputs.local_bench_dir }}
+          ${{ inputs.local_bench_dir }} || true
 
     - name: Save RonDB benchmarking artifacts
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: bench_output
         path: ${{ inputs.local_bench_dir }}
-        if-no-files-found: error
+        if-no-files-found: warn
