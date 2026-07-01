@@ -77,7 +77,7 @@ globalReplication:
       includeDatabases: []
       includeTables: []
       useTlsConnection: false
-imagePullPolicy: IfNotPresent
+imagePullPolicy: Always
 imagePullSecrets: []
 images:
   dataValidation:
@@ -94,7 +94,7 @@ images:
     name: rondb
     registry: docker.io
     repository: hopsworks
-    tag: 26.02.4
+    tag: 26.04.1
   toolbox:
     name: hwutils
     registry: docker.io
