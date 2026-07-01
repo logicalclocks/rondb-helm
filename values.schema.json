@@ -25,7 +25,7 @@
         "imagePullPolicy": {
             "type": "string",
             "description": "The Kubernetes image pull policy",
-            "default": "IfNotPresent"
+            "default": "Always"
         },
         "imagePullSecrets": {
             "type": "array",

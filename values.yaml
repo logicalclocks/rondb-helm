@@ -77,7 +77,7 @@ globalReplication:
       includeDatabases: []
       includeTables: []
       useTlsConnection: false
-imagePullPolicy: IfNotPresent
+imagePullPolicy: Always
 imagePullSecrets: []
 images:
   dataValidation:
