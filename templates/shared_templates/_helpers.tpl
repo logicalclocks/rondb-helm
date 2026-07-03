@@ -69,6 +69,30 @@ annotations: {{ $.Values.serviceAccountAnnotations | toYaml | nindent 2 }}
 {{- end }}
 {{- end -}}
 
+{{/*
+    The same annotations as bare entries, already indented for a
+    metadata.annotations map. For the helm.sh/hook-* accounts, which declare
+    their own 'annotations:' key: a second one in the same map is a duplicate
+    YAML key whose last value wins, which silently dropped the hook
+    annotations and de-hooked the account.
+*/}}
+{{- define "rondb.serviceAccountAnnotationEntries" -}}
+{{- with $.Values.serviceAccountAnnotations }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+{{- end -}}
+
+{{/*
+    Common service account shared by all RonDB node pods (mgmd, ndbmtd, rdrs,
+    mysqld_exporter, benchmark, binlog servers), and the fallback for any RonDB
+    pod without a purpose-specific account. Being chart-owned, it can be
+    annotated (e.g. for AWS IRSA) via serviceAccountAnnotations, which the
+    Kubernetes-owned namespace 'default' account cannot.
+*/}}
+{{- define "rondb.serviceAccountName" -}}
+rondb-default
+{{- end -}}
+
 {{ define "rondb.storageClass.default" -}}
 {{ if .Values.resources.requests.storage.classes.default  }}
 storageClassName: {{ .Values.resources.requests.storage.classes.default | quote }}
