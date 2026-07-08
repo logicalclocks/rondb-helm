@@ -137,7 +137,8 @@ exec:
       -e "SELECT 1"
 timeoutSeconds: 2
 {{- if (required "Required to specify whether SELCT probe is for startup" .isStartup) }}
-failureThreshold: 100
+# Total startup timeout = failureThreshold * periodSeconds
+failureThreshold: {{ mul (required "Required to set startupTimeoutMinutes for startup probes" .startupTimeoutMinutes) 6 }}
 periodSeconds: 10
 {{- else }}
 failureThreshold: 4
@@ -147,7 +148,7 @@ periodSeconds: 5
 
 {{ define "rondb.mysqld.probes" -}}
 startupProbe:
-{{ include "rondb.mysqld.selectProbe" (dict "isStartup" true) | indent 2 }}
+{{ include "rondb.mysqld.selectProbe" (dict "isStartup" true "startupTimeoutMinutes" .startupTimeoutMinutes) | indent 2 }}
 livenessProbe:
 {{ include "rondb.mysqld.adminProbe" (dict "tls" .tls) | indent 2 }}
 readinessProbe:

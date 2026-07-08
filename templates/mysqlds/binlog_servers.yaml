@@ -188,7 +188,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.name
         startupProbe:
-{{ include "rondb.mysqld.selectProbe" (dict "isStartup" true) | indent 10 }}
+{{ include "rondb.mysqld.selectProbe" (dict "isStartup" true "startupTimeoutMinutes" $.Values.timeoutsMinutes.mysqldStartupProbe) | indent 10 }}
         livenessProbe:
 {{ include "rondb.mysqld.adminProbe" (dict "tls" $.Values.meta.binlogServers.statefulSet.endToEndTls) | indent 10 }}
         # This acts as a heartbeat, which can also be used by the replica applier to monitor

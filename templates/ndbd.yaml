@@ -270,8 +270,9 @@ spec:
 {{ include "rondb.nodeId" $ | indent 14 }}
               ./docker/rondb_standalone/healthcheck.sh $MGM_CONNECTION_STRING $NODE_ID
           initialDelaySeconds: 15
-          failureThreshold: 150
-          periodSeconds:  10
+          # Total startup timeout = failureThreshold * periodSeconds
+          failureThreshold: {{ mul $.Values.timeoutsMinutes.ndbmtdStartupProbe 6 }}
+          periodSeconds: 10
           timeoutSeconds: 10
         # This has to account for a failing MGMd as well.
         # There is no point in killing the data node
