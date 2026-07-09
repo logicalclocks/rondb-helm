@@ -94,7 +94,7 @@ images:
     name: rondb
     registry: docker.io
     repository: hopsworks
-    tag: 26.02.5
+    tag: 26.02.6
   toolbox:
     name: hwutils
     registry: docker.io
