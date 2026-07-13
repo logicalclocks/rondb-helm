@@ -1790,11 +1790,25 @@
                     "type": "integer",
                     "description": "This does not include *downloading* the native backups. IMPORTANT; Restoring native backups is NOT done in parallel yet; TODO: Make this dependent on amount of data",
                     "default": 120
+                },
+                "ndbmtdStartupProbe": {
+                    "type": "integer",
+                    "description": "Maximum time a ndbmtd pod is given to start up before Kubernetes restarts its container. Node restarts with a lot of data to restore can take long.",
+                    "default": 120,
+                    "minimum": 1
+                },
+                "mysqldStartupProbe": {
+                    "type": "integer",
+                    "description": "Maximum time a MySQLd pod (mysqld, ddl mysqld, binlog server, replica applier) is given to start up before Kubernetes restarts its container.",
+                    "default": 20,
+                    "minimum": 1
                 }
             },
             "required": [
                 "singleSetupMySQLds",
-                "restoreNativeBackup"
+                "restoreNativeBackup",
+                "ndbmtdStartupProbe",
+                "mysqldStartupProbe"
             ]
         },
         "restoreFromBackup": {
