@@ -166,7 +166,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
-{{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.replicaAppliers.statefulSet.endToEndTls) | indent 8 }}
+{{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.replicaAppliers.statefulSet.endToEndTls "startupTimeoutMinutes" $.Values.timeoutsMinutes.mysqldStartupProbe) | indent 8 }}
         volumeMounts:
         # Only mount single file, otherwise entire directory becomes read-only
         - name: mysqld-configs
