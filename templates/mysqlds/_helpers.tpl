@@ -136,7 +136,7 @@ exec:
       --protocol=tcp \
       -e "SELECT 1"
 timeoutSeconds: 2
-{{- if (required "Required to specify whether SELCT probe is for startup" .isStartup) }}
+{{- if (required "Required to specify whether SELECT probe is for startup" .isStartup) }}
 # Total startup timeout = failureThreshold * periodSeconds
 failureThreshold: {{ mul (required "Required to set startupTimeoutMinutes for startup probes" .startupTimeoutMinutes) 6 }}
 periodSeconds: 10
