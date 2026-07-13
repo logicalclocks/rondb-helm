@@ -141,7 +141,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
-{{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.enabled) | indent 8 }}
+{{ include "rondb.mysqld.probes" (dict "tls" $.Values.meta.ddlMySQLd.statefulSet.endToEndTls.enabled "startupTimeoutMinutes" $.Values.timeoutsMinutes.mysqldStartupProbe) | indent 8 }}
         volumeMounts:
         - name: mysqld-configs
           mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
