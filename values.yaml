@@ -389,6 +389,8 @@ skipMgmdPreUpgradeRollout: false
 staticCpuManagerPolicy: false
 terminationGracePeriodSeconds: 60
 timeoutsMinutes:
+  mysqldStartupProbe: 20
+  ndbmtdStartupProbe: 120
   restoreNativeBackup: 120
   singleSetupMySQLds: 5
 tls:
