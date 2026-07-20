@@ -30,7 +30,16 @@ this document. Shipped comments and messages use plain wording ("rollout",
 
 Revision history:
 
-- **Rev 6 (current)** — dropped Kubernetes Event emission entirely (the
+- **Rev 7 (current)** — the CronJob now suspends itself when idle
+  (`suspendWhenIdle`, default on): zero pods between rollouts, woken by
+  the next helm upgrade/rollback (the chart renders `suspend: false`
+  explicitly so Helm's three-way patch restores it). Gated off when
+  `mode` is set — the Argo CD convention — where Argo's sync would either
+  fight the suspension or, told to ignore it, never wake the CronJob.
+  Documented trade-off: changes applied outside Helm while suspended wait
+  for the next helm operation or a manual unsuspend.
+
+- Rev 6 — dropped Kubernetes Event emission entirely (the
   remaining `Unfroze`/`Converged`/`Stalled` Events, the heredoc that built
   them, the `events` RBAC rule, and the stall-dedup annotation). Events
   expire after ~1 hour by default, so they only covered the first hour of
@@ -309,18 +318,20 @@ failures pause the rollout in observable API state rather than silence, and
 rollback/out-of-band changes are handled by construction rather than by
 hook annotations.
 
-### Steady-state cost — why the CronJob runs forever
+### Steady-state cost — what happens between rollouts
 
-After a rollout completes, the CronJob keeps running on its schedule. That
-is deliberate, and the waste is smaller than it looks: an idle run is one
-short-lived pod doing `numNodeGroups` kubectl reads and exiting in seconds
-— at the 3-minute default roughly 1–2 CPU-minutes per day, with
-`successfulJobsHistoryLimit: 1` keeping clutter at a single completed Job.
-The real cost is API/etcd churn and log noise, not compute. It is the same
-bargain every Kubernetes controller makes: control loops run
-unconditionally so they never miss work.
+With `suspendWhenIdle` (the default, active under plain Helm and Flux) the
+CronJob suspends itself once everything is converged: **zero pods run
+between rollouts**. Under Argo CD (`mode` set) it stays always-on instead —
+there an idle run is one short-lived pod doing `numNodeGroups` kubectl
+reads and exiting in seconds (at the 3-minute default roughly 1–2
+CPU-minutes per day, `successfulJobsHistoryLimit: 1` keeping clutter at a
+single completed Job), and `reconcileIntervalMinutes` (e.g. 10–15) is the
+lever if that churn matters: between rollouts the CronJob only needs to
+catch rollbacks and out-of-band changes, where minutes of detection
+latency are irrelevant.
 
-Could it slow down or stop when idle? Two designs were analyzed. The
+How the idle behavior was chosen: two designs were analyzed. The
 load-bearing fact for both (verified against Helm v3.20 source,
 `pkg/kube/client.go` `createPatch`): Helm's upgrade patch is a **true
 three-way strategic merge** — old manifest, new manifest, *live object*,
@@ -333,15 +344,19 @@ even when the manifests didn't change**. (An earlier draft of this section
 claimed the opposite — that an unchanged manifest produces an empty patch
 and drift survives; that is Helm 2's two-way behavior, not Helm 3's.)
 
-**Decision (follow-up to PR #213, not yet implemented): the CronJob will
-suspend itself when idle** and rely on Helm to wake it.
+**Implemented (Rev 7, `suspendWhenIdle`, default on): the CronJob suspends
+itself when idle** and relies on Helm to wake it.
 
-- The last run that finds every group converged and frozen patches its own
-  CronJob to `suspend: true`. Any `helm upgrade` or `helm rollback` resets
-  it to the rendered `suspend: false` (per the verified patch semantics
-  above), so a new rollout always wakes at full speed. Flux
+- The run that finds every group converged and frozen patches its own
+  CronJob to `suspend: true` — idle cost drops to zero pods. Any
+  `helm upgrade` or `helm rollback` resets it to the rendered
+  `suspend: false` (per the verified patch semantics above — which is why
+  the chart renders the field explicitly instead of leaving it to the API
+  default), so a new rollout always wakes at full speed. Flux
   helm-controller performs real Helm upgrades, so it wakes the CronJob the
-  same way. Idle cost drops to zero pods.
+  same way. A run started by hand from a suspended CronJob
+  (`kubectl create job --from=...`) that finds work resumes the schedule
+  itself.
 - **Gated off when `mode` is set** — the chart's existing Argo CD
   convention (the same signal `rondb.canUseLookupFunc` keys on). Argo's
   sync engine either fights the suspension (selfHeal re-applies
@@ -349,14 +364,15 @@ suspend itself when idle** and rely on Helm to wake it.
   `ignoreDifferences` on `.spec.suspend`, never resets it — and a real
   update would then land frozen with the CronJob asleep. Argo deployments
   therefore keep the always-on cadence; the suspend logic only activates
-  when `mode` is unset (Helm CLI, Flux).
+  when `mode` is unset or `auto` (Helm CLI, Flux).
 - **Accepted trade-off**: a spec change applied outside Helm (a manual
   `kubectl apply` to a node-group StatefulSet) while suspended stays
   frozen until the next Helm operation or a manual wake —
   `kubectl patch cronjob rondb-ndbmtd-sequenced-rollout --type merge -p
   '{"spec":{"suspend":false}}'`. The revision-age metric alert
   (Observability) is the safety net for this case; the value description
-  and runbook must state it loudly.
+  states it loudly. Set `suspendWhenIdle: false` to keep the CronJob
+  always running instead.
 - Runner-up, kept as the fallback if the out-of-band gap bites in
   practice: a **two-speed schedule** (idle runs patch `.spec.schedule` to
   a slow cadence, any run that sees work patches it back; Argo-safe and
@@ -365,12 +381,6 @@ suspend itself when idle** and rely on Helm to wake it.
   suspend — so the choice favors zero idle activity over automatic
   self-recovery. (Plain two-speed beats *exponential* backoff either way:
   idle cost is flat, so extra backoff states buy nothing.)
-
-Until that lands, the available lever is `reconcileIntervalMinutes`
-(e.g. 10–15): between rollouts the CronJob only needs to catch rollbacks
-and out-of-band changes, where minutes of detection latency are
-irrelevant, and during a rollout the interval only adds boundary latency
-(~N groups × interval) against runs measured in hours.
 
 ### Failure & recovery playbook
 
@@ -463,6 +473,14 @@ Schema-first (`values.schema.json` → `json_to_yaml.py`):
   expressible in this pattern at all. 30 is the largest value the
   mechanism can honor evenly. (Below 30, only divisors of 60 are perfectly
   even; non-divisors like 7 have one shorter gap per hour — harmless.)
+- `ndbmtdSequencedRollout.suspendWhenIdle` — default `true`. The CronJob
+  suspends itself once every group is converged and frozen, and any helm
+  upgrade/rollback wakes it (see "Steady-state cost"). Only takes effect
+  when `mode` is unset or `auto`; with `mode` set (Argo CD) the CronJob
+  stays always-on. While suspended, changes applied outside Helm wait for
+  the next helm operation or a manual
+  `kubectl patch cronjob rondb-ndbmtd-sequenced-rollout --type merge -p
+  '{"spec":{"suspend":false}}'`.
 - `ndbmtdSequencedRollout.perGroupStallTimeoutMinutes` — stall-detection
   threshold; `0` (the default) derives it rather than inventing a number:
   `activeDataReplicas × timeoutsMinutes.ndbmtdStartupProbe` minutes plus

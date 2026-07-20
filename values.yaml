@@ -256,6 +256,7 @@ ndbmtdSequencedRollout:
   enabled: false
   perGroupStallTimeoutMinutes: 0
   reconcileIntervalMinutes: 3
+  suspendWhenIdle: true
 networkPolicy:
   mgmds:
     enabled: true

@@ -33,6 +33,11 @@
                     "minimum": 1,
                     "maximum": 30
                 },
+                "suspendWhenIdle": {
+                    "type": "boolean",
+                    "description": "When a run finds every node group converged and frozen, the rollout CronJob suspends itself so nothing at all runs while idle. Any 'helm upgrade' or 'helm rollback' turns it back on: the chart renders suspend: false and Helm resets live fields to their rendered values. Only takes effect when 'mode' is unset or 'auto' (plain Helm or Flux); when 'mode' is set - the Argo CD convention - the CronJob stays always-on, because Argo's sync would either keep re-enabling it (saving nothing) or, with ignoreDifferences on the CronJob's .spec.suspend, never re-enable it. WARNING: while suspended, a node-group spec change applied outside Helm (plain kubectl) stays frozen until the next helm operation or a manual wake: kubectl patch cronjob rondb-ndbmtd-sequenced-rollout --type merge -p '{\"spec\":{\"suspend\":false}}'. Pair with a revision-age alert (kube_statefulset_status_update_revision != kube_statefulset_status_current_revision with an age threshold) as the safety net. Set false to keep the CronJob always running.",
+                    "default": true
+                },
                 "perGroupStallTimeoutMinutes": {
                     "type": "integer",
                     "description": "Minutes an unfrozen node group may stay unconverged before the rollout CronJob reports a stall (logged on every run) and pauses; no further groups are unfrozen while the stalled group keeps trying, and the next 'helm upgrade' (e.g. a fixed image) rolls into it immediately. This is an alerting threshold - nothing is killed when it fires. 0 derives it from activeDataReplicas x timeoutsMinutes.ndbmtdStartupProbe plus 30 minutes slack.",
@@ -43,6 +48,7 @@
             "required": [
                 "enabled",
                 "reconcileIntervalMinutes",
+                "suspendWhenIdle",
                 "perGroupStallTimeoutMinutes"
             ]
         },

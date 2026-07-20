@@ -27,6 +27,17 @@
   pending update also waits while any already-frozen group is unhealthy, so
   the rollout never takes a second group down at the same time.
 
+  Once everything is converged and frozen, the run suspends its own CronJob
+  so nothing at all runs while idle. The next `helm upgrade` or
+  `helm rollback` turns it back on: the chart renders `suspend: false` and
+  Helm resets live fields to their rendered values. This is skipped when
+  `mode` is set (the Argo CD convention) — Argo's sync would either keep
+  re-enabling the CronJob or, told to ignore the field, never wake it. A
+  change applied outside Helm while suspended waits for the next helm
+  operation or a manual wake:
+  kubectl patch cronjob rondb-ndbmtd-sequenced-rollout --type merge \
+    -p '{"spec":{"suspend":false}}'
+
   Argo CD: an unfrozen group differs from the partition Helm rendered, so
   with selfHeal on, set ignoreDifferences for
   .spec.updateStrategy.rollingUpdate.partition on node-group-* StatefulSets.
@@ -59,6 +70,12 @@ rules:
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "list"]
+# The CronJob suspends itself while idle and resumes when work appears.
+- apiGroups: ["batch"]
+  resources: ["cronjobs"]
+  verbs: ["get", "patch"]
+  resourceNames:
+  - rondb-ndbmtd-sequenced-rollout
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -81,6 +98,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   schedule: "*/{{ int .Values.ndbmtdSequencedRollout.reconcileIntervalMinutes }} * * * *"
+  # Rendered explicitly rather than left to the API default: a helm upgrade
+  # or rollback only resets a self-suspended CronJob back to running if the
+  # field is present in the manifest (Helm restores rendered fields).
+  suspend: false
   # Each run is short and repeatable; never run two at once.
   concurrencyPolicy: Forbid
   # Without a deadline, an outage that misses more than 100 scheduled runs
@@ -123,6 +144,14 @@ spec:
               value: {{ .Values.clusterSize.numNodeGroups | quote }}
             - name: STALL_TIMEOUT_MINUTES
               value: {{ $stallTimeoutMinutes | quote }}
+            - name: CRONJOB_NAME
+              value: rondb-ndbmtd-sequenced-rollout
+            - name: SUSPEND_WHEN_IDLE
+{{- if and .Values.ndbmtdSequencedRollout.suspendWhenIdle (include "rondb.canUseLookupFunc" (dict "mode" .Values.mode "global" .Values.global)) }}
+              value: "true"
+{{- else }}
+              value: "false"
+{{- end }}
             command:
             - /bin/bash
             - -c
@@ -145,6 +174,19 @@ spec:
               set_partition() { # <sts> <value>
                 kubectl patch statefulset "$1" "${KC[@]}" --type merge \
                   -p "{\"spec\":{\"updateStrategy\":{\"type\":\"RollingUpdate\",\"rollingUpdate\":{\"partition\":$2}}}}"
+              }
+
+              ensure_awake() {
+                # A run started by hand while the CronJob is suspended
+                # (kubectl create job --from=...) that finds work must
+                # resume the schedule, or nothing follows up on it.
+                [[ "$SUSPEND_WHEN_IDLE" != "true" ]] && return 0
+                local suspended
+                suspended=$(kubectl get cronjob "$CRONJOB_NAME" "${KC[@]}" -o jsonpath='{.spec.suspend}' 2>/dev/null) || return 0
+                [[ "$suspended" != "true" ]] && return 0
+                log "work found while suspended; resuming the schedule"
+                kubectl patch cronjob "$CRONJOB_NAME" "${KC[@]}" --type merge \
+                  -p '{"spec":{"suspend":false}}' >/dev/null || log "WARN: could not resume own schedule"
               }
 
               log "run: groups=$NUM_NODE_GROUPS stallTimeout=${STALL_TIMEOUT_MINUTES}m"
@@ -219,11 +261,13 @@ spec:
               done
 
               if [[ -n "$rolling_sts" ]]; then
+                ensure_awake
                 log "rollout in progress on $rolling_sts; nothing else this run"
                 exit 0
               fi
 
               if [[ -n "$lowest_pending" ]]; then
+                ensure_awake
                 if [[ "$all_healthy" != true ]]; then
                   log "pending update on $lowest_pending held: another group is unhealthy"
                   exit 0
@@ -235,5 +279,11 @@ spec:
                 exit 0
               fi
 
-              log "nothing to do"
+              if [[ "$SUSPEND_WHEN_IDLE" == "true" ]]; then
+                log "nothing to do; suspending until the next helm upgrade or rollback"
+                kubectl patch cronjob "$CRONJOB_NAME" "${KC[@]}" --type merge \
+                  -p '{"spec":{"suspend":true}}' >/dev/null || log "WARN: could not suspend own schedule"
+              else
+                log "nothing to do"
+              fi
 {{- end }}

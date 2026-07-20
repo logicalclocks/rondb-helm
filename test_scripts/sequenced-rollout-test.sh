@@ -48,6 +48,13 @@ render "$WORK_DIR/on.yaml" --set clusterSize.numNodeGroups=2 --set ndbmtdSequenc
 assert "partition on both groups" '[[ $(count "partition: 2" $WORK_DIR/on.yaml) == 2 ]]'
 assert "one CronJob" '[[ $(count "kind: CronJob" $WORK_DIR/on.yaml) == 1 ]]'
 assert "RBAC names both groups" '[[ $(count "node-group-1$" $WORK_DIR/on.yaml) -ge 1 ]]'
+assert "suspend rendered explicitly (needed for the helm wake)" '[[ $(count "^  suspend: false" $WORK_DIR/on.yaml) == 1 ]]'
+assert "suspend-when-idle on without mode" 'grep -A1 "name: SUSPEND_WHEN_IDLE" $WORK_DIR/on.yaml | grep -q "\"true\""'
+
+echo "=== rendering: flag on with mode set (Argo convention) -> no self-suspend ==="
+render "$WORK_DIR/argo.yaml" --set clusterSize.numNodeGroups=2 \
+  --set ndbmtdSequencedRollout.enabled=true --set mode=upgrade
+assert "suspend-when-idle off when mode is set" 'grep -A1 "name: SUSPEND_WHEN_IDLE" $WORK_DIR/argo.yaml | grep -q "\"false\""'
 
 echo "=== rendering: flag on, 1 node group -> feature off (nothing to sequence) ==="
 render "$WORK_DIR/one.yaml" --set ndbmtdSequencedRollout.enabled=true
@@ -107,7 +114,13 @@ cmd=${1:-}; shift || true
 case "$cmd" in
   get)
     kind=${1:-}; shift
-    if [[ "$kind" == statefulset* || "$kind" == sts ]]; then
+    if [[ "$kind" == cronjob* ]]; then
+      f="$STATE_DIR/cronjob.env"
+      [[ -f "$f" ]] || { echo "cronjobs.batch not found" >&2; exit 1; }
+      # shellcheck disable=SC1090
+      source "$f"
+      printf '%s' "${SUSPEND:-}"
+    elif [[ "$kind" == statefulset* || "$kind" == sts ]]; then
       name=$1; shift
       f="$STATE_DIR/$name.env"
       [[ -f "$f" ]] || { echo "statefulsets.apps \"$name\" not found" >&2; exit 1; }
@@ -128,12 +141,18 @@ case "$cmd" in
     fi
     ;;
   patch)
-    name=$2; shift 2
+    kind=$1; name=$2; shift 2
     json=""
     while (($#)); do case "$1" in -p) json=$2; shift 2 ;; *) shift ;; esac; done
-    part=$(sed -E 's/.*"partition":([0-9]+).*/\1/' <<<"$json")
-    echo "PATCH $name partition=$part" >> "$LOG_DIR/patches.log"
-    update_state "$STATE_DIR/$name.env" PARTITION "$part"
+    if [[ "$kind" == cronjob* ]]; then
+      sus=$(sed -E 's/.*"suspend":(true|false).*/\1/' <<<"$json")
+      echo "PATCH-CRONJOB suspend=$sus" >> "$LOG_DIR/patches.log"
+      update_state "$STATE_DIR/cronjob.env" SUSPEND "$sus"
+    else
+      part=$(sed -E 's/.*"partition":([0-9]+).*/\1/' <<<"$json")
+      echo "PATCH $name partition=$part" >> "$LOG_DIR/patches.log"
+      update_state "$STATE_DIR/$name.env" PARTITION "$part"
+    fi
     ;;
   annotate)
     name=$2; shift 2
@@ -169,13 +188,16 @@ scenario() { # <name>
   : > "$SCEN_DIR/patches.log"
 }
 
-run() { # [num_groups] [stall_timeout_minutes]
+run() { # [num_groups] [stall_timeout_minutes] [suspend_when_idle]
   NAMESPACE=test NUM_NODE_GROUPS=${1:-3} STALL_TIMEOUT_MINUTES=${2:-270} \
+    CRONJOB_NAME=rondb-ndbmtd-sequenced-rollout SUSPEND_WHEN_IDLE=${3:-false} \
     bash "$SCRIPT" > "$SCEN_DIR/run.log" 2>&1
   echo $? > "$SCEN_DIR/exit"
 }
 
 get() { (source "$KUBECTL_STATE_DIR/$1.env"; eval echo "\$$2"); }
+cronjob() { printf 'SUSPEND="%s"\n' "$1" > "$KUBECTL_STATE_DIR/cronjob.env"; }
+get_suspend() { (source "$KUBECTL_STATE_DIR/cronjob.env"; echo "${SUSPEND:-}"); }
 
 echo "--- all frozen, one update pending: unfreeze the lowest group only ---"
 scenario pending
@@ -268,6 +290,34 @@ sts node-group-1 2 2 revA revB 2
 run 2
 assert "exit 0 (no crash)" '[[ $(cat $SCEN_DIR/exit) == 0 ]]'
 assert "start time replaced with a number" '[[ $(get node-group-0 UNFROZE_AT) =~ ^[0-9]+$ ]]'
+
+echo "--- everything done with suspend enabled: suspend own CronJob ---"
+scenario suspendidle
+sts node-group-0 2 2 revB revB 2
+sts node-group-1 2 2 revB revB 2
+cronjob false
+run 2 270 true
+assert "cronjob suspended" '[[ $(get_suspend) == true ]]'
+assert "suspend logged" '[[ $(count "suspending until the next helm" $SCEN_DIR/run.log) == 1 ]]'
+assert "no partition patches" '[[ $(count "^PATCH node" $SCEN_DIR/patches.log) == 0 ]]'
+
+echo "--- suspend disabled: leave the CronJob alone when idle ---"
+scenario nosuspend
+sts node-group-0 2 2 revB revB 2
+cronjob false
+run 1 270 false
+assert "no cronjob patch" '[[ $(count "PATCH-CRONJOB" $SCEN_DIR/patches.log) == 0 ]]'
+assert "plain nothing-to-do logged" '[[ $(count "nothing to do$" $SCEN_DIR/run.log) == 1 ]]'
+
+echo "--- a manual run while suspended finds work: resume the schedule ---"
+scenario resume
+sts node-group-0 2 2 revA revB 2
+sts node-group-1 2 2 revA revB 2
+cronjob true
+run 2 270 true
+assert "cronjob resumed" '[[ $(get_suspend) == false ]]'
+assert "resume logged" '[[ $(count "resuming the schedule" $SCEN_DIR/run.log) == 1 ]]'
+assert "group 0 unfrozen" '[[ $(get node-group-0 PARTITION) == 0 ]]'
 
 echo
 echo "RESULT: $PASS passed, $FAIL failed"
