@@ -90,9 +90,9 @@ mkdir -p "$WORK_DIR/bin"
 cat > "$WORK_DIR/bin/kubectl" <<'FAKE'
 #!/bin/bash
 # Fake kubectl: StatefulSet state lives in $KUBECTL_STATE_DIR/<name>.env with
-# REPLICAS, PARTITION, CURRENT, UPDATE, READY, UNFROZE_AT, STALL_REPORTED.
-# Partition patches and annotations update the files; created Events and
-# patches are appended to log files next to the state directory.
+# REPLICAS, PARTITION, CURRENT, UPDATE, READY, UNFROZE_AT. Partition patches
+# and annotations update the files; patches are also appended to a log file
+# next to the state directory.
 set -u
 STATE_DIR="${KUBECTL_STATE_DIR:?}"
 LOG_DIR="$(dirname "$STATE_DIR")"
@@ -117,9 +117,7 @@ case "$cmd" in
       while (($#)); do case "$1" in -o) jp=$2; shift 2 ;; *) shift ;; esac; done
       case "$jp" in
         *updateStrategy*) printf '%s|%s|%s|%s|%s' "${REPLICAS:-}" "${PARTITION:-}" "${CURRENT:-}" "${UPDATE:-}" "${READY:-}" ;;
-        *'{.metadata.uid}'*) printf 'uid-%s' "$name" ;;
         *unfroze-at*) printf '%s' "${UNFROZE_AT:-}" ;;
-        *stall-reported*) printf '%s' "${STALL_REPORTED:-}" ;;
         '') echo "$name" ;;
         *) echo "fake kubectl: unhandled jsonpath: $jp" >&2; exit 9 ;;
       esac
@@ -144,17 +142,8 @@ case "$cmd" in
       case "$a" in
         *unfroze-at=*) update_state "$f" UNFROZE_AT "${a#*=}" ;;
         *unfroze-at-)  update_state "$f" UNFROZE_AT "" ;;
-        *stall-reported=*) update_state "$f" STALL_REPORTED "${a#*=}" ;;
-        *stall-reported-)  update_state "$f" STALL_REPORTED "" ;;
       esac
     done
-    ;;
-  create)
-    evt=$(cat)
-    reason=$(awk '/^reason:/{print $2}' <<<"$evt")
-    etype=$(awk '/^type:/{print $2}' <<<"$evt")
-    obj=$(awk '/^involvedObject:/{f=1} f&&/^  name:/{print $2; exit}' <<<"$evt")
-    echo "EVENT $etype $reason $obj" >> "$LOG_DIR/events.log"
     ;;
   *) echo "fake kubectl: unhandled command: $cmd" >&2; exit 9 ;;
 esac
@@ -162,7 +151,7 @@ FAKE
 chmod +x "$WORK_DIR/bin/kubectl"
 export PATH="$WORK_DIR/bin:$PATH"
 
-sts() { # <name> <replicas> <partition> <current> <update> <ready> [unfroze_at] [stall_reported]
+sts() { # <name> <replicas> <partition> <current> <update> <ready> [unfroze_at]
   cat > "$KUBECTL_STATE_DIR/$1.env" <<EOF
 REPLICAS=$2
 PARTITION=$3
@@ -170,7 +159,6 @@ CURRENT=$4
 UPDATE=$5
 READY=$6
 UNFROZE_AT=${7:-}
-STALL_REPORTED=${8:-}
 EOF
 }
 
@@ -178,7 +166,7 @@ scenario() { # <name>
   SCEN_DIR="$WORK_DIR/scen/$1"
   mkdir -p "$SCEN_DIR/state"
   export KUBECTL_STATE_DIR="$SCEN_DIR/state"
-  : > "$SCEN_DIR/patches.log"; : > "$SCEN_DIR/events.log"
+  : > "$SCEN_DIR/patches.log"
 }
 
 run() { # [num_groups] [stall_timeout_minutes]
@@ -201,7 +189,6 @@ assert "group 1 stays frozen" '[[ $(get node-group-1 PARTITION) == 2 ]]'
 assert "group 2 stays frozen" '[[ $(get node-group-2 PARTITION) == 2 ]]'
 assert "start time recorded" '[[ -n $(get node-group-0 UNFROZE_AT) ]]'
 assert "only one partition patch" '[[ $(count "^PATCH" $SCEN_DIR/patches.log) == 1 ]]'
-assert "Unfroze event" '[[ $(count "EVENT Normal SequencedRolloutUnfroze node-group-0" $SCEN_DIR/events.log) == 1 ]]'
 
 echo "--- a group is still updating: do nothing ---"
 scenario rolling
@@ -210,7 +197,6 @@ sts node-group-1 2 2 revA revB 2
 sts node-group-2 2 2 revA revB 2
 run
 assert "no partition patches" '[[ $(count "^PATCH" $SCEN_DIR/patches.log) == 0 ]]'
-assert "no events" '[[ ! -s $SCEN_DIR/events.log ]]'
 
 echo "--- a group finished: re-freeze it and move on to the next in one run ---"
 scenario advance
@@ -222,22 +208,18 @@ assert "group 0 re-frozen" '[[ $(get node-group-0 PARTITION) == 2 ]]'
 assert "group 0 start time cleared" '[[ -z $(get node-group-0 UNFROZE_AT) ]]'
 assert "group 1 unfrozen" '[[ $(get node-group-1 PARTITION) == 0 ]]'
 assert "group 2 stays frozen" '[[ $(get node-group-2 PARTITION) == 2 ]]'
-assert "Converged event for group 0" '[[ $(count "EVENT Normal SequencedRolloutConverged node-group-0" $SCEN_DIR/events.log) == 1 ]]'
-assert "Unfroze event for group 1" '[[ $(count "EVENT Normal SequencedRolloutUnfroze node-group-1" $SCEN_DIR/events.log) == 1 ]]'
 
-echo "--- a group is stuck past the stall timeout: warn once, hold the rollout ---"
+echo "--- a group is stuck past the stall timeout: log the stall, hold the rollout ---"
 scenario stall
 sts node-group-0 2 0 revA revB 1 100
 sts node-group-1 2 2 revA revB 2
 sts node-group-2 2 2 revA revB 2
 run
-assert "Stalled warning" '[[ $(count "EVENT Warning SequencedRolloutStalled node-group-0" $SCEN_DIR/events.log) == 1 ]]'
-assert "stall marked as reported" '[[ $(get node-group-0 STALL_REPORTED) == true ]]'
+assert "stall logged" '[[ $(count "STALL: node-group-0" $SCEN_DIR/run.log) == 1 ]]'
 assert "stuck group stays unfrozen" '[[ $(get node-group-0 PARTITION) == 0 ]]'
 assert "group 1 not unfrozen" '[[ $(get node-group-1 PARTITION) == 2 ]]'
-: > "$SCEN_DIR/events.log"
 run
-assert "warning not repeated on the next run" '[[ ! -s $SCEN_DIR/events.log ]]'
+assert "stall re-logged on every run" '[[ $(count "STALL: node-group-0" $SCEN_DIR/run.log) == 1 ]]'
 
 echo "--- another group is unhealthy: hold the pending update until it heals ---"
 scenario unhealthy
@@ -277,7 +259,6 @@ sts node-group-1 2 2 revB revB 2
 sts node-group-2 2 2 revB revB 2
 run
 assert "no patches" '[[ ! -s $SCEN_DIR/patches.log ]]'
-assert "no events" '[[ ! -s $SCEN_DIR/events.log ]]'
 assert "nothing-to-do logged" '[[ $(count "nothing to do" $SCEN_DIR/run.log) == 1 ]]'
 
 echo "--- a broken start-time annotation: recover instead of crashing ---"

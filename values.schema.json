@@ -23,7 +23,7 @@
             "properties": {
                 "enabled": {
                     "type": "boolean",
-                    "description": "Enable the partition freeze and the rollout CronJob (they always render together). With this on, a successful 'helm upgrade' means the new specs are recorded and the rollout is in progress; completion is observable on the StatefulSets (updateRevision == currentRevision, Events emitted by the rollout CronJob) rather than in the release status. Disabling the flag removes the partition field, so any still-pending update then rolls all node groups concurrently (the pre-feature behavior) - disable during a quiet period or after confirming no update is pending.",
+                    "description": "Enable the partition freeze and the rollout CronJob (they always render together). With this on, a successful 'helm upgrade' means the new specs are recorded and the rollout is in progress; completion is observable on the StatefulSets (updateRevision == currentRevision on every node group) rather than in the release status. Disabling the flag removes the partition field, so any still-pending update then rolls all node groups concurrently (the pre-feature behavior) - disable during a quiet period or after confirming no update is pending.",
                     "default": false
                 },
                 "reconcileIntervalMinutes": {
@@ -35,7 +35,7 @@
                 },
                 "perGroupStallTimeoutMinutes": {
                     "type": "integer",
-                    "description": "Minutes an unfrozen node group may stay unconverged before the rollout CronJob reports a stall (Warning Event on the StatefulSet) and pauses; no further groups are unfrozen while the stalled group keeps trying, and the next 'helm upgrade' (e.g. a fixed image) rolls into it immediately. This is an alerting threshold - nothing is killed when it fires. 0 derives it from activeDataReplicas x timeoutsMinutes.ndbmtdStartupProbe plus 30 minutes slack.",
+                    "description": "Minutes an unfrozen node group may stay unconverged before the rollout CronJob reports a stall (logged on every run) and pauses; no further groups are unfrozen while the stalled group keeps trying, and the next 'helm upgrade' (e.g. a fixed image) rolls into it immediately. This is an alerting threshold - nothing is killed when it fires. 0 derives it from activeDataReplicas x timeoutsMinutes.ndbmtdStartupProbe plus 30 minutes slack.",
                     "default": 0,
                     "minimum": 0
                 }

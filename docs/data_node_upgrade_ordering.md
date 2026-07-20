@@ -30,7 +30,16 @@ this document. Shipped comments and messages use plain wording ("rollout",
 
 Revision history:
 
-- **Rev 5 (current)** — simplified the reconciler, trimming observability
+- **Rev 6 (current)** — dropped Kubernetes Event emission entirely (the
+  remaining `Unfroze`/`Converged`/`Stalled` Events, the heredoc that built
+  them, the `events` RBAC rule, and the stall-dedup annotation). Events
+  expire after ~1 hour by default, so they only covered the first hour of
+  an incident while the durable signals — the StatefulSet fields, the
+  CronJob logs (which re-print a stalled group's state on every run), and
+  the revision-age metric alert — carry everything. Down to one
+  annotation (the unfroze-at stall timer).
+
+- Rev 5 — simplified the reconciler, trimming observability
   that the revision-age metric alert already covers: removed the
   `SequencedRolloutBlocked` event and its two dedup annotations (a rollout
   held by an unhealthy frozen group is now logged, not evented — the safety
@@ -185,8 +194,8 @@ scheduling; `successfulJobsHistoryLimit: 1`; every kubectl call bounded by
 `--request-timeout` and the whole run by `activeDeadlineSeconds`). Each run
 is idempotent, takes seconds, and holds almost no state of its own — the
 partition value and `currentRevision`/`updateRevision` live on the
-StatefulSets, plus two annotations the CronJob stamps to time a stalled
-group (an unfroze-at timestamp and a stall-Event-dedup marker):
+StatefulSets, plus one annotation the CronJob stamps to time a stalled
+group (an unfroze-at timestamp):
 
 ```
 scan ALL groups (ascending), classifying each:
@@ -196,15 +205,15 @@ scan ALL groups (ascending), classifying each:
 
 during the scan:
   unfrozen + converged (not pending, healthy):
-      re-freeze (partition = replicas), clear annotations, emit Converged
+      re-freeze (partition = replicas), clear the annotation
   unfrozen + not yet converged:
       the rollout is busy — nothing else may unfreeze this run;
       adopt it (stamp unfroze-at) if the annotation is missing or invalid;
-      past perGroupStallTimeoutMinutes emit Stalled once (dedup marker)
+      past perGroupStallTimeoutMinutes log the stall (every run)
 
 after the scan, if nothing is unfrozen:
   lowest pending frozen group, ALL groups healthy:
-      unfreeze it (partition = 0), stamp unfroze-at, emit Unfroze
+      unfreeze it (partition = 0), stamp unfroze-at
   lowest pending frozen group, some group unhealthy:
       hold (log only) so the rollout never degrades two groups at once
 ```
@@ -228,7 +237,7 @@ Properties:
   changes (a manual `kubectl apply`, an Argo sync outside a Helm operation).
 - **Stall = containment, not rollback.** A group that won't converge (bad
   image) pauses the rollout — no further groups are unfrozen — and stays
-  unfrozen with an Event raised. Deliberate: re-freezing wouldn't heal the
+  unfrozen, re-logged on every run. Deliberate: re-freezing wouldn't heal the
   crash-looping pod (the controller never reverts a live pod below the
   partition), and leaving the group unfrozen means the *fix* — the next
   `helm upgrade` — rolls into it immediately, after which the rollout
@@ -367,7 +376,7 @@ irrelevant, and during a rollout the interval only adds boundary latency
 
 - **Bad image**: the rollout pauses at the first affected group — that
   group at single-replica with a crash-looping pod, all later groups
-  frozen-old, stall Event raised. Fix values → `helm upgrade` → new spec
+  frozen-old, the stall logged on every run. Fix values → `helm upgrade` → new spec
   lands (frozen) everywhere, the stalled group (unfrozen) rolls to the fix
   immediately, the CronJob resumes the rollout. No zombie processes, no
   release-state surgery.
@@ -469,13 +478,13 @@ The rollout's entire state is first-class API state, no custom store:
   StatefulSet (document a `kubectl get sts -o custom-columns=...`
   one-liner). Pending-parked, mid-roll, stalled, and complete are all
   distinguishable from those fields.
-- Events (`SequencedRolloutUnfroze`, `SequencedRolloutConverged`,
-  `SequencedRolloutStalled`): the CronJob emits an Event when it unfreezes
-  a group and when a group converges, plus a Warning (deduped via an
-  annotation marker) on a group that won't converge within the stall
-  timeout. A rollout held because another group is unhealthy is logged,
-  not evented — the revision-age alert below is the signal for "not
-  progressing".
+- Logs: every run prints each group's state, and a stalled or held rollout
+  is re-logged on every run — so the newest CronJob pod log always shows
+  why the rollout is paused. (Kubernetes Events were dropped in Rev 6:
+  they expire after ~1 hour by default, so they only ever covered the
+  first hour of an incident, duplicating what the fields, the logs, and
+  the alert below provide durably — for ~35 lines of bash and an extra
+  RBAC rule.)
 - Alerting: pair `kube_statefulset_status_update_revision !=
   kube_statefulset_status_current_revision` with an age threshold
   (kube-state-metrics) — catches both stalls and a stopped CronJob, closing
