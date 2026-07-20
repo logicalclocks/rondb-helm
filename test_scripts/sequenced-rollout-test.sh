@@ -90,10 +90,22 @@ awk '
 ' "$WORK_DIR/cronjob.yaml" > "$SCRIPT"
 assert "script extracted" '[[ $(wc -l < "$SCRIPT") -gt 50 ]]'
 assert "script passes bash -n" 'bash -n "$SCRIPT"'
+assert "kubectl request-timeout not used (breaks in-cluster auth)" \
+  '! grep -Ev "^[[:space:]]*#" "$SCRIPT" | grep -q -- "--request-timeout"'
+assert "kubectl wrapper applies timeout and namespace" \
+  'grep -q '\''timeout 15s kubectl -n "$NAMESPACE" "$@"'\'' "$SCRIPT"'
+assert "no obsolete kubectl-argument array" '! grep -q '\''KC=('\'' "$SCRIPT"'
 
 echo "=== behavior: fake kubectl serving StatefulSet state from files ==="
 STATE_DIR=""
 mkdir -p "$WORK_DIR/bin"
+cat > "$WORK_DIR/bin/timeout" <<'FAKE'
+#!/bin/bash
+# The production image provides GNU timeout. The test only needs to forward
+# the command so it remains portable to development machines without it.
+shift
+exec "$@"
+FAKE
 cat > "$WORK_DIR/bin/kubectl" <<'FAKE'
 #!/bin/bash
 # Fake kubectl: StatefulSet state lives in $KUBECTL_STATE_DIR/<name>.env with
@@ -103,6 +115,19 @@ cat > "$WORK_DIR/bin/kubectl" <<'FAKE'
 set -u
 STATE_DIR="${KUBECTL_STATE_DIR:?}"
 LOG_DIR="$(dirname "$STATE_DIR")"
+
+if [[ "${KUBECTL_FORCE_ERROR:-false}" == true ]]; then
+  echo "Unable to connect to the server: simulated API failure" >&2
+  exit 1
+fi
+
+# Consume global flags placed before the kubectl subcommand by kube().
+while (($#)); do
+  case "$1" in
+    -n|--namespace) shift 2 ;;
+    *) break ;;
+  esac
+done
 
 update_state() { # <file> <key> <value>
   grep -v "^$2=" "$1" > "$1.tmp" || true
@@ -167,7 +192,7 @@ case "$cmd" in
   *) echo "fake kubectl: unhandled command: $cmd" >&2; exit 9 ;;
 esac
 FAKE
-chmod +x "$WORK_DIR/bin/kubectl"
+chmod +x "$WORK_DIR/bin/kubectl" "$WORK_DIR/bin/timeout"
 export PATH="$WORK_DIR/bin:$PATH"
 
 sts() { # <name> <replicas> <partition> <current> <update> <ready> [unfroze_at]
@@ -189,10 +214,13 @@ scenario() { # <name>
 }
 
 run() { # [num_groups] [stall_timeout_minutes] [suspend_when_idle]
+  set +e
   NAMESPACE=test NUM_NODE_GROUPS=${1:-3} STALL_TIMEOUT_MINUTES=${2:-270} \
     CRONJOB_NAME=rondb-ndbmtd-sequenced-rollout SUSPEND_WHEN_IDLE=${3:-false} \
     bash "$SCRIPT" > "$SCEN_DIR/run.log" 2>&1
-  echo $? > "$SCEN_DIR/exit"
+  local status=$?
+  set -e
+  echo "$status" > "$SCEN_DIR/exit"
 }
 
 get() { (source "$KUBECTL_STATE_DIR/$1.env"; eval echo "\$$2"); }
@@ -273,6 +301,17 @@ run
 assert "exit 0" '[[ $(cat $SCEN_DIR/exit) == 0 ]]'
 assert "group 1 still handled" '[[ $(get node-group-1 PARTITION) == 0 ]]'
 assert "missing group logged" '[[ $(count "node-group-2 not found; skipping" $SCEN_DIR/run.log) == 1 ]]'
+
+echo "--- Kubernetes API failure: fail closed instead of reporting missing groups ---"
+scenario api_failure
+sts node-group-0 2 2 revA revB 2
+export KUBECTL_FORCE_ERROR=true
+run 1
+unset KUBECTL_FORCE_ERROR
+assert "exit nonzero" '[[ $(cat $SCEN_DIR/exit) != 0 ]]'
+assert "API failure logged" '[[ $(count "ERROR: could not read node-group-0" $SCEN_DIR/run.log) == 1 ]]'
+assert "not misreported as missing" '[[ $(count "not found; skipping" $SCEN_DIR/run.log) == 0 ]]'
+assert "no patches after API failure" '[[ ! -s $SCEN_DIR/patches.log ]]'
 
 echo "--- everything up to date: no changes at all ---"
 scenario idle

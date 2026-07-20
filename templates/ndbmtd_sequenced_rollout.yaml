@@ -164,15 +164,19 @@ spec:
               STALL_SECONDS=$((STALL_TIMEOUT_MINUTES * 60))
               NOW=$(date +%s)
               # Time-bound every kubectl call so one hung connection can't
-              # use up the whole run.
-              KC=(--request-timeout=15s -n "$NAMESPACE")
+              # use up the whole run. Do not use kubectl's --request-timeout
+              # here: with no kubeconfig, that override makes client-go treat
+              # its localhost default as explicit and skip in-cluster auth.
+              kube() {
+                timeout 15s kubectl -n "$NAMESPACE" "$@"
+              }
 
               get_field() { # <sts> <jsonpath>
-                kubectl get statefulset "$1" "${KC[@]}" -o jsonpath="$2" 2>/dev/null
+                kube get statefulset "$1" -o jsonpath="$2"
               }
 
               set_partition() { # <sts> <value>
-                kubectl patch statefulset "$1" "${KC[@]}" --type merge \
+                kube patch statefulset "$1" --type merge \
                   -p "{\"spec\":{\"updateStrategy\":{\"type\":\"RollingUpdate\",\"rollingUpdate\":{\"partition\":$2}}}}"
               }
 
@@ -182,10 +186,10 @@ spec:
                 # resume the schedule, or nothing follows up on it.
                 [[ "$SUSPEND_WHEN_IDLE" != "true" ]] && return 0
                 local suspended
-                suspended=$(kubectl get cronjob "$CRONJOB_NAME" "${KC[@]}" -o jsonpath='{.spec.suspend}' 2>/dev/null) || return 0
+                suspended=$(kube get cronjob "$CRONJOB_NAME" -o jsonpath='{.spec.suspend}' 2>/dev/null) || return 0
                 [[ "$suspended" != "true" ]] && return 0
                 log "work found while suspended; resuming the schedule"
-                kubectl patch cronjob "$CRONJOB_NAME" "${KC[@]}" --type merge \
+                kube patch cronjob "$CRONJOB_NAME" --type merge \
                   -p '{"spec":{"suspend":false}}' >/dev/null || log "WARN: could not resume own schedule"
               }
 
@@ -197,9 +201,13 @@ spec:
 
               for ((g = 0; g < NUM_NODE_GROUPS; g++)); do
                 sts="node-group-$g"
-                if ! state=$(get_field "$sts" '{.spec.replicas}{"|"}{.spec.updateStrategy.rollingUpdate.partition}{"|"}{.status.currentRevision}{"|"}{.status.updateRevision}{"|"}{.status.readyReplicas}'); then
-                  log "$sts not found; skipping"
-                  continue
+                if ! state=$(get_field "$sts" '{.spec.replicas}{"|"}{.spec.updateStrategy.rollingUpdate.partition}{"|"}{.status.currentRevision}{"|"}{.status.updateRevision}{"|"}{.status.readyReplicas}' 2>&1); then
+                  if [[ "$state" == *"(NotFound)"* || "$state" == *"not found"* ]]; then
+                    log "$sts not found; skipping"
+                    continue
+                  fi
+                  log "ERROR: could not read $sts: $state"
+                  exit 1
                 fi
                 IFS='|' read -r replicas partition current update ready <<< "$state"
                 replicas=${replicas:-0}; partition=${partition:-0}; ready=${ready:-0}
@@ -228,7 +236,7 @@ spec:
                   # clear this job's annotation.
                   log "$sts converged on revision $update; re-freezing (partition=$replicas)"
                   set_partition "$sts" "$replicas"
-                  kubectl annotate statefulset "$sts" "${KC[@]}" \
+                  kube annotate statefulset "$sts" \
                     "${UNFROZE_AT_KEY}-" --overwrite >/dev/null 2>&1 || true
                   continue
                 fi
@@ -241,12 +249,15 @@ spec:
                 fi
                 rolling_sts="$sts"
 
-                unfroze_at=$(get_field "$sts" "{.metadata.annotations['rondb\.hopsworks\.ai/sequenced-rollout-unfroze-at']}") || unfroze_at=""
+                if ! unfroze_at=$(get_field "$sts" "{.metadata.annotations['rondb\.hopsworks\.ai/sequenced-rollout-unfroze-at']}" 2>&1); then
+                  log "ERROR: could not read $sts rollout annotation: $unfroze_at"
+                  exit 1
+                fi
                 if ! [[ "$unfroze_at" =~ ^[0-9]+$ ]]; then
                   # Unfrozen by hand or by an earlier interrupted run (or the
                   # annotation is invalid): take it over and start the timer.
                   log "$sts is unfrozen without a valid start-time annotation; taking it over"
-                  kubectl annotate statefulset "$sts" "${KC[@]}" \
+                  kube annotate statefulset "$sts" \
                     "${UNFROZE_AT_KEY}=${NOW}" --overwrite >/dev/null || true
                   unfroze_at=$NOW
                 fi
@@ -254,7 +265,7 @@ spec:
                 age=$((NOW - unfroze_at))
                 if (( age > STALL_SECONDS )); then
                   log "STALL: $sts unconverged for ${age}s (> ${STALL_SECONDS}s); rollout paused until it finishes or a new update lands"
-                  kubectl get pods "${KC[@]}" -l nodeGroup="$g" -o wide || true
+                  kube get pods -l nodeGroup="$g" -o wide || true
                 else
                   log "$sts rolling for ${age}s (stall threshold ${STALL_SECONDS}s)"
                 fi
@@ -273,7 +284,7 @@ spec:
                   exit 0
                 fi
                 log "unfreezing $lowest_pending (partition=0)"
-                kubectl annotate statefulset "$lowest_pending" "${KC[@]}" \
+                kube annotate statefulset "$lowest_pending" \
                   "${UNFROZE_AT_KEY}=${NOW}" --overwrite >/dev/null
                 set_partition "$lowest_pending" 0
                 exit 0
@@ -281,7 +292,7 @@ spec:
 
               if [[ "$SUSPEND_WHEN_IDLE" == "true" ]]; then
                 log "nothing to do; suspending until the next helm upgrade or rollback"
-                kubectl patch cronjob "$CRONJOB_NAME" "${KC[@]}" --type merge \
+                kube patch cronjob "$CRONJOB_NAME" --type merge \
                   -p '{"spec":{"suspend":true}}' >/dev/null || log "WARN: could not suspend own schedule"
               else
                 log "nothing to do"
