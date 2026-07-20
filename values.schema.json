@@ -17,6 +17,35 @@
             "description": "Timeout for `kubectl rollout status` inside the MGMd pre-upgrade hook (per attempt). Default 5m. Note: Helm's default `helm upgrade --timeout` is also 5m and bounds the whole upgrade including this hook — operators running with that default may see Helm's outer timeout fire first with a generic 'timed out waiting for the condition' message instead of this hook's specific diagnostic. Set Helm's `--timeout` higher (e.g. 15m) on slow networks or large image pulls.",
             "default": "5m"
         },
+        "ndbmtdSequencedRollout": {
+            "type": "object",
+            "description": "Sequenced (one node group at a time) data node rollouts during upgrades. When enabled, the node-group StatefulSets render updateStrategy.rollingUpdate.partition equal to their replica count, so 'helm upgrade' lands new pod templates without restarting anything; a rollout CronJob then unfreezes one node group at a time, waiting for each to converge (all pods on the new revision and ready) before the next. This bounds upgrade exposure to a single node group and stops a bad rollout at the first group. Only takes effect with more than one node group (clusterSize.numNodeGroups > 1): with a single group there is nothing to sequence across and the chart behaves exactly as if disabled. Not applied during in-place restores or on externally managed clusters. Argo CD users with selfHeal enabled must add ignoreDifferences for .spec.updateStrategy.rollingUpdate.partition on node-group-* StatefulSets.",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "description": "Enable the partition freeze and the rollout CronJob (they always render together). With this on, a successful 'helm upgrade' means the new specs are recorded and the rollout is in progress; completion is observable on the StatefulSets (updateRevision == currentRevision, Events emitted by the rollout CronJob) rather than in the release status. Disabling the flag removes the partition field, so any still-pending update then rolls all node groups concurrently (the pre-feature behavior) - disable during a quiet period or after confirming no update is pending.",
+                    "default": false
+                },
+                "reconcileIntervalMinutes": {
+                    "type": "integer",
+                    "description": "How often the rollout CronJob runs, in minutes. Each run re-freezes converged node groups and unfreezes at most one pending group, so this adds at most one interval of latency per node-group boundary - noise against recovery times measured in hours.",
+                    "default": 3,
+                    "minimum": 1,
+                    "maximum": 30
+                },
+                "perGroupStallTimeoutMinutes": {
+                    "type": "integer",
+                    "description": "Minutes an unfrozen node group may stay unconverged before the rollout CronJob reports a stall (Warning Event on the StatefulSet) and pauses; no further groups are unfrozen while the stalled group keeps trying, and the next 'helm upgrade' (e.g. a fixed image) rolls into it immediately. This is an alerting threshold - nothing is killed when it fires. 0 derives it from activeDataReplicas x timeoutsMinutes.ndbmtdStartupProbe plus 30 minutes slack.",
+                    "default": 0,
+                    "minimum": 0
+                }
+            },
+            "required": [
+                "enabled",
+                "reconcileIntervalMinutes",
+                "perGroupStallTimeoutMinutes"
+            ]
+        },
         "skipMgmdPreUpgradeRollout": {
             "type": "boolean",
             "description": "If true, skip the pre-upgrade hook that rolls MGMd to the target image and config before the rest of the chart upgrades. The hook exists to keep at least one ArbitrationRank=1 node reachable while the API tier (mysqld, rdrs) is also rolling, preventing data-node arbitration loss (NDB Error 2305) on chart-wide upgrades. Set this to true only as an escape hatch if the hook itself is misbehaving on your cluster.",

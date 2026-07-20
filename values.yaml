@@ -252,6 +252,10 @@ mysql:
   sqlInitContent: {}
   supplyOwnSecret: false
   users: []
+ndbmtdSequencedRollout:
+  enabled: false
+  perGroupStallTimeoutMinutes: 0
+  reconcileIntervalMinutes: 3
 networkPolicy:
   mgmds:
     enabled: true

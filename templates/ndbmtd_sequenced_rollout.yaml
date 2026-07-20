@@ -1,0 +1,280 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+{{- /*
+  Rolls the data node groups one at a time on upgrade, so a bad change can
+  only take down one group at a time instead of one pod in every group.
+
+  templates/ndbd.yaml freezes each node-group StatefulSet (rolling-update
+  partition set to the replica count), so `helm upgrade` records the new pod
+  template but restarts nothing. This CronJob runs every few minutes; each
+  run reads the current state of every group and takes one step: unfreeze at
+  most one group that still needs the update (partition 0), and re-freeze any
+  that has finished. The StatefulSet controller does the restarts, one pod at
+  a time, held back by the pods' readiness probes.
+
+  It keeps almost no state of its own — the partition value and the
+  current/target revisions live on the StatefulSets, plus two annotations set
+  here to time a stalled group — so a killed run, drained node, or cluster
+  restart loses nothing; the next run continues. Working from current state
+  also means `helm rollback` and changes made outside Helm are handled the
+  same way, and a group unfrozen by hand is taken over and re-frozen.
+
+  If a group doesn't finish within the stall timeout, the rollout stops there
+  (no later group is unfrozen) and raises a Warning event, leaving the group
+  unfrozen so the next `helm upgrade` rolls a fix straight into it. A pending
+  update also waits while any already-frozen group is unhealthy, so the
+  rollout never takes a second group down at the same time.
+
+  Argo CD: an unfrozen group differs from the partition Helm rendered, so
+  with selfHeal on, set ignoreDifferences for
+  .spec.updateStrategy.rollingUpdate.partition on node-group-* StatefulSets.
+*/}}
+
+{{- if include "rondb.ndbmtdSequencedRollout.isActive" . }}
+{{- $stallTimeoutMinutes := include "rondb.ndbmtdSequencedRollout.perGroupStallTimeoutMinutes" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  # patch: sets both the partition value and this job's annotations.
+  verbs: ["get", "patch"]
+  resourceNames:
+  {{- range $g := until (int .Values.clusterSize.numNodeGroups) }}
+  - node-group-{{ $g }}
+  {{- end }}
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+# For logging pod status only; "list" can't be limited to named objects.
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: rondb-ndbmtd-sequenced-rollout
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: "*/{{ int .Values.ndbmtdSequencedRollout.reconcileIntervalMinutes }} * * * *"
+  # Each run is short and repeatable; never run two at once.
+  concurrencyPolicy: Forbid
+  # Without a deadline, an outage that misses more than 100 scheduled runs
+  # stops the CronJob for good. This caps the miss count so it recovers.
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      # A run is only a few kubectl calls; this is a safety cap.
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            rondbService: ndbmtd-sequenced-rollout
+        spec:
+          serviceAccountName: rondb-ndbmtd-sequenced-rollout
+          restartPolicy: Never
+{{- include "rondb.PodSecurityContext" $ | indent 10 }}
+{{- include "rondb.imagePullSecrets" . | indent 10 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.mgmd) | indent 10 }}
+{{- include "rondb.tolerations" (dict "tolerations" .Values.tolerations.mgmd) | indent 10 }}
+{{- if .Values.priorityClass }}
+          priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end }}
+          containers:
+          - name: reconcile
+            image: {{ include "image_address" (dict "image" .Values.images.toolbox) }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 12 }}
+            resources:
+              limits:
+                cpu: 0.2
+                memory: 200Mi
+            env:
+            - name: NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: NUM_NODE_GROUPS
+              value: {{ .Values.clusterSize.numNodeGroups | quote }}
+            - name: STALL_TIMEOUT_MINUTES
+              value: {{ $stallTimeoutMinutes | quote }}
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+
+              log() { echo "[sequenced-rollout] $*"; }
+
+              UNFROZE_AT_KEY="rondb.hopsworks.ai/sequenced-rollout-unfroze-at"
+              STALL_KEY="rondb.hopsworks.ai/sequenced-rollout-stall-reported"
+              STALL_SECONDS=$((STALL_TIMEOUT_MINUTES * 60))
+              NOW=$(date +%s)
+              # Time-bound every kubectl call so one hung connection can't
+              # use up the whole run.
+              KC=(--request-timeout=15s -n "$NAMESPACE")
+
+              get_field() { # <sts> <jsonpath>
+                kubectl get statefulset "$1" "${KC[@]}" -o jsonpath="$2" 2>/dev/null
+              }
+
+              set_partition() { # <sts> <value>
+                kubectl patch statefulset "$1" "${KC[@]}" --type merge \
+                  -p "{\"spec\":{\"updateStrategy\":{\"type\":\"RollingUpdate\",\"rollingUpdate\":{\"partition\":$2}}}}"
+              }
+
+              emit_event() { # <sts> <Normal|Warning> <reason> <message>
+                local sts=$1 etype=$2 reason=$3 message=$4 uid ts
+                uid=$(get_field "$sts" '{.metadata.uid}') || uid=""
+                ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+                kubectl create "${KC[@]}" -f - <<EOF || log "WARN: could not emit Event ${reason} for ${sts}"
+              apiVersion: v1
+              kind: Event
+              metadata:
+                name: ${sts}.sequenced-rollout.${NOW}.${RANDOM}
+              involvedObject:
+                apiVersion: apps/v1
+                kind: StatefulSet
+                name: ${sts}
+                namespace: ${NAMESPACE}
+                uid: "${uid}"
+              firstTimestamp: ${ts}
+              lastTimestamp: ${ts}
+              count: 1
+              type: ${etype}
+              reason: ${reason}
+              message: "${message}"
+              source:
+                component: rondb-ndbmtd-sequenced-rollout
+              EOF
+              }
+
+              log "run: groups=$NUM_NODE_GROUPS stallTimeout=${STALL_TIMEOUT_MINUTES}m"
+
+              rolling_sts=""       # unfrozen group still updating (rollout in progress)
+              lowest_pending=""    # lowest frozen group with a pending update
+              all_healthy=true
+
+              for ((g = 0; g < NUM_NODE_GROUPS; g++)); do
+                sts="node-group-$g"
+                if ! state=$(get_field "$sts" '{.spec.replicas}{"|"}{.spec.updateStrategy.rollingUpdate.partition}{"|"}{.status.currentRevision}{"|"}{.status.updateRevision}{"|"}{.status.readyReplicas}'); then
+                  log "$sts not found; skipping"
+                  continue
+                fi
+                IFS='|' read -r replicas partition current update ready <<< "$state"
+                replicas=${replicas:-0}; partition=${partition:-0}; ready=${ready:-0}
+
+                if [[ -z "$current" || -z "$update" ]]; then
+                  log "$sts has no revision status yet; skipping this run"
+                  continue
+                fi
+
+                pending=false; [[ "$current" != "$update" ]] && pending=true
+                frozen=false;  [[ "$partition" -ge "$replicas" ]] && frozen=true
+                healthy=false; [[ "$ready" -eq "$replicas" ]] && healthy=true
+
+                [[ "$healthy" == false ]] && all_healthy=false
+
+                if [[ "$frozen" == true ]]; then
+                  if [[ "$pending" == true && -z "$lowest_pending" ]]; then
+                    lowest_pending="$sts"
+                  fi
+                  continue
+                fi
+
+                # --- group is unfrozen ---
+                if [[ "$pending" == false && "$healthy" == true ]]; then
+                  # Finished: re-freeze so it matches what Helm rendered, and
+                  # clear this job's annotations.
+                  log "$sts converged on revision $update; re-freezing (partition=$replicas)"
+                  set_partition "$sts" "$replicas"
+                  kubectl annotate statefulset "$sts" "${KC[@]}" \
+                    "${UNFROZE_AT_KEY}-" "${STALL_KEY}-" --overwrite >/dev/null 2>&1 || true
+                  emit_event "$sts" Normal SequencedRolloutConverged \
+                    "node group $g converged on revision $update; re-frozen"
+                  continue
+                fi
+
+                # Still updating (or updated but not yet ready). Only one
+                # group may be unfrozen at a time, so don't unfreeze another.
+                if [[ -n "$rolling_sts" ]]; then
+                  log "WARN: multiple unfrozen groups ($rolling_sts, $sts) — manual change? holding the rollout"
+                  continue
+                fi
+                rolling_sts="$sts"
+
+                unfroze_at=$(get_field "$sts" "{.metadata.annotations['rondb\.hopsworks\.ai/sequenced-rollout-unfroze-at']}") || unfroze_at=""
+                if ! [[ "$unfroze_at" =~ ^[0-9]+$ ]]; then
+                  # Unfrozen by hand or by an earlier interrupted run (or the
+                  # annotation is invalid): take it over and start the timer.
+                  log "$sts is unfrozen without a valid start-time annotation; taking it over"
+                  kubectl annotate statefulset "$sts" "${KC[@]}" \
+                    "${UNFROZE_AT_KEY}=${NOW}" --overwrite >/dev/null || true
+                  unfroze_at=$NOW
+                fi
+
+                age=$((NOW - unfroze_at))
+                if (( age > STALL_SECONDS )); then
+                  stall_reported=$(get_field "$sts" "{.metadata.annotations['rondb\.hopsworks\.ai/sequenced-rollout-stall-reported']}") || stall_reported=""
+                  if [[ "$stall_reported" != "true" ]]; then
+                    log "STALL: $sts unconverged for ${age}s (> ${STALL_SECONDS}s); holding the rollout"
+                    kubectl get pods "${KC[@]}" -l nodeGroup="$g" -o wide || true
+                    emit_event "$sts" Warning SequencedRolloutStalled \
+                      "node group $g has not converged after ${age}s; rollout paused until it finishes or a new update lands"
+                    kubectl annotate statefulset "$sts" "${KC[@]}" \
+                      "${STALL_KEY}=true" --overwrite >/dev/null || true
+                  else
+                    log "$sts still stalled (${age}s); rollout still paused"
+                  fi
+                else
+                  log "$sts rolling for ${age}s (stall threshold ${STALL_SECONDS}s)"
+                fi
+              done
+
+              if [[ -n "$rolling_sts" ]]; then
+                log "rollout in progress on $rolling_sts; nothing else this run"
+                exit 0
+              fi
+
+              if [[ -n "$lowest_pending" ]]; then
+                if [[ "$all_healthy" != true ]]; then
+                  log "pending update on $lowest_pending held: another group is unhealthy"
+                  exit 0
+                fi
+                log "unfreezing $lowest_pending (partition=0)"
+                kubectl annotate statefulset "$lowest_pending" "${KC[@]}" \
+                  "${UNFROZE_AT_KEY}=${NOW}" --overwrite >/dev/null
+                set_partition "$lowest_pending" 0
+                emit_event "$lowest_pending" Normal SequencedRolloutUnfroze \
+                  "unfroze $lowest_pending to roll pending update; all other groups stay frozen"
+                exit 0
+              fi
+
+              log "nothing to do"
+{{- end }}
