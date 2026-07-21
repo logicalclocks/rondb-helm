@@ -406,6 +406,21 @@ true
 {{- default $derived .Values.ndbmtdSequencedRollout.perGroupStallTimeoutMinutes -}}
 {{- end -}}
 
+{{/*
+  Whether the CronJob suspends itself while idle. This ALSO gates the wake
+  hook that re-enables it (they must always render as a pair). Active only
+  when Helm drives the apply (mode auto/unset): under Argo (mode set) the
+  CronJob stays scheduled and no-ops when idle instead, so nothing ever
+  writes .spec.suspend and there is no server-side-apply two-writer conflict.
+*/}}
+{{- define "rondb.ndbmtdSequencedRollout.suspendWhenIdleActive" -}}
+{{- if and
+    .Values.ndbmtdSequencedRollout.suspendWhenIdle
+    (include "rondb.canUseLookupFunc" (dict "mode" .Values.mode "global" .Values.global)) -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "rondb.canUseLookupFunc" -}}
 {{- if .mode -}}
 {{- if eq .mode "auto" -}}

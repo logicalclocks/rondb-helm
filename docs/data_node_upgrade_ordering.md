@@ -30,10 +30,22 @@ this document. Shipped comments and messages use plain wording ("rollout",
 
 Revision history:
 
-- **Rev 7 (current)** — the CronJob now suspends itself when idle
+- **Rev 8 (current)** — corrected the idle-wake mechanism for Helm 4.
+  Rev 7 rendered `suspend: false` and relied on Helm's client-side three-way
+  merge to reset live drift; Helm 4 defaults to **server-side apply**, under
+  which a field the chart declares *and* the run mutates has two owners, and
+  Helm's apply fails with a `.spec.suspend` conflict (a `kubectl patch` is an
+  Update, a distinct owner from an Apply even under the same field-manager
+  name, so matching managers does not help). Fix: `.spec.suspend` is no longer
+  templated — Helm never owns it — and a `post-upgrade,post-rollback` hook Job
+  (`rondb-ndbmtd-sequenced-rollout-wake`) patches it back to `false`, rendered
+  under the same gate as self-suspend so it is absent under Argo.
+
+- **Rev 7** — the CronJob now suspends itself when idle
   (`suspendWhenIdle`, default on): zero pods between rollouts, woken by
-  the next helm upgrade/rollback (the chart renders `suspend: false`
-  explicitly so Helm's three-way patch restores it). Gated off when
+  the next helm upgrade/rollback (the chart rendered `suspend: false`
+  explicitly so Helm's three-way patch restored it — mechanism superseded by
+  Rev 8). Gated off when
   `mode` is set — the Argo CD convention — where Argo's sync would either
   fight the suspension or, told to ignore it, never wake the CronJob.
   Documented trade-off: changes applied outside Helm while suspended wait
@@ -331,40 +343,47 @@ lever if that churn matters: between rollouts the CronJob only needs to
 catch rollbacks and out-of-band changes, where minutes of detection
 latency are irrelevant.
 
-How the idle behavior was chosen: two designs were analyzed. The
-load-bearing fact for both (verified against Helm v3.20 source,
-`pkg/kube/client.go` `createPatch`): Helm's upgrade patch is a **true
-three-way strategic merge** — old manifest, new manifest, *live object*,
-with `overwrite=true` — and the delta half is computed as
-`diff(live → new manifest)` (apimachinery `CreateThreeWayMergePatch`: "the
-patch is the difference from current to modified"). So any live drift on a
-field that the chart renders — `.spec.suspend`, `.spec.schedule` — is
-**reset to the rendered value by every `helm upgrade` or `helm rollback`,
-even when the manifests didn't change**. (An earlier draft of this section
-claimed the opposite — that an unchanged manifest produces an empty patch
-and drift survives; that is Helm 2's two-way behavior, not Helm 3's.)
+How the idle behavior was chosen: two designs were analyzed. Both must
+survive Helm 4's default apply mode — **server-side apply (SSA)** — which
+changes what "Helm resets the rendered value" means. Under SSA a field is
+owned by the `(manager, operation)` that last wrote it: the chart's upgrade
+is an **Apply** as manager `helm`, while a `kubectl patch` from the run is an
+**Update** — a *distinct* owner even when it reuses the same manager name. So
+if the chart both **declares** `.spec.suspend` and the run **patches** it,
+the next `helm upgrade` Apply collides with the run's Update owner and fails
+with a `.spec.suspend` conflict. (This is not the Helm 3 client-side
+three-way merge an earlier draft reasoned about, where the rendered value
+silently overwrote live drift — SSA turns that same overwrite into a hard
+conflict.) The rule that falls out: **a field the run mutates at runtime must
+not be templated**, so Helm never owns it.
 
-**Implemented (Rev 7, `suspendWhenIdle`, default on): the CronJob suspends
-itself when idle** and relies on Helm to wake it.
+**Implemented (Rev 8, `suspendWhenIdle`, default on): the CronJob suspends
+itself when idle; a Helm hook wakes it.**
 
+- `.spec.suspend` is **not** rendered in the CronJob manifest, so Helm never
+  owns the field and cannot conflict with the run's patch. A new CronJob
+  defaults to `suspend: false`, so a fresh install runs immediately.
 - The run that finds every group converged and frozen patches its own
-  CronJob to `suspend: true` — idle cost drops to zero pods. Any
-  `helm upgrade` or `helm rollback` resets it to the rendered
-  `suspend: false` (per the verified patch semantics above — which is why
-  the chart renders the field explicitly instead of leaving it to the API
-  default), so a new rollout always wakes at full speed. Flux
-  helm-controller performs real Helm upgrades, so it wakes the CronJob the
-  same way. A run started by hand from a suspended CronJob
-  (`kubectl create job --from=...`) that finds work resumes the schedule
-  itself.
-- **Gated off when `mode` is set** — the chart's existing Argo CD
-  convention (the same signal `rondb.canUseLookupFunc` keys on). Argo's
-  sync engine either fights the suspension (selfHeal re-applies
-  `suspend: false` every cycle, saving nothing) or, with
-  `ignoreDifferences` on `.spec.suspend`, never resets it — and a real
-  update would then land frozen with the CronJob asleep. Argo deployments
-  therefore keep the always-on cadence; the suspend logic only activates
-  when `mode` is unset or `auto` (Helm CLI, Flux).
+  CronJob to `suspend: true` (a plain Update) — idle cost drops to zero pods.
+- A `post-upgrade,post-rollback` hook Job
+  (`rondb-ndbmtd-sequenced-rollout-wake`) patches `suspend: false` once after
+  every helm operation, so a new rollout always wakes at full speed. It runs
+  once and is deleted
+  (`hook-delete-policy: before-hook-creation,hook-succeeded`); because it can
+  only ever un-suspend and never overlaps the reconcile run, it cannot leave
+  the CronJob asleep. Flux helm-controller performs real Helm upgrades and
+  triggers the hook the same way. A run started by hand from a suspended
+  CronJob (`kubectl create job --from=...`) that finds work also resumes the
+  schedule itself.
+- **Gated off when `mode` is set** — the chart's existing Argo CD convention
+  (the same signal `rondb.canUseLookupFunc` keys on, via
+  `rondb.ndbmtdSequencedRollout.suspendWhenIdleActive`). There self-suspend is
+  off **and** the wake hook is not rendered: the CronJob simply stays
+  scheduled and no-ops when idle, so nothing ever writes `.spec.suspend` and
+  there is no conflict to resolve. (Argo would otherwise translate the
+  `helm.sh/hook` annotations into a PostSync Job — avoided by not rendering
+  it.) The suspend logic only activates when `mode` is unset or `auto` (Helm
+  CLI, Flux).
 - **Accepted trade-off**: a spec change applied outside Helm (a manual
   `kubectl apply` to a node-group StatefulSet) while suspended stays
   frozen until the next Helm operation or a manual wake —
@@ -379,8 +398,10 @@ itself when idle** and relies on Helm to wake it.
   self-recovering within one idle interval). The margin is small — at a
   daily idle cadence, two-speed is within one short pod-run per day of
   suspend — so the choice favors zero idle activity over automatic
-  self-recovery. (Plain two-speed beats *exponential* backoff either way:
-  idle cost is flat, so extra backoff states buy nothing.)
+  self-recovery. (Under SSA this alternative needs the same untemplating
+  treatment for `.spec.schedule` that suspend now gets, for the same
+  two-owner reason. And plain two-speed beats *exponential* backoff either
+  way: idle cost is flat, so extra backoff states buy nothing.)
 
 ### Failure & recovery playbook
 
@@ -424,16 +445,28 @@ itself when idle** and relies on Helm to wake it.
   against the rendered `partition: replicas`; with `selfHeal: true` Argo
   re-freezes it mid-roll. Ship documented `ignoreDifferences` for
   `.spec.updateStrategy.rollingUpdate.partition` on `node-group-*`
-  StatefulSets (standard practice for partition-based rollouts). Flux
-  helm-controller: drift detection is off by default; if enabled, the same
-  field exclusion is needed. Note the CronJob tolerates the fight
+  StatefulSets (standard practice for partition-based rollouts), **plus the
+  `RespectIgnoreDifferences=true` sync option** — `ignoreDifferences` alone
+  only suppresses the OutOfSync signal; without the sync option Argo still
+  pushes the rendered `partition` on every sync and re-freezes the rolling
+  group. Flux helm-controller: drift detection is off by default; if enabled,
+  the same field exclusion is needed. The CronJob tolerates the fight
   gracefully (a re-frozen group is just re-unfrozen next run), but the
-  tug-of-war wastes a roll step — configure the exclusion.
+  tug-of-war wastes a roll step — configure the exclusion. See "Deploying
+  under Argo CD" below for the full Application spec.
 - **Consecutive upgrades mid-rollout**: the newest spec lands (frozen) on
   all frozen groups; the one currently-unfrozen group rolls straight to the
   newest revision (exposure bounded to that group); the rollout continues
   against the new target. Working from current state makes "upgrade during
-  an upgrade" a non-event rather than a special case.
+  an upgrade" a non-event rather than a special case. One SSA wrinkle: while
+  a group is unfrozen the run holds its `partition` at 0, a different owner
+  from Helm's rendered `partition: replicas`, so a `helm upgrade` launched
+  *during* an active roll conflicts on that one StatefulSet — pass
+  `--force-conflicts` for that (rare) case; it re-freezes the group and the
+  next reconcile tick re-unfreezes the lowest pending group. At rest every
+  group's `partition` equals the rendered value, so ordinary upgrades never
+  conflict. (`partition` must stay templated — it establishes the freeze on
+  install — so it can't be untemplated the way `.spec.suspend` is.)
 - **Topology immutability**: `numNodeGroups` changes are already rejected at
   weight `-30/-20` (`templates/topology-immutability.yaml`), so the
   CronJob may assume the group count; missing StatefulSets (Argo first
@@ -445,6 +478,78 @@ itself when idle** and relies on Helm to wake it.
   supports mixed adjacent versions; if canonical `mgmd → ndbmtd → api`
   order is ever required, the same freeze+rollout extends to the API-tier
   StatefulSets. Out of scope for v1.
+
+### Deploying under Argo CD
+
+Three pieces of Application config are needed. The chart already handles the
+`.spec.suspend` half: with `mode` set it disables self-suspend and does not
+render the wake hook, so nothing ever writes `.spec.suspend` and there is no
+conflict there. What remains is the `partition` field, which the CronJob
+mutates at runtime and Argo will otherwise fight.
+
+1. **Set `mode`** (any non-`auto` value, e.g. `upgrade`) so the chart takes
+   its Argo path: self-suspend off, wake hook not rendered, CronJob stays
+   scheduled and no-ops when idle.
+2. **`ignoreDifferences` on `partition`** for the node-group StatefulSets, so
+   selfHeal does not re-freeze a rolling group. Argo's `ignoreDifferences`
+   matches `name` exactly (no globbing), so enumerate one entry per group —
+   `node-group-0 … node-group-<numNodeGroups-1>`. `numNodeGroups` is immutable
+   after install, so this list is set once.
+3. **`RespectIgnoreDifferences=true`** so Argo also skips *applying* the
+   rendered `partition` on sync. Without it, `ignoreDifferences` only hides
+   the OutOfSync signal and each sync still pushes `partition: replicas`,
+   re-freezing the rolling group.
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+spec:
+  source:
+    helm:
+      valuesObject:
+        mode: upgrade
+        ndbmtdSequencedRollout:
+          enabled: true
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+    - RespectIgnoreDifferences=true
+  # One entry per node group (name has no wildcard support). For a 3-group
+  # cluster: node-group-0, node-group-1, node-group-2.
+  ignoreDifferences:
+  - group: apps
+    kind: StatefulSet
+    name: node-group-0
+    jsonPointers:
+    - /spec/updateStrategy/rollingUpdate/partition
+  - group: apps
+    kind: StatefulSet
+    name: node-group-1
+    jsonPointers:
+    - /spec/updateStrategy/rollingUpdate/partition
+  - group: apps
+    kind: StatefulSet
+    name: node-group-2
+    jsonPointers:
+    - /spec/updateStrategy/rollingUpdate/partition
+```
+
+Notes:
+
+- **Higher steady-state cost than plain Helm.** With self-suspend off the
+  CronJob keeps ticking every `reconcileIntervalMinutes` even when idle (a
+  few-second pod each time). Raise `reconcileIntervalMinutes` (e.g. 10–15) if
+  that churn matters — idle detection latency is irrelevant between rollouts.
+- **The `unfroze-at` annotation.** The CronJob stamps
+  `rondb.hopsworks.ai/sequenced-rollout-unfroze-at` on a rolling StatefulSet.
+  If your setup flags it as OutOfSync, add a
+  `/metadata/annotations/rondb.hopsworks.ai~1sequenced-rollout-unfroze-at`
+  pointer to each group's entry (`~1` is the JSON-pointer escape for `/`).
+  Most setups will not need it.
+- **Verify** by pushing a chart change and watching groups roll one at a time
+  in the Argo UI without a group snapping back to frozen mid-roll — that is
+  the signal `RespectIgnoreDifferences` is working.
 
 ### Values
 
@@ -474,11 +579,13 @@ Schema-first (`values.schema.json` → `json_to_yaml.py`):
   mechanism can honor evenly. (Below 30, only divisors of 60 are perfectly
   even; non-divisors like 7 have one shorter gap per hour — harmless.)
 - `ndbmtdSequencedRollout.suspendWhenIdle` — default `true`. The CronJob
-  suspends itself once every group is converged and frozen, and any helm
-  upgrade/rollback wakes it (see "Steady-state cost"). Only takes effect
-  when `mode` is unset or `auto`; with `mode` set (Argo CD) the CronJob
-  stays always-on. While suspended, changes applied outside Helm wait for
-  the next helm operation or a manual
+  suspends itself once every group is converged and frozen; a
+  `post-upgrade,post-rollback` hook Job wakes it after each helm operation
+  (see "Steady-state cost" for why `.spec.suspend` is untemplated rather than
+  reset by Helm). Only takes effect when `mode` is unset or `auto`; with
+  `mode` set (Argo CD) both the self-suspend and the wake hook are off and the
+  CronJob stays always-on. While suspended, changes applied outside Helm wait
+  for the next helm operation or a manual
   `kubectl patch cronjob rondb-ndbmtd-sequenced-rollout --type merge -p
   '{"spec":{"suspend":false}}'`.
 - `ndbmtdSequencedRollout.perGroupStallTimeoutMinutes` — stall-detection

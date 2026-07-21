@@ -48,13 +48,16 @@ render "$WORK_DIR/on.yaml" --set clusterSize.numNodeGroups=2 --set ndbmtdSequenc
 assert "partition on both groups" '[[ $(count "partition: 2" $WORK_DIR/on.yaml) == 2 ]]'
 assert "one CronJob" '[[ $(count "kind: CronJob" $WORK_DIR/on.yaml) == 1 ]]'
 assert "RBAC names both groups" '[[ $(count "node-group-1$" $WORK_DIR/on.yaml) -ge 1 ]]'
-assert "suspend rendered explicitly (needed for the helm wake)" '[[ $(count "^  suspend: false" $WORK_DIR/on.yaml) == 1 ]]'
+assert "suspend not templated (avoids server-side-apply conflict)" '[[ $(count "^  suspend:" $WORK_DIR/on.yaml) == 0 ]]'
+assert "wake hook renders when self-suspend is active" '[[ $(count "rondb-ndbmtd-sequenced-rollout-wake" $WORK_DIR/on.yaml) -ge 1 ]]'
+assert "wake hook is a post-upgrade/rollback helm hook" 'grep -q "helm.sh/hook: post-upgrade,post-rollback" $WORK_DIR/on.yaml'
 assert "suspend-when-idle on without mode" 'grep -A1 "name: SUSPEND_WHEN_IDLE" $WORK_DIR/on.yaml | grep -q "\"true\""'
 
 echo "=== rendering: flag on with mode set (Argo convention) -> no self-suspend ==="
 render "$WORK_DIR/argo.yaml" --set clusterSize.numNodeGroups=2 \
   --set ndbmtdSequencedRollout.enabled=true --set mode=upgrade
 assert "suspend-when-idle off when mode is set" 'grep -A1 "name: SUSPEND_WHEN_IDLE" $WORK_DIR/argo.yaml | grep -q "\"false\""'
+assert "no wake hook under mode (Argo would map it to PostSync)" '[[ $(count "rondb-ndbmtd-sequenced-rollout-wake" $WORK_DIR/argo.yaml) == 0 ]]'
 
 echo "=== rendering: flag on, 1 node group -> feature off (nothing to sequence) ==="
 render "$WORK_DIR/one.yaml" --set ndbmtdSequencedRollout.enabled=true
