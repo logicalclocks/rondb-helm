@@ -1,0 +1,380 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+{{- /*
+  Rolls the data node groups one at a time on upgrade, so a bad change can
+  only take down one group at a time instead of one pod in every group.
+
+  templates/ndbd.yaml freezes each node-group StatefulSet (rolling-update
+  partition set to the replica count), so `helm upgrade` records the new pod
+  template but restarts nothing. This CronJob runs every few minutes; each
+  run reads the current state of every group and takes one step: unfreeze at
+  most one group that still needs the update (partition 0), and re-freeze any
+  that has finished. The StatefulSet controller does the restarts, one pod at
+  a time, held back by the pods' readiness probes.
+
+  It keeps almost no state of its own — the partition value and the
+  current/target revisions live on the StatefulSets, plus one annotation set
+  here to time a stalled group — so a killed run, drained node, or cluster
+  restart loses nothing; the next run continues. Working from current state
+  also means `helm rollback` and changes made outside Helm are handled the
+  same way, and a group unfrozen by hand is taken over and re-frozen.
+
+  If a group doesn't finish within the stall timeout, the rollout stops there
+  (no later group is unfrozen), leaving the group unfrozen so the next
+  `helm upgrade` rolls a fix straight into it. Every run logs each group's
+  state, so the newest pod log always shows why the rollout is paused; the
+  durable "not progressing" signal is the revision-age metric alert. A
+  pending update also waits while any already-frozen group is unhealthy, so
+  the rollout never takes a second group down at the same time.
+
+  Once everything is converged and frozen, the run suspends its own CronJob
+  so nothing at all runs while idle. `.spec.suspend` is deliberately NOT
+  templated: under server-side apply (Helm 4's default) a field the chart
+  declares AND the run mutates has two owners, and Helm's Apply then
+  conflicts with the run's patch (a patch is an Update, distinct from an
+  Apply even under the same manager name, so it can't be worked around by
+  matching field managers). Leaving suspend off the manifest means Helm
+  never owns it, so the run may set it freely; a post-upgrade/-rollback Helm
+  hook Job (see the bottom of this file) re-enables the CronJob on the next
+  helm operation.
+
+  Self-suspend and its wake hook are active only when Helm drives the apply
+  (mode auto/unset; see suspendWhenIdleActive). Under Argo (mode set) both
+  are off: the CronJob stays scheduled and no-ops when idle, so nothing ever
+  writes .spec.suspend and there is no conflict — the hook is not rendered in
+  that mode (Argo would otherwise map it onto a PostSync job). A change
+  applied while suspended can be woken by hand:
+  kubectl patch cronjob rondb-ndbmtd-sequenced-rollout --type merge \
+    -p '{"spec":{"suspend":false}}'
+
+  Argo CD: an unfrozen group differs from the partition Helm rendered, so
+  with selfHeal on, set ignoreDifferences for
+  .spec.updateStrategy.rollingUpdate.partition on node-group-* StatefulSets.
+  partition IS templated (it must be, to freeze on install), but at rest its
+  value equals the render, so only a `helm upgrade` DURING an active rollout
+  conflicts under SSA; pass --force-conflicts for that rare case.
+*/}}
+
+{{- if include "rondb.ndbmtdSequencedRollout.isActive" . }}
+{{- $stallTimeoutMinutes := include "rondb.ndbmtdSequencedRollout.perGroupStallTimeoutMinutes" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups: ["apps"]
+  resources: ["statefulsets"]
+  # patch: sets both the partition value and this job's annotations.
+  verbs: ["get", "patch"]
+  resourceNames:
+  {{- range $g := until (int .Values.clusterSize.numNodeGroups) }}
+  - node-group-{{ $g }}
+  {{- end }}
+# For logging pod status only; "list" can't be limited to named objects.
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+# The CronJob suspends itself while idle and resumes when work appears.
+- apiGroups: ["batch"]
+  resources: ["cronjobs"]
+  verbs: ["get", "patch"]
+  resourceNames:
+  - rondb-ndbmtd-sequenced-rollout
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+subjects:
+- kind: ServiceAccount
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: rondb-ndbmtd-sequenced-rollout
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: "*/{{ int .Values.ndbmtdSequencedRollout.reconcileIntervalMinutes }} * * * *"
+  # .spec.suspend is intentionally NOT set here. The reconcile run toggles it
+  # at runtime; templating it too would give the field two writers and make
+  # `helm upgrade` fail with a server-side-apply conflict. Helm leaves the
+  # field alone; the wake-hook Job at the bottom of this file re-enables the
+  # CronJob after each helm operation. See the header comment for the full
+  # rationale. New CronJobs default to suspend=false, so a fresh install runs.
+  # Each run is short and repeatable; never run two at once.
+  concurrencyPolicy: Forbid
+  # Without a deadline, an outage that misses more than 100 scheduled runs
+  # stops the CronJob for good. This caps the miss count so it recovers.
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      # A run is only a few kubectl calls; this is a safety cap.
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            rondbService: ndbmtd-sequenced-rollout
+        spec:
+          serviceAccountName: rondb-ndbmtd-sequenced-rollout
+          restartPolicy: Never
+{{- include "rondb.PodSecurityContext" $ | indent 10 }}
+{{- include "rondb.imagePullSecrets" . | indent 10 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.mgmd) | indent 10 }}
+{{- include "rondb.tolerations" (dict "tolerations" .Values.tolerations.mgmd) | indent 10 }}
+{{- if .Values.priorityClass }}
+          priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end }}
+          containers:
+          - name: reconcile
+            image: {{ include "image_address" (dict "image" .Values.images.toolbox) }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 12 }}
+            resources:
+              limits:
+                cpu: 0.2
+                memory: 200Mi
+            env:
+            - name: NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: NUM_NODE_GROUPS
+              value: {{ .Values.clusterSize.numNodeGroups | quote }}
+            - name: STALL_TIMEOUT_MINUTES
+              value: {{ $stallTimeoutMinutes | quote }}
+            - name: CRONJOB_NAME
+              value: rondb-ndbmtd-sequenced-rollout
+            - name: SUSPEND_WHEN_IDLE
+{{- if include "rondb.ndbmtdSequencedRollout.suspendWhenIdleActive" . }}
+              value: "true"
+{{- else }}
+              value: "false"
+{{- end }}
+            command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+
+              log() { echo "[sequenced-rollout] $*"; }
+
+              UNFROZE_AT_KEY="rondb.hopsworks.ai/sequenced-rollout-unfroze-at"
+              STALL_SECONDS=$((STALL_TIMEOUT_MINUTES * 60))
+              NOW=$(date +%s)
+              # Time-bound every kubectl call so one hung connection can't
+              # use up the whole run. Do not use kubectl's --request-timeout
+              # here: with no kubeconfig, that override makes client-go treat
+              # its localhost default as explicit and skip in-cluster auth.
+              kube() {
+                timeout 15s kubectl -n "$NAMESPACE" "$@"
+              }
+
+              get_field() { # <sts> <jsonpath>
+                kube get statefulset "$1" -o jsonpath="$2"
+              }
+
+              set_partition() { # <sts> <value>
+                kube patch statefulset "$1" --type merge \
+                  -p "{\"spec\":{\"updateStrategy\":{\"type\":\"RollingUpdate\",\"rollingUpdate\":{\"partition\":$2}}}}"
+              }
+
+              set_suspend() { # <true|false>
+                # Plain patch (an Update): the chart does not template
+                # .spec.suspend, so Helm's Apply never owns it and this write
+                # can't collide with Helm. The wake hook re-enables the
+                # CronJob with the same kind of patch. See the header comment.
+                kube patch cronjob "$CRONJOB_NAME" --type merge \
+                  -p "{\"spec\":{\"suspend\":$1}}"
+              }
+
+              ensure_awake() {
+                # A run started by hand while the CronJob is suspended
+                # (kubectl create job --from=...) that finds work must
+                # resume the schedule, or nothing follows up on it.
+                [[ "$SUSPEND_WHEN_IDLE" != "true" ]] && return 0
+                local suspended
+                suspended=$(kube get cronjob "$CRONJOB_NAME" -o jsonpath='{.spec.suspend}' 2>/dev/null) || return 0
+                [[ "$suspended" != "true" ]] && return 0
+                log "work found while suspended; resuming the schedule"
+                set_suspend false >/dev/null || log "WARN: could not resume own schedule"
+              }
+
+              log "run: groups=$NUM_NODE_GROUPS stallTimeout=${STALL_TIMEOUT_MINUTES}m"
+
+              rolling_sts=""       # unfrozen group still updating (rollout in progress)
+              lowest_pending=""    # lowest frozen group with a pending update
+              all_healthy=true
+
+              for ((g = 0; g < NUM_NODE_GROUPS; g++)); do
+                sts="node-group-$g"
+                if ! state=$(get_field "$sts" '{.spec.replicas}{"|"}{.spec.updateStrategy.rollingUpdate.partition}{"|"}{.status.currentRevision}{"|"}{.status.updateRevision}{"|"}{.status.readyReplicas}' 2>&1); then
+                  if [[ "$state" == *"(NotFound)"* || "$state" == *"not found"* ]]; then
+                    log "$sts not found; skipping"
+                    continue
+                  fi
+                  log "ERROR: could not read $sts: $state"
+                  exit 1
+                fi
+                IFS='|' read -r replicas partition current update ready <<< "$state"
+                replicas=${replicas:-0}; partition=${partition:-0}; ready=${ready:-0}
+
+                if [[ -z "$current" || -z "$update" ]]; then
+                  log "$sts has no revision status yet; skipping this run"
+                  continue
+                fi
+
+                pending=false; [[ "$current" != "$update" ]] && pending=true
+                frozen=false;  [[ "$partition" -ge "$replicas" ]] && frozen=true
+                healthy=false; [[ "$ready" -eq "$replicas" ]] && healthy=true
+
+                [[ "$healthy" == false ]] && all_healthy=false
+
+                if [[ "$frozen" == true ]]; then
+                  if [[ "$pending" == true && -z "$lowest_pending" ]]; then
+                    lowest_pending="$sts"
+                  fi
+                  continue
+                fi
+
+                # --- group is unfrozen ---
+                if [[ "$pending" == false && "$healthy" == true ]]; then
+                  # Finished: re-freeze so it matches what Helm rendered, and
+                  # clear this job's annotation.
+                  log "$sts converged on revision $update; re-freezing (partition=$replicas)"
+                  set_partition "$sts" "$replicas"
+                  kube annotate statefulset "$sts" \
+                    "${UNFROZE_AT_KEY}-" --overwrite >/dev/null 2>&1 || true
+                  continue
+                fi
+
+                # Still updating (or updated but not yet ready). Only one
+                # group may be unfrozen at a time, so don't unfreeze another.
+                if [[ -n "$rolling_sts" ]]; then
+                  log "WARN: multiple unfrozen groups ($rolling_sts, $sts) — manual change? holding the rollout"
+                  continue
+                fi
+                rolling_sts="$sts"
+
+                if ! unfroze_at=$(get_field "$sts" "{.metadata.annotations['rondb\.hopsworks\.ai/sequenced-rollout-unfroze-at']}" 2>&1); then
+                  log "ERROR: could not read $sts rollout annotation: $unfroze_at"
+                  exit 1
+                fi
+                if ! [[ "$unfroze_at" =~ ^[0-9]+$ ]]; then
+                  # Unfrozen by hand or by an earlier interrupted run (or the
+                  # annotation is invalid): take it over and start the timer.
+                  log "$sts is unfrozen without a valid start-time annotation; taking it over"
+                  kube annotate statefulset "$sts" \
+                    "${UNFROZE_AT_KEY}=${NOW}" --overwrite >/dev/null || true
+                  unfroze_at=$NOW
+                fi
+
+                age=$((NOW - unfroze_at))
+                if (( age > STALL_SECONDS )); then
+                  log "STALL: $sts unconverged for ${age}s (> ${STALL_SECONDS}s); rollout paused until it finishes or a new update lands"
+                  kube get pods -l nodeGroup="$g" -o wide || true
+                else
+                  log "$sts rolling for ${age}s (stall threshold ${STALL_SECONDS}s)"
+                fi
+              done
+
+              if [[ -n "$rolling_sts" ]]; then
+                ensure_awake
+                log "rollout in progress on $rolling_sts; nothing else this run"
+                exit 0
+              fi
+
+              if [[ -n "$lowest_pending" ]]; then
+                ensure_awake
+                if [[ "$all_healthy" != true ]]; then
+                  log "pending update on $lowest_pending held: another group is unhealthy"
+                  exit 0
+                fi
+                log "unfreezing $lowest_pending (partition=0)"
+                kube annotate statefulset "$lowest_pending" \
+                  "${UNFROZE_AT_KEY}=${NOW}" --overwrite >/dev/null
+                set_partition "$lowest_pending" 0
+                exit 0
+              fi
+
+              if [[ "$SUSPEND_WHEN_IDLE" == "true" ]]; then
+                log "nothing to do; suspending until the next helm upgrade or rollback"
+                set_suspend true >/dev/null || log "WARN: could not suspend own schedule"
+              else
+                log "nothing to do"
+              fi
+{{- if include "rondb.ndbmtdSequencedRollout.suspendWhenIdleActive" . }}
+---
+# Wakes the (possibly self-suspended) CronJob after every helm upgrade or
+# rollback, replacing the old approach of templating `suspend: false` and
+# letting Helm reset it — which conflicts under server-side apply. This is a
+# post-* hook so it runs after the CronJob object is applied. Rendered only
+# when self-suspend is active; under Argo (mode set) it is absent, and Argo
+# would otherwise translate these hook annotations into a PostSync job.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rondb-ndbmtd-sequenced-rollout-wake
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    helm.sh/hook: post-upgrade,post-rollback
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  # A single patch call; cap it so a stuck run can't linger.
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        rondbService: ndbmtd-sequenced-rollout-wake
+    spec:
+      serviceAccountName: rondb-ndbmtd-sequenced-rollout
+      restartPolicy: Never
+{{- include "rondb.PodSecurityContext" $ | indent 6 }}
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" .Values.nodeSelector.mgmd) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" .Values.tolerations.mgmd) | indent 6 }}
+{{- if .Values.priorityClass }}
+      priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end }}
+      containers:
+      - name: wake
+        image: {{ include "image_address" (dict "image" .Values.images.toolbox) }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
+        resources:
+          limits:
+            cpu: 0.2
+            memory: 200Mi
+        env:
+        - name: NAMESPACE
+          value: {{ .Release.Namespace | quote }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -euo pipefail
+          # Plain merge patch (an Update); the chart does not template
+          # .spec.suspend, so this never collides with Helm's apply.
+          timeout 15s kubectl -n "$NAMESPACE" patch cronjob \
+            rondb-ndbmtd-sequenced-rollout --type merge \
+            -p '{"spec":{"suspend":false}}'
+          echo "[sequenced-rollout-wake] CronJob resumed"
+{{- end }}
+{{- end }}

@@ -368,6 +368,59 @@ true
 {{- end -}}
 {{- end -}}
 
+{{/*
+  Whether the sequenced data node rollout is turned on.
+  Gates BOTH the partition freeze on the node-group StatefulSets and the
+  rollout CronJob together — they must always render as a pair: a freeze
+  with no CronJob blocks upgrades forever, and a CronJob with no freeze
+  does nothing.
+
+  Off with a single node group: there is only one group, and a StatefulSet
+  already restarts its pods one at a time, so sequencing would only add
+  delay. numNodeGroups can't change after install
+  (topology-immutability.yaml), so this stays settled for the cluster's life.
+
+  Off during an in-place restore: that restore scales the node-group
+  StatefulSets to zero, and a pod recreated below a frozen partition comes
+  back on the OLD pod template — skipping the
+  FORCE_INITIAL_START/INPLACE_BACKUP_ID settings the restore needs.
+*/}}
+{{- define "rondb.ndbmtdSequencedRollout.isActive" -}}
+{{- if and
+    .Values.ndbmtdSequencedRollout.enabled
+    (gt (int .Values.clusterSize.numNodeGroups) 1)
+    (not (include "rondb.isExternallyManaged" .))
+    (not (include "rondb.restoreFromBackup.isInPlace" .)) -}}
+true
+{{- end -}}
+{{- end -}}
+
+{{/*
+  How long (minutes) one node group may take before the rollout flags it as
+  stalled. 0 (the default) works it out from the startup probe: one node's
+  allowed startup time (timeoutsMinutes.ndbmtdStartupProbe) times the number
+  of replicas started one after another, plus 30 minutes of slack.
+*/}}
+{{- define "rondb.ndbmtdSequencedRollout.perGroupStallTimeoutMinutes" -}}
+{{- $derived := add (mul (int .Values.clusterSize.activeDataReplicas) (int .Values.timeoutsMinutes.ndbmtdStartupProbe)) 30 -}}
+{{- default $derived .Values.ndbmtdSequencedRollout.perGroupStallTimeoutMinutes -}}
+{{- end -}}
+
+{{/*
+  Whether the CronJob suspends itself while idle. This ALSO gates the wake
+  hook that re-enables it (they must always render as a pair). Active only
+  when Helm drives the apply (mode auto/unset): under Argo (mode set) the
+  CronJob stays scheduled and no-ops when idle instead, so nothing ever
+  writes .spec.suspend and there is no server-side-apply two-writer conflict.
+*/}}
+{{- define "rondb.ndbmtdSequencedRollout.suspendWhenIdleActive" -}}
+{{- if and
+    .Values.ndbmtdSequencedRollout.suspendWhenIdle
+    (include "rondb.canUseLookupFunc" (dict "mode" .Values.mode "global" .Values.global)) -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "rondb.canUseLookupFunc" -}}
 {{- if .mode -}}
 {{- if eq .mode "auto" -}}

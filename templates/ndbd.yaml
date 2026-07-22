@@ -16,6 +16,15 @@ spec:
   # data nodes to start at the same time.
   podManagementPolicy: Parallel
   replicas: {{ $.Values.clusterSize.activeDataReplicas }}
+{{- if include "rondb.ndbmtdSequencedRollout.isActive" $ }}
+  # Setting partition to the replica count freezes rolling updates: an
+  # upgrade records the new pod template but restarts nothing. The
+  # sequenced-rollout CronJob then rolls the groups one at a time.
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: {{ $.Values.clusterSize.activeDataReplicas }}
+{{- end }}
   selector:
     # Used by the Deployment to select and manage existing pods with the specified label
     matchLabels:
