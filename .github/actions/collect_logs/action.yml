@@ -53,7 +53,7 @@ runs:
       run: |
         mkdir -p ${{ inputs.folder_name }}/deployments
         kubectl get deployments -n ${{ inputs.namespace }} -o wide || true
-        for dep in $(kubectl get deployments -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
+        for dep in $(kubectl get deployments -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' || true); do
           kubectl describe deployment -n ${{ inputs.namespace }} $dep > ${{ inputs.folder_name }}/deployments/$dep.txt || true
         done
 
@@ -62,7 +62,7 @@ runs:
       run: |
         mkdir -p ${{ inputs.folder_name }}/statefulsets
         kubectl get statefulsets -n ${{ inputs.namespace }} -o wide || true
-        for sts in $(kubectl get statefulsets -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
+        for sts in $(kubectl get statefulsets -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' || true); do
           kubectl describe statefulset -n ${{ inputs.namespace }} $sts > ${{ inputs.folder_name }}/statefulsets/$sts.txt || true
         done
 
@@ -70,13 +70,13 @@ runs:
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/pods/logs
-        for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
+        for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' || true); do
           mkdir -p ${{ inputs.folder_name }}/pods/logs/$pod
-          for container in $(kubectl get pods -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.containers[*].name}'); do
+          for container in $(kubectl get pods -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.containers[*].name}' || true); do
             kubectl logs -n ${{ inputs.namespace }} $pod $container > ${{ inputs.folder_name }}/pods/logs/$pod/$container.log || true
             kubectl logs -n ${{ inputs.namespace }} $pod $container --previous > ${{ inputs.folder_name }}/pods/logs/$pod/$container.previous.log || true
           done
-          for container in $(kubectl get pods -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.initContainers[*].name}'); do
+          for container in $(kubectl get pods -n ${{ inputs.namespace }} $pod -o jsonpath='{.spec.initContainers[*].name}' || true); do
             kubectl logs -n ${{ inputs.namespace }} $pod $container > ${{ inputs.folder_name }}/pods/logs/$pod/$container.log || true
             kubectl logs -n ${{ inputs.namespace }} $pod $container --previous > ${{ inputs.folder_name }}/pods/logs/$pod/$container.previous.log || true
           done
@@ -86,7 +86,7 @@ runs:
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/pods/describe
-        for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
+        for pod in $(kubectl get pods -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' || true); do
           kubectl describe pod -n ${{ inputs.namespace }} $pod > ${{ inputs.folder_name }}/pods/describe/$pod.txt || true
         done
 
@@ -94,7 +94,7 @@ runs:
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/pvc
-        for p in $(kubectl get pvc -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
+        for p in $(kubectl get pvc -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' || true); do
           kubectl describe pvc -n ${{ inputs.namespace }} $p > ${{ inputs.folder_name }}/pvc/$p.txt || true
         done
 
@@ -102,7 +102,7 @@ runs:
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/pv
-        for p in $(kubectl get pv -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
+        for p in $(kubectl get pv -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}' || true); do
           kubectl describe pv -n ${{ inputs.namespace }} $p > ${{ inputs.folder_name }}/pv/$p.txt || true
         done
 
