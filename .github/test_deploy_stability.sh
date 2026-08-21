@@ -31,13 +31,18 @@ while true; do
     # Check that all StatefulSets have their desired replica count.
     # This catches scenarios where a StatefulSet has 0 pods (e.g. FailedCreate),
     # which the pod readiness check above would vacuously pass.
-    STS_RAW=$(kubectl get statefulsets -n $K8S_NAMESPACE --no-headers 2>/dev/null)
+    STS_RAW=$(kubectl get statefulsets -n $K8S_NAMESPACE --no-headers 2>&1)
     if [ $? -ne 0 ]; then
-        echo "kubectl get statefulsets failed after $TOTAL seconds, treating cluster as not ready"
+        echo "kubectl get statefulsets failed after $TOTAL seconds, treating cluster as not ready:"
+        echo "$STS_RAW"
         OK_SECONDS=0
         continue
     fi
-    STS_NOT_READY=$(echo "$STS_RAW" | awk 'NF { split($2,a,"/"); if (a[1] != a[2]) print $0 }')
+    # Only parse well-formed "<name> <ready>/<desired>" rows. Anything else is
+    # kubectl chatter rather than a StatefulSet - notably the "No resources
+    # found" notice, which arrives on stderr and would otherwise be read as a
+    # StatefulSet that is short of replicas.
+    STS_NOT_READY=$(echo "$STS_RAW" | awk '$2 ~ /^[0-9]+\/[0-9]+$/ { split($2,a,"/"); if (a[1] != a[2]) print $0 }')
 
     PODS_READY=true
     # lt 2 because of header (keep for readability)
