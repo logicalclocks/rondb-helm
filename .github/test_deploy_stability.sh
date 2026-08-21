@@ -10,10 +10,21 @@ while true; do
     sleep $SLEEP_SECONDS
     TOTAL=$((TOTAL + SLEEP_SECONDS))
 
-    NUM_NOT_READY=$(kubectl \
+    # A failing kubectl must never read as "everything is ready": an empty
+    # result would pass the check below, so an unreachable API server would
+    # silently report a broken cluster as stable.
+    POD_STATUS=$(kubectl \
         -n $K8S_NAMESPACE \
         get pods \
-        -o custom-columns="POD:metadata.name,POD_PHASE:status.phase,READY:status.containerStatuses[*].ready" |
+        -o custom-columns="POD:metadata.name,POD_PHASE:status.phase,READY:status.containerStatuses[*].ready" 2>&1)
+    if [ $? -ne 0 ]; then
+        echo "kubectl get pods failed after $TOTAL seconds, treating cluster as not ready:"
+        echo "$POD_STATUS"
+        OK_SECONDS=0
+        continue
+    fi
+
+    NUM_NOT_READY=$(echo "$POD_STATUS" |
         egrep -v "Succeeded" |
         grep -e POD -e POD_PHASE -e "Pending" -e "false")
 
