@@ -10,17 +10,34 @@ while true; do
     sleep $SLEEP_SECONDS
     TOTAL=$((TOTAL + SLEEP_SECONDS))
 
-    NUM_NOT_READY=$(kubectl \
+    # A failing kubectl must never read as "everything is ready": an empty
+    # result would pass every check below, so an unreachable API server would
+    # silently report a broken cluster as stable.
+    POD_STATUS=$(kubectl \
         -n $K8S_NAMESPACE \
         get pods \
-        -o custom-columns="POD:metadata.name,POD_PHASE:status.phase,READY:status.containerStatuses[*].ready" |
+        -o custom-columns="POD:metadata.name,POD_PHASE:status.phase,READY:status.containerStatuses[*].ready" 2>&1)
+    if [ $? -ne 0 ]; then
+        echo "kubectl get pods failed after $TOTAL seconds, treating cluster as not ready:"
+        echo "$POD_STATUS"
+        OK_SECONDS=0
+        continue
+    fi
+
+    NUM_NOT_READY=$(echo "$POD_STATUS" |
         egrep -v "Succeeded" |
         grep -e POD -e POD_PHASE -e "Pending" -e "false")
 
     # Check that all StatefulSets have their desired replica count.
     # This catches scenarios where a StatefulSet has 0 pods (e.g. FailedCreate),
     # which the pod readiness check above would vacuously pass.
-    STS_NOT_READY=$(kubectl get statefulsets -n $K8S_NAMESPACE --no-headers 2>/dev/null | awk '{split($2,a,"/"); if (a[1] != a[2]) print $0}')
+    STS_RAW=$(kubectl get statefulsets -n $K8S_NAMESPACE --no-headers 2>/dev/null)
+    if [ $? -ne 0 ]; then
+        echo "kubectl get statefulsets failed after $TOTAL seconds, treating cluster as not ready"
+        OK_SECONDS=0
+        continue
+    fi
+    STS_NOT_READY=$(echo "$STS_RAW" | awk 'NF { split($2,a,"/"); if (a[1] != a[2]) print $0 }')
 
     PODS_READY=true
     # lt 2 because of header (keep for readability)

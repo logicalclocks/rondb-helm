@@ -9,6 +9,11 @@ inputs:
     default: "k8s_logs"
     required: true
 
+# Every step below is best-effort. This action only ever runs when we already
+# want a post-mortem, so a single unavailable API (metrics-server being down is
+# the common one) must not abort collection: composite steps have no
+# continue-on-error, so a failing step skips every later step *and* the upload,
+# leaving a failed run with no diagnostics at all.
 runs:
   using: 'composite'
   steps:
@@ -18,31 +23,36 @@ runs:
 
     - name: List Pods
       shell: bash
-      run: kubectl get pods -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/pods.txt
+      run: kubectl get pods -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/pods.txt || true
 
     - name: List all
       shell: bash
-      run: kubectl get all -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/all.txt
+      run: kubectl get all -n ${{ inputs.namespace }} -o wide > ${{ inputs.folder_name }}/all.txt || true
 
     - name: Save events
       shell: bash
-      run: kubectl get events -n ${{ inputs.namespace }} --sort-by='.metadata.creationTimestamp' > ${{ inputs.folder_name }}/all_events.txt
+      run: |
+        kubectl get events -n ${{ inputs.namespace }} --sort-by='.metadata.creationTimestamp' > ${{ inputs.folder_name }}/all_events.txt || true
+        # Cluster-wide events catch what namespaced events cannot: node
+        # NotReady/pressure, evictions and kube-system crashes.
+        kubectl get events -A --sort-by='.metadata.creationTimestamp' > ${{ inputs.folder_name }}/all_events_cluster.txt || true
 
     - name: Describe top
       shell: bash
-      run: kubectl top pods -n ${{ inputs.namespace }} > ${{ inputs.folder_name }}/top.txt
+      run: kubectl top pods -n ${{ inputs.namespace }} > ${{ inputs.folder_name }}/top.txt 2>&1 || true
 
     - name: Get nodes
       shell: bash
       run: |
-        kubectl get nodes -o wide > ${{ inputs.folder_name }}/nodes.txt
-        kubectl top nodes >> ${{ inputs.folder_name }}/nodes.txt
+        kubectl get nodes -o wide > ${{ inputs.folder_name }}/nodes.txt || true
+        kubectl top nodes >> ${{ inputs.folder_name }}/nodes.txt 2>&1 || true
+        kubectl describe nodes > ${{ inputs.folder_name }}/nodes_describe.txt || true
 
     - name: Describe Deployments
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/deployments
-        kubectl get deployments -n ${{ inputs.namespace }} -o wide
+        kubectl get deployments -n ${{ inputs.namespace }} -o wide || true
         for dep in $(kubectl get deployments -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
           kubectl describe deployment -n ${{ inputs.namespace }} $dep > ${{ inputs.folder_name }}/deployments/$dep.txt || true
         done
@@ -51,8 +61,7 @@ runs:
       shell: bash
       run: |
         mkdir -p ${{ inputs.folder_name }}/statefulsets
-        kubectl get statefulsets -n ${{ inputs.namespace }} -o wide
-        mkdir -p ${{ inputs.folder_name }}/statefulsets
+        kubectl get statefulsets -n ${{ inputs.namespace }} -o wide || true
         for sts in $(kubectl get statefulsets -n ${{ inputs.namespace }} -o jsonpath='{.items[*].metadata.name}'); do
           kubectl describe statefulset -n ${{ inputs.namespace }} $sts > ${{ inputs.folder_name }}/statefulsets/$sts.txt || true
         done
@@ -99,13 +108,14 @@ runs:
 
     - name: CRDs definitions
       shell: bash
-      run: kubectl get crd -A > ${{ inputs.folder_name }}/crds.txt
+      run: kubectl get crd -A > ${{ inputs.folder_name }}/crds.txt || true
 
     - name: Print MGMd cluster.log
       shell: bash
-      run: kubectl exec mgmds-0 --namespace ${{ inputs.namespace }} -c mgmd -- cat /srv/hops/mysql-cluster/log/cluster.log > ${{ inputs.folder_name }}/cluster.log
+      run: kubectl exec mgmds-0 --namespace ${{ inputs.namespace }} -c mgmd -- cat /srv/hops/mysql-cluster/log/cluster.log > ${{ inputs.folder_name }}/cluster.log 2>&1 || true
 
     - name: Save artifacts
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.folder_name }}
