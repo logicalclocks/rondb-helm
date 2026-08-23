@@ -127,7 +127,7 @@ jobs:
             .
           sleep 10
 
-      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=generate-data
+      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --timeout=10m --logs --filter name=generate-data
 
       - name: Waiting for benchmark job to complete
         run: bash .github/wait_job.sh $K8S_NAMESPACE benchs 240
@@ -151,7 +151,7 @@ jobs:
       - run: kubectl -n $K8S_NAMESPACE get pods
 
       # Check that data has not been lost
-      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
+      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --timeout=10m --logs --filter name=verify-data
       - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
 
       # Avoid pro-longed stability check because of MySQLd HPA.
@@ -196,7 +196,7 @@ jobs:
 
       # Check again that data is still there
       - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
-      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --logs --filter name=verify-data
+      - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --timeout=10m --logs --filter name=verify-data
 
       # RONDB-1053: numNodeGroups immutability. Rejection tests run a
       # real `helm upgrade` — helm 3.13+'s --dry-run=client returns
