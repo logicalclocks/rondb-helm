@@ -252,6 +252,11 @@ mysql:
   sqlInitContent: {}
   supplyOwnSecret: false
   users: []
+ndbmtdSettleWait:
+  fallbackSeconds: 15
+  maxWaitSeconds: 30
+  probeTimeoutSeconds: 5
+  quietSeconds: 8
 networkPolicy:
   mgmds:
     enabled: true
