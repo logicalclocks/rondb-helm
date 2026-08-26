@@ -71,7 +71,14 @@ echo "[K8s Entrypoint] Pod's IP: $POD_IP"
 
 # Wait until the FQDN resolves to the Pod's IP
 while true; do
-  result=$(nslookup $POD_FQDN)
+  # Callers include this under differing shell flags; with `set -e` a failing
+  # command substitution kills the whole script on the first failed lookup.
+  # An until-condition is exempt from errexit, so the lookup retries as
+  # intended in every caller.
+  until result=$(nslookup "$POD_FQDN" 2>/dev/null); do
+    echo "[K8s Entrypoint] FQDN not resolvable yet; retrying"
+    sleep 1
+  done
   echo "$result"
   RESOLVED_IP=$(echo "$result" | awk '/^Address: / { print $2 }' | head -n 1)
   if [ "$RESOLVED_IP" = "$POD_IP" ]; then
