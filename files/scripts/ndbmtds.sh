@@ -98,6 +98,9 @@ if [ -d "$LOG_DIR" ]; then
   # CAUTION:
   # If additional files are configured to be stored in this directory in the future,
   # be careful with this move operation — it may affect unrelated files.
+  # Known non-matching file kept here deliberately: settle_events_<nodeid>.log
+  # (the settle wait's durable audit trail). It must stay outside this glob, or
+  # it will be split across an issue_at_ dir on every restart.
   files=($(find "$LOG_DIR" -maxdepth 1 -type f -name 'ndb_*log*'))
 
   if [ "${#files[@]}" -gt 0 ]; then
@@ -133,6 +136,20 @@ else
     echo "[K8s Entrypoint ndbmtd] Available CPUs: $(cat /sys/fs/cgroup/cpuset/cpuset.cpus)"
 fi
 
+# Durable record of the settle wait's outcome. The two degraded paths below
+# (cap hit, MGMd-unreachable fallback) mean the protection GAVE UP and started
+# the kernel anyway; announcing that on stdout only makes it unauditable, since
+# per-pod logs are not retained and `kubectl logs --previous` ages out within
+# minutes. This file lives on the PV, so it survives pod churn.
+#
+# The name must NOT match the `ndb_*log*` glob used by the archival step above:
+# that glob moves matching files into issue_at_<timestamp>/ on EVERY start, which
+# would fragment the very audit trail this exists to keep.
+SETTLE_EVENTS_FILE="${LOG_DIR}/settle_events_${NODE_ID}.log"
+settle_event() {
+    echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) node=${NODE_ID} $*" >> "$SETTLE_EVENTS_FILE" 2>/dev/null || true
+}
+
 # During a rolling restart, Kubernetes deletes a node group's second pod only
 # after *observing* the first replacement Ready. That observation spread
 # (measured 2.6-10.4s across rounds, bounded by the kubelet/API-server
@@ -167,6 +184,7 @@ wait_for_wave_to_settle() {
 
     if ! [ "$max_s" -gt 0 ] 2>/dev/null; then
         echo "[K8s Entrypoint ndbmtd] Settle wait disabled (NDBMTD_SETTLE_MAX_S=$max_s)"
+        settle_event "disabled max_s=${max_s}"
         return 0
     fi
 
@@ -190,6 +208,7 @@ wait_for_wave_to_settle() {
         now=$(date +%s)
         if [ $((now - start_ts)) -ge "$max_s" ]; then
             echo "[K8s Entrypoint ndbmtd] Settle wait hit its ${max_s}s cap; starting anyway"
+            settle_event "cap_hit max_s=${max_s}"
             return 0
         fi
 
@@ -206,6 +225,7 @@ wait_for_wave_to_settle() {
             # retrying under the max_s cap.
             if [ "$ever_ok" = "0" ] && [ "$failed_probes" -ge 3 ]; then
                 echo "[K8s Entrypoint ndbmtd] MGMd unreachable ($failed_probes failed probes, never answered); falling back to a fixed ${fallback_s}s sleep"
+                settle_event "mgmd_unreachable_fallback fallback_s=${fallback_s} failed_probes=${failed_probes}"
                 sleep "$fallback_s" || true
                 return 0
             fi
@@ -242,6 +262,7 @@ wait_for_wave_to_settle() {
                     last_change=$now
                 elif [ $((now - last_change)) -ge "$quiet_s" ]; then
                     echo "[K8s Entrypoint ndbmtd] No departures for ${quiet_s}s after $((now - start_ts))s total; safe to start"
+                    settle_event "quiet_reached total_s=$((now - start_ts)) quiet_s=${quiet_s}"
                     return 0
                 fi
             fi
