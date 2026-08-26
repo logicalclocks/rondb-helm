@@ -35,7 +35,12 @@ echo "[K8s Entrypoint ndbmtd] Activated node id $NODE_ID via MGM client"
 # A main container restart should not change the Pod's IP address.
 {{ include "rondb.resolveOwnIp" $ }}
 
+# Set by handle_sigterm; the settle wait and the pre-start check below use it
+# to avoid starting ndbmtd with a node id the trap has just deactivated.
+TERM_RECEIVED=0
+
 handle_sigterm() {
+    TERM_RECEIVED=1
     echo "[K8s Entrypoint ndbmtd] SIGTERM received, deactivating node id $NODE_ID via MGM client"
 
     # Even when not deactivating nodes, having too many nodes die at once can cause
@@ -126,6 +131,138 @@ if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
 else
     echo "[K8s Entrypoint ndbmtd] cgroup v1 detected"
     echo "[K8s Entrypoint ndbmtd] Available CPUs: $(cat /sys/fs/cgroup/cpuset/cpuset.cpus)"
+fi
+
+# During a rolling restart, Kubernetes deletes a node group's second pod only
+# after *observing* the first replacement Ready. That observation spread
+# (measured 2.6-10.4s across rounds, bounded by the kubelet/API-server
+# publication cycle, which the chart cannot tune) can outrun the time before
+# an earlier replacement's kernel connects — and from the moment it connects
+# until it reaches the phase-110 restart barrier, a peer disconnecting kills
+# it with error 2308. So before starting the kernel, wait until no data node
+# has DEPARTED the cluster for quiet_s: the node then begins its climb only
+# after the deletion wave has passed. Departures only — replacements
+# reconnecting are not a hazard and must not extend the wait. Adaptive rather
+# than a fixed sleep because the wave's spread varies 3-10s roll to roll.
+#
+# This must never prevent a data node from starting: every failure path below
+# degrades to a bounded sleep and returns 0 (the script runs under
+# `set -euo pipefail`).
+wait_for_wave_to_settle() {
+    local quiet_s="${NDBMTD_SETTLE_QUIET_S:-8}"
+    local max_s="${NDBMTD_SETTLE_MAX_S:-30}"
+    local fallback_s="${NDBMTD_SETTLE_FALLBACK_S:-15}"
+    local probe_timeout_s="${NDBMTD_SETTLE_PROBE_TIMEOUT_S:-5}"
+
+    # A malformed value must fail SAFE (default) rather than open (disabled):
+    # only an explicit, numeric maxWaitSeconds=0 may turn the wait off.
+    case "$quiet_s" in *[!0-9]*|''|0)
+        echo "[K8s Entrypoint ndbmtd] Invalid NDBMTD_SETTLE_QUIET_S='$quiet_s'; using 8"; quiet_s=8;; esac
+    case "$max_s" in *[!0-9]*|'')
+        echo "[K8s Entrypoint ndbmtd] Invalid NDBMTD_SETTLE_MAX_S='$max_s'; using 30"; max_s=30;; esac
+    case "$fallback_s" in *[!0-9]*|'')
+        echo "[K8s Entrypoint ndbmtd] Invalid NDBMTD_SETTLE_FALLBACK_S='$fallback_s'; using 15"; fallback_s=15;; esac
+    case "$probe_timeout_s" in *[!0-9]*|''|0)
+        echo "[K8s Entrypoint ndbmtd] Invalid NDBMTD_SETTLE_PROBE_TIMEOUT_S='$probe_timeout_s'; using 5"; probe_timeout_s=5;; esac
+
+    if ! [ "$max_s" -gt 0 ] 2>/dev/null; then
+        echo "[K8s Entrypoint ndbmtd] Settle wait disabled (NDBMTD_SETTLE_MAX_S=$max_s)"
+        return 0
+    fi
+
+    echo "[K8s Entrypoint ndbmtd] Waiting for cluster membership to settle (quiet ${quiet_s}s, max ${max_s}s)"
+
+    local start_ts now out cur prev last_change failed_probes ever_ok id gone
+    start_ts=$(date +%s)
+    last_change=$start_ts
+    prev="__unset__"
+    failed_probes=0
+    ever_ok=0
+
+    while true; do
+        # SIGTERM deactivates our node id and, mid-loop, execution would
+        # otherwise just continue; never go on to start a deactivated node.
+        if [ "$TERM_RECEIVED" = "1" ]; then
+            echo "[K8s Entrypoint ndbmtd] SIGTERM during settle wait; not starting ndbmtd"
+            exit 0
+        fi
+
+        now=$(date +%s)
+        if [ $((now - start_ts)) -ge "$max_s" ]; then
+            echo "[K8s Entrypoint ndbmtd] Settle wait hit its ${max_s}s cap; starting anyway"
+            return 0
+        fi
+
+        out=$(timeout "$probe_timeout_s" ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" --connect-retries=1 -e show 2>/dev/null) || out=""
+
+        if [ -z "$out" ]; then
+            failed_probes=$((failed_probes + 1))
+            # Blind seconds must not count towards the quiet window: quiet
+            # means OBSERVED quiet, so a failed probe resets the timer.
+            last_change=$now
+            # The fixed-sleep fallback is only for an MGMd that has never
+            # answered during this wait. A transient outage mid-wait (the
+            # chart deliberately rolls the MGMd during upgrades) just keeps
+            # retrying under the max_s cap.
+            if [ "$ever_ok" = "0" ] && [ "$failed_probes" -ge 3 ]; then
+                echo "[K8s Entrypoint ndbmtd] MGMd unreachable ($failed_probes failed probes, never answered); falling back to a fixed ${fallback_s}s sleep"
+                sleep "$fallback_s" || true
+                return 0
+            fi
+        else
+            ever_ok=1
+            failed_probes=0
+            # Membership fingerprint: the id= lines carrying a Nodegroup are
+            # the connected data nodes (started or starting). Only the id
+            # tokens are kept, so a node moving through start phases does not
+            # reset the timer.
+            cur=$(printf '%s' "$out" | grep -E '^id=[0-9]+' | grep 'Nodegroup:' | awk '{print $1}' | tr '\n' ',' || true)
+            if [ "$prev" = "__unset__" ]; then
+                # First successful probe: start the quiet clock here.
+                prev="$cur"
+                last_change=$now
+            else
+                # Only DEPARTURES reset the quiet timer. A peer disconnecting
+                # is what kills a climbing node (FAIL_REP before the phase-110
+                # barrier -> error 2308); a node CONNECTING is not a hazard,
+                # and during a round every replacement's reconnect would
+                # otherwise keep resetting the timer until the max_s cap.
+                # Caveat: a disconnect+reconnect landing entirely between two
+                # 1s polls is invisible — as it also was to the previous
+                # any-change test; sampling cannot see inside the interval.
+                gone=0
+                for id in ${prev//,/ }; do
+                    case ",$cur," in
+                        *",$id,"*) ;;
+                        *) gone=1; break ;;
+                    esac
+                done
+                prev="$cur"
+                if [ "$gone" = "1" ]; then
+                    last_change=$now
+                elif [ $((now - last_change)) -ge "$quiet_s" ]; then
+                    echo "[K8s Entrypoint ndbmtd] No departures for ${quiet_s}s after $((now - start_ts))s total; safe to start"
+                    return 0
+                fi
+            fi
+        fi
+        sleep 1 || true
+    done
+}
+
+if [ -n "$INITIAL_START" ]; then
+    echo "[K8s Entrypoint ndbmtd] Initial start; skipping the settle wait"
+else
+    wait_for_wave_to_settle
+fi
+
+# Final guard: SIGTERM at any point since the trap was installed (including
+# during the fallback sleep or between the settle wait and here) has already
+# deactivated our node id; starting ndbmtd now would crash-loop on
+# "Failed to allocate nodeid". The pod is being torn down anyway.
+if [ "$TERM_RECEIVED" = "1" ]; then
+    echo "[K8s Entrypoint ndbmtd] SIGTERM received before ndbmtd start; exiting"
+    exit 0
 fi
 
 # Start ndbmtd, log to stdout and file
