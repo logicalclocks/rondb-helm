@@ -52,6 +52,42 @@
                 "perGroupStallTimeoutMinutes"
             ]
         },
+        "ndbmtdSettleWait": {
+            "type": "object",
+            "description": "Pre-start settle wait for data nodes, protecting rolling restarts. During a roll, Kubernetes deletes a node group's second pod only after observing the first replacement Ready; that observation spread (measured 2.6-10.4s and set by the kubelet/API-server publication cycle, which the chart cannot tune) can overlap the window in which an earlier replacement has connected to the cluster but not yet reached the phase-110 restart barrier, killing it with error 2308 ('Another node failed during system restart'). Before starting the kernel on a non-initial start, the entrypoint polls the MGMd once a second and proceeds only once no data node has departed the cluster for quietSeconds (nodes reconnecting do not reset the timer: only a departing peer endangers a climbing node, and during a round every replacement's reconnect would otherwise extend the wait to its cap), so the node begins its climb only after the deletion wave has passed. The wait is bounded by maxWaitSeconds and never blocks a start: an unreachable or hanging MGMd degrades to a fixed fallbackSeconds sleep. Skipped entirely on initial starts.",
+            "properties": {
+                "quietSeconds": {
+                    "type": "integer",
+                    "description": "Seconds without any data-node departure before the node starts (arrivals are ignored). Must exceed the largest gap between consecutive pod deletions within a rollout round, or the wait provides no protection. The default of 8 is calibrated to ONE measured cluster (max 7.4s gap over 66 rolls at 10 node groups on MicroK8s); the gap is set by the control plane's readiness-observation latency, not by RonDB, so it MUST be re-derived on a different control plane, larger cluster, or slower hardware - measure the deletion-timestamp gaps within one rollout round and set this above the maximum.",
+                    "default": 8,
+                    "minimum": 1
+                },
+                "maxWaitSeconds": {
+                    "type": "integer",
+                    "description": "Cap on the whole settle wait, including the final quietSeconds of quiet. 0 disables the settle wait entirely.",
+                    "default": 30,
+                    "minimum": 0
+                },
+                "fallbackSeconds": {
+                    "type": "integer",
+                    "description": "Fixed sleep used instead of the adaptive wait when the MGMd never answers: 3 consecutive failed probes (unreachable, hanging, or empty output) with no successful probe in this wait. A transient MGMd outage after a successful probe does not trigger the fallback - the wait keeps retrying under maxWaitSeconds, with failed probes resetting the quiet timer.",
+                    "default": 15,
+                    "minimum": 0
+                },
+                "probeTimeoutSeconds": {
+                    "type": "integer",
+                    "description": "Timeout for each ndb_mgm membership probe.",
+                    "default": 5,
+                    "minimum": 1
+                }
+            },
+            "required": [
+                "quietSeconds",
+                "maxWaitSeconds",
+                "fallbackSeconds",
+                "probeTimeoutSeconds"
+            ]
+        },
         "skipMgmdPreUpgradeRollout": {
             "type": "boolean",
             "description": "If true, skip the pre-upgrade hook that rolls MGMd to the target image and config before the rest of the chart upgrades. The hook exists to keep at least one ArbitrationRank=1 node reachable while the API tier (mysqld, rdrs) is also rolling, preventing data-node arbitration loss (NDB Error 2305) on chart-wide upgrades. Set this to true only as an escape hatch if the hook itself is misbehaving on your cluster.",

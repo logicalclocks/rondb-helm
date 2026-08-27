@@ -256,6 +256,11 @@ ndbmtdSequencedRollout:
   perGroupStallTimeoutMinutes: 0
   reconcileIntervalMinutes: 3
   suspendWhenIdle: true
+ndbmtdSettleWait:
+  fallbackSeconds: 15
+  maxWaitSeconds: 30
+  probeTimeoutSeconds: 5
+  quietSeconds: 8
 networkPolicy:
   mgmds:
     enabled: true

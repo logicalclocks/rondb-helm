@@ -270,6 +270,14 @@ spec:
                 fieldPath: metadata.name
           - name: FILE_SYSTEM_PATH
             value: {{ include "rondb.ndbmtd.fileSystemPath" $ }}
+          - name: NDBMTD_SETTLE_QUIET_S
+            value: {{ $.Values.ndbmtdSettleWait.quietSeconds | quote }}
+          - name: NDBMTD_SETTLE_MAX_S
+            value: {{ $.Values.ndbmtdSettleWait.maxWaitSeconds | quote }}
+          - name: NDBMTD_SETTLE_FALLBACK_S
+            value: {{ $.Values.ndbmtdSettleWait.fallbackSeconds | quote }}
+          - name: NDBMTD_SETTLE_PROBE_TIMEOUT_S
+            value: {{ $.Values.ndbmtdSettleWait.probeTimeoutSeconds | quote }}
         startupProbe:
           exec:
             command:
