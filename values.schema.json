@@ -1793,8 +1793,8 @@
                 },
                 "ndbmtdStartupProbe": {
                     "type": "integer",
-                    "description": "Maximum time a ndbmtd pod is given to start up before Kubernetes restarts its container. Node restarts with a lot of data to restore can take long.",
-                    "default": 120,
+                    "description": "Maximum time a ndbmtd pod is given to start up before Kubernetes restarts its container. Node restarts with a lot of data to restore can take long. Must clear the worst-case data reload of the largest supported cluster - a node killed mid-recovery restarts from scratch and loops forever.",
+                    "default": 240,
                     "minimum": 1
                 },
                 "mysqldStartupProbe": {

@@ -390,7 +390,7 @@ staticCpuManagerPolicy: false
 terminationGracePeriodSeconds: 60
 timeoutsMinutes:
   mysqldStartupProbe: 20
-  ndbmtdStartupProbe: 120
+  ndbmtdStartupProbe: 240
   restoreNativeBackup: 120
   singleSetupMySQLds: 5
 tls:

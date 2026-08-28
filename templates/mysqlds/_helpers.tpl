@@ -72,7 +72,7 @@
 
 {{- $waitTimeoutMinutes := .Values.timeoutsMinutes.singleSetupMySQLds }}
 {{- if include "rondb.restoreFromBackup.backupId" . }}
-    {{- $waitTimeoutMinutes := (add $waitTimeoutMinutes .Values.timeoutsMinutes.restoreNativeBackup) }}
+    {{- $waitTimeoutMinutes = (add $waitTimeoutMinutes .Values.timeoutsMinutes.restoreNativeBackup) }}
 {{- end }}
     (
         set -x
