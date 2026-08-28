@@ -292,7 +292,7 @@ spec:
             - |
               set +e
               nslookup $MGMD_HOST > /dev/null 2>&1
-              NS_LOOKUP_EXIT_CODE=$!
+              NS_LOOKUP_EXIT_CODE=$?
               if [ $NS_LOOKUP_EXIT_CODE -ne 0 ]; then
                   echo "MGMd at '$MGMD_HOST' is not ready, we cannot check whether the data node is connected"
                   exit 0
