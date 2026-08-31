@@ -11,6 +11,112 @@
 {{- printf "MYSQL_%s_PASSWORD" (required "Username is required" .username) | upper | replace "-" "_" -}}
 {{- end -}}
 
+{{/*
+    Emits the env var carrying a mysql.users entry's password.
+    Users with `existingSecret` read their password from a customer-provided
+    Secret (no key for them is generated in mysql.credentialsSecretName).
+    Context: dict "user" <mysql.users entry> "credentialsSecretName" <string>
+*/}}
+{{- define "rondb.mysql.userPasswordEnvVar" -}}
+- name: {{ include "rondb.mysql.getPasswordEnvVarName" .user }}
+  valueFrom:
+    secretKeyRef:
+{{- if .user.existingSecret }}
+      name: {{ .user.existingSecret.name }}
+      key: {{ .user.existingSecret.key }}
+{{- else }}
+      name: {{ .credentialsSecretName }}
+      key: {{ .user.username }}
+{{- end }}
+{{- end -}}
+
+{{/*
+    Validates mysql.users at render time. Called from every template that
+    consumes mysql.users so misconfigurations fail the render, not the Jobs.
+    Context: root ($)
+*/}}
+{{- define "rondb.mysql.validateUsers" -}}
+{{- $reserved := list "root" .Values.mysql.clusterUser }}
+{{- if .Values.mysql.exporter.enabled }}
+{{- $reserved = append $reserved .Values.mysql.exporter.username }}
+{{- end }}
+{{- /* Env var names of the chart-managed passwords; the username-derived
+       names must never collide with them (duplicate env names in a Pod are
+       resolved last-wins, silently wiring the wrong password) */}}
+{{- $reservedEnvNames := list "MYSQL_ROOT_PASSWORD" "MYSQL_CLUSTER_PASSWORD" "MYSQL_EXPORTER_PASSWORD" }}
+{{- $seenEnvNames := dict }}
+{{- range .Values.mysql.users }}
+{{- if has .username $reserved }}
+{{- fail (printf "mysql.users: username '%s' collides with a chart-managed user (root, cluster user or exporter)" .username) }}
+{{- end }}
+{{- if or (contains "'" .username) (contains "\\" .username) (contains "'" .host) (contains "\\" .host) }}
+{{- fail (printf "mysql.users: username/host of user '%s' must not contain quotes or backslashes" .username) }}
+{{- end }}
+{{- $envName := include "rondb.mysql.getPasswordEnvVarName" . }}
+{{- if not (regexMatch "^[A-Z0-9_]+$" $envName) }}
+{{- fail (printf "mysql.users: username '%s' produces invalid env var name '%s'; usernames may only contain letters, digits, '_' and '-'" .username $envName) }}
+{{- end }}
+{{- if has $envName $reservedEnvNames }}
+{{- fail (printf "mysql.users: username '%s' produces reserved env var name '%s'" .username $envName) }}
+{{- end }}
+{{- if hasKey $seenEnvNames $envName }}
+{{- fail (printf "mysql.users: usernames '%s' and '%s' both produce env var name '%s'" (get $seenEnvNames $envName) .username $envName) }}
+{{- end }}
+{{- $_ := set $seenEnvNames $envName .username }}
+{{- if and .existingSecret (not $.Values.mysql.supplyOwnSecret) (eq .existingSecret.name $.Values.mysql.credentialsSecretName) }}
+{{- fail (printf "mysql.users: user '%s' sets existingSecret.name to mysql.credentialsSecretName ('%s'), but the generated Secret holds no key for users with existingSecret; point it at a Secret you create yourself" .username .existingSecret.name) }}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{/*
+    Shell fragment that creates all user-supplied MySQL users (mysql.users)
+    and applies their grants. Assumes a `mysql` shell function connecting as
+    root is defined in the surrounding script. Safe to re-run: CREATE USER is
+    idempotent and GRANTs are additive.
+    Context: root ($)
+*/}}
+{{- define "rondb.mysql.setupUsersShell" -}}
+{{- range $.Values.mysql.users }}
+MY_PW=${{ include "rondb.mysql.getPasswordEnvVarName" . }}
+# Escape backslashes and single quotes so the password is a safe MySQL string
+# literal; passwords from customer Secrets (existingSecret, supplyOwnSecret)
+# may contain any characters
+MY_PW="${MY_PW//\\/\\\\}"
+MY_PW="${MY_PW//\'/\\\'}"
+{{- $mysqlUser := printf "'%s'@'%s'" .username .host }}
+{{- /* printf, not echo: echo may interpret backslashes (xpg_echo/sh),
+       which would undo the escaping above */}}
+printf '%s\n' "CREATE USER IF NOT EXISTS {{ $mysqlUser }} IDENTIFIED BY '${MY_PW}';" | mysql
+{{- if .existingSecret }}
+# Externally-managed password: converge to the Secret's current value so
+# rotations in the customer's Secret are applied on upgrade. Chart-generated
+# passwords are never ALTERed (template-only renders regenerate them).
+printf '%s\n' "ALTER USER {{ $mysqlUser }} IDENTIFIED BY '${MY_PW}';" | mysql
+{{- end }}
+{{- /* NDB_STORED_USER is a dynamic privilege: it can only be granted ON *.*
+       (granting it per database.table fails with ERROR 3619) and marks the
+       whole user as stored in NDB, so grant it once per user */}}
+mysql <<EOF
+GRANT NDB_STORED_USER ON *.* TO {{ $mysqlUser }};
+FLUSH PRIVILEGES;
+EOF
+{{- range .privileges }}
+{{- $databaseTable := printf "%s.%s" .database .table }}
+mysql <<EOF
+GRANT {{ .privileges | join ", " }}
+    ON {{ $databaseTable }}
+    TO {{ $mysqlUser }}
+{{- if .withGrantOption}}
+    WITH GRANT OPTION
+{{- end }}
+;
+FLUSH PRIVILEGES;
+EOF
+{{- end }}
+{{- end }}
+{{- end -}}
+
 {{- define "rondb.container.waitOneBinlogServer" -}}
 {{- if $.Values.globalReplication.primary.enabled }}
 - name: wait-one-binlog-server

@@ -120,11 +120,7 @@ spec:
               name: {{ $.Values.mysql.credentialsSecretName }}
               key: root
 {{- range $.Values.mysql.users }}
-        - name: {{ include "rondb.mysql.getPasswordEnvVarName" . }}
-          valueFrom:
-            secretKeyRef:
-              name: {{ $.Values.mysql.credentialsSecretName }}
-              key: {{ .username }}
+{{ include "rondb.mysql.userPasswordEnvVar" (dict "user" . "credentialsSecretName" $.Values.mysql.credentialsSecretName) | indent 8 }}
 {{- end }}
         - name: MYSQL_CLUSTER_USER
           value: {{ .Values.mysql.clusterUser }}

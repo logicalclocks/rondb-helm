@@ -212,27 +212,7 @@ EOF
 ### SETUP USER-SUPPLIED USERS ###
 #################################
 
-{{- range $.Values.mysql.users }}
-MY_PW=${{ include "rondb.mysql.getPasswordEnvVarName" . }}
-{{- $mysqlUser := printf "'%s'@'%s'" .username .host }}
-echo "CREATE USER IF NOT EXISTS {{ $mysqlUser }} IDENTIFIED BY '${MY_PW}';" | mysql
-{{- range .privileges }}
-{{- $databaseTable := printf "%s.%s" .database .table }}
-mysql <<EOF
-GRANT {{ .privileges | join ", " }} 
-    ON {{ $databaseTable }}
-    TO {{ $mysqlUser }}
-{{- if .withGrantOption}}
-    WITH GRANT OPTION
-{{- end }}
-;
-GRANT NDB_STORED_USER
-    ON {{ $databaseTable }}
-    TO {{ $mysqlUser }};
-FLUSH PRIVILEGES;
-EOF
-{{- end }}
-{{- end }}
+{{- include "rondb.mysql.setupUsersShell" . }}
 
 
 ###################################
