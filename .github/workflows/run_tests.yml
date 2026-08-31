@@ -38,6 +38,9 @@ jobs:
         - run: helm lint --strict .
         - run: helm lint --strict --values values/dummy_lint.yaml .
 
+        - name: Fail-closed data node probe tests
+          run: ./test_scripts/probe-fail-closed-test.sh
+
         - name: Helm template
           if: always()
           run: |

@@ -275,7 +275,18 @@ spec:
             - -c
             - |
 {{ include "rondb.nodeId" $ | indent 14 }}
-              ./docker/rondb_standalone/healthcheck.sh $MGM_CONNECTION_STRING $NODE_ID
+              # Fail closed: only the MGMd's explicit answer "started" counts as
+              # healthy. The image's healthcheck.sh exits 0 when the MGMd cannot
+              # be reached, which reported a crash-looping peer as Ready while the
+              # MGMd was itself restarting; the StatefulSet controller then took
+              # down the healthy node of the same group and the whole cluster
+              # shut down by arbitration (recorded live 2026-08-27). Liveness
+              # below intentionally keeps the opposite polarity: never kill a
+              # data node just because the MGMd is away.
+              STATUS=$(ndb_mgm --ndb-connectstring="$MGM_CONNECTION_STRING" \
+                  --connect-retries=2 --connect-retry-delay=1 \
+                  -e "$NODE_ID status" 2>&1) || { echo "$STATUS"; exit 1; }
+              echo "$STATUS" | grep -q "Node $NODE_ID: started" || { echo "$STATUS"; exit 1; }
           initialDelaySeconds: 15
           # Total startup timeout = failureThreshold * periodSeconds
           failureThreshold: {{ mul $.Values.timeoutsMinutes.ndbmtdStartupProbe 6 }}
@@ -317,7 +328,18 @@ spec:
             - -c
             - |
 {{ include "rondb.nodeId" $ | indent 14 }}
-              ./docker/rondb_standalone/healthcheck.sh $MGM_CONNECTION_STRING $NODE_ID
+              # Fail closed: only the MGMd's explicit answer "started" counts as
+              # healthy. The image's healthcheck.sh exits 0 when the MGMd cannot
+              # be reached, which reported a crash-looping peer as Ready while the
+              # MGMd was itself restarting; the StatefulSet controller then took
+              # down the healthy node of the same group and the whole cluster
+              # shut down by arbitration (recorded live 2026-08-27). Liveness
+              # below intentionally keeps the opposite polarity: never kill a
+              # data node just because the MGMd is away.
+              STATUS=$(ndb_mgm --ndb-connectstring="$MGM_CONNECTION_STRING" \
+                  --connect-retries=2 --connect-retry-delay=1 \
+                  -e "$NODE_ID status" 2>&1) || { echo "$STATUS"; exit 1; }
+              echo "$STATUS" | grep -q "Node $NODE_ID: started" || { echo "$STATUS"; exit 1; }
           initialDelaySeconds: 5
           failureThreshold: 3
           periodSeconds:  5
