@@ -41,6 +41,9 @@ jobs:
         - name: Sequenced data node rollout tests
           run: ./test_scripts/sequenced-rollout-test.sh
 
+        - name: Fail-closed data node probe tests
+          run: ./test_scripts/probe-fail-closed-test.sh
+
         - name: Helm template
           if: always()
           run: |
