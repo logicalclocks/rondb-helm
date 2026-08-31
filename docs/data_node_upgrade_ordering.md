@@ -109,9 +109,18 @@ What already works correctly today:
 
 - **Within a node group**: the StatefulSet controller rolls one pod at a time
   (ordinal-descending), and the startup/readiness probes gate on the NDB node
-  actually reaching *started* state via `ndb_mgm` (`healthcheck.sh`). A node
-  group can therefore never lose both replicas to a rolling update. (The
-  `podManagementPolicy: Parallel` setting affects only scaling, not updates.)
+  actually reaching *started* state by querying the MGMd directly and failing
+  closed: an unreachable MGMd or any answer other than an explicit `started`
+  reports not-ready. This gate is the ONLY thing preventing a node group from
+  losing both replicas to a rolling update (`podManagementPolicy: Parallel`
+  affects only scaling, not updates) — the earlier `healthcheck.sh`-based
+  probes failed *open* when the MGMd was unreachable, and a crash-looping pod
+  reported Ready during an MGMd roll let the controller take down the healthy
+  peer, shutting the whole cluster down by arbitration (recorded live
+  2026-08-27). `healthcheck.sh` remains only in the liveness probe, whose
+  fail-open polarity is deliberate: never kill a data node just because the
+  MGMd is away. See `test_scripts/probe-fail-closed-test.sh` for the probe
+  contract.
 - **Tier ordering (MGMd first)**: `templates/mgmd_pre_upgrade.yaml` is a
   pre-upgrade hook Job that applies the rendered MGMd manifests and waits for
   convergence before the main Helm apply, so MGMd rolls before everything
