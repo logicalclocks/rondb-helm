@@ -76,6 +76,13 @@ spec:
 {{- range $.Values.mysql.users }}
 {{ include "rondb.mysql.userPasswordEnvVar" (dict "user" . "credentialsSecretName" $.Values.mysql.credentialsSecretName) | indent 8 }}
 {{- end }}
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpus.mysqlds }}
+            memory: {{ .Values.resources.limits.memory.mysqldMiB }}Mi
+          requests:
+            cpu: {{ .Values.resources.requests.cpus.mysqlds }}
+            memory: {{ .Values.resources.requests.memory.mysqldMiB }}Mi
       volumes:
       - name: mysqld-configs
         configMap:
