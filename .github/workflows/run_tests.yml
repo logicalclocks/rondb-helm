@@ -44,6 +44,9 @@ jobs:
         - name: Fail-closed data node probe tests
           run: ./test_scripts/probe-fail-closed-test.sh
 
+        - name: MySQL users tests
+          run: ./test_scripts/mysql-users-test.sh
+
         - name: Helm template
           if: always()
           run: |
@@ -203,6 +206,86 @@ jobs:
       # Check again that data is still there
       - run: ./.github/delete_test_pods.sh $K8S_NAMESPACE
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --timeout=10m --logs --filter name=verify-data
+
+      # Add MySQL users at upgrade time; one password is chart-generated,
+      # the other is read from a customer-provided Secret
+      # (mysql.users[].existingSecret)
+      - name: Add MySQL users on upgrade
+        run: |
+          set -e
+          # Deliberately contains a quote and a backslash: customer-provided
+          # passwords are arbitrary and must be SQL-escaped by the chart
+          SECRET_USER_PW="Ch0sen'p\\w"
+          kubectl -n $K8S_NAMESPACE create secret generic user-pw --from-literal=pw="$SECRET_USER_PW"
+          helm upgrade -i $RONDB_CLUSTER_NAME \
+            --namespace=$K8S_NAMESPACE \
+            --timeout=15m \
+            --reuse-values \
+            --set-json 'mysql.users=[{"username":"generateduser","host":"%","privileges":[{"database":"*","table":"*","privileges":["ALL"],"withGrantOption":true}]},{"username":"secretuser","host":"%","existingSecret":{"name":"user-pw","key":"pw"},"privileges":[{"database":"helmtest","table":"*","privileges":["SELECT"]}]}]' \
+            .
+          JOB_NAME=$(kubectl -n $K8S_NAMESPACE get jobs \
+            --sort-by=.metadata.creationTimestamp -o name \
+            | grep setup-mysql-users | tail -1 | cut -d/ -f2)
+          bash .github/wait_job.sh $K8S_NAMESPACE $JOB_NAME 600
+
+      - name: Verify MySQL users can log in
+        run: |
+          set -e
+          # NDB_STORED_USER propagation to the mysqlds is asynchronous; retry briefly
+          verify_login() {
+            for i in $(seq 1 10); do
+              kubectl -n $K8S_NAMESPACE exec mysqlds-0 -- \
+                mysql -h127.0.0.1 -u"$1" -p"$2" -e "SELECT 1" && return 0
+              echo "Login as $1 not possible yet, retrying..."
+              sleep 3
+            done
+            return 1
+          }
+          GENERATED_PW=$(kubectl -n $K8S_NAMESPACE get secret mysql-passwords \
+            -o jsonpath='{.data.generateduser}' | base64 -d)
+          verify_login generateduser "$GENERATED_PW"
+          verify_login secretuser "Ch0sen'p\\w"
+
+      # Rotating the customer Secret and upgrading again must converge the
+      # user's MySQL password to the new Secret value (ALTER USER)
+      - name: Rotate external MySQL user password
+        run: |
+          set -e
+          kubectl -n $K8S_NAMESPACE delete secret user-pw
+          kubectl -n $K8S_NAMESPACE create secret generic user-pw --from-literal=pw=Rotated5678
+          helm upgrade -i $RONDB_CLUSTER_NAME \
+            --namespace=$K8S_NAMESPACE \
+            --timeout=15m \
+            --reuse-values \
+            .
+          JOB_NAME=$(kubectl -n $K8S_NAMESPACE get jobs \
+            --sort-by=.metadata.creationTimestamp -o name \
+            | grep setup-mysql-users | tail -1 | cut -d/ -f2)
+          bash .github/wait_job.sh $K8S_NAMESPACE $JOB_NAME 600
+          # NDB_STORED_USER propagation to the mysqlds is asynchronous; retry briefly
+          ok=0
+          for i in $(seq 1 10); do
+            if kubectl -n $K8S_NAMESPACE exec mysqlds-0 -- \
+                mysql -h127.0.0.1 -usecretuser -pRotated5678 -e "SELECT 1"; then
+              ok=1
+              break
+            fi
+            echo "Login with rotated password not possible yet, retrying..."
+            sleep 3
+          done
+          if [[ $ok != 1 ]]; then
+            echo "Login with rotated password failed"
+            exit 1
+          fi
+          # Cleanup only after verification, so a failure keeps the Job logs.
+          # The users live in NDB, so the completed Jobs are no longer needed.
+          # Delete them: the later rejected-upgrade tests record a failed helm
+          # revision, and helm uninstall deletes the manifest of the LAST
+          # revision — orphaning this Job past the remove-cluster resource wait
+          # (in production the 24h ttlSecondsAfterFinished reaps it).
+          kubectl -n $K8S_NAMESPACE get jobs -o name \
+            | grep setup-mysql-users \
+            | xargs -r kubectl -n $K8S_NAMESPACE delete
 
       # RONDB-1053: numNodeGroups immutability. Rejection tests run a
       # real `helm upgrade` — helm 3.13+'s --dry-run=client returns
