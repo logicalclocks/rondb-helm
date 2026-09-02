@@ -1,0 +1,90 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+
+
+{{- /*
+  This Job creates/updates the user-supplied MySQL users (mysql.users) on
+  upgrades. On installs the users are created by the mysqld setup Job instead
+  (setup_job.yaml), which only runs once — so without this Job, users added to
+  mysql.users after the initial install would never be created.
+
+  It is safe to re-run: CREATE USER IF NOT EXISTS is idempotent, GRANTs are
+  additive, and only users with a customer-provided existingSecret get their
+  password converged via ALTER USER.
+
+  Argo CD note: under Argo, `.Release.Revision` is constant, so the Job name
+  only changes with the content hash of mysql.users (Secret *contents* cannot
+  be hashed in — Argo renders without cluster access). Rotating a password in
+  an existingSecret therefore requires bumping that user's
+  existingSecret.rotationId alongside the Secret change: it is part of
+  mysql.users, so it changes the Job name and forces a re-run whose ALTER USER
+  converges the MySQL password to the Secret. Without the bump, the completed
+  Job (immutable, same name) is retained and the rotation is not applied.
+  Under plain `helm upgrade` the rotationId is not needed: every upgrade bumps
+  the revision, so the Job always re-runs and rotation converges. Argo
+  customers must set `mode=upgrade` so `rondb.isUpgrade` resolves true.
+*/}}
+{{- if and (include "rondb.isUpgrade" .) .Values.mysql.users }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: setup-mysql-users-{{ .Release.Revision }}-{{ toJson .Values.mysql.users | sha256sum | trunc 8 }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  backoffLimit: 60
+  parallelism: 1
+  # This Job renders on every upgrade; avoid unbounded accumulation
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        rondbService: {{ include "rondb.labels.rondbService.setup-mysqld" $ }}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "rondb.mysqldServiceAccountName" . }}
+{{- include "rondb.PodSecurityContext" $ | indent 6 }}
+{{- include "rondb.imagePullSecrets" . | indent 6 }}
+{{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.mysqld) | indent 6 }}
+{{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.mysqld) | indent 6 }}
+{{- if .Values.priorityClass }}
+      priorityClassName: {{ .Values.priorityClass | quote }}
+{{- end  }}
+      initContainers:
+{{ include "rondb.container.waitDatanodes" $ | indent 6 }}
+{{ include "rondb.container.waitRestore" $ | indent 6 }}
+      containers:
+      - name: setup-mysql-users
+        image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
+        imagePullPolicy: {{ $.Values.imagePullPolicy }}
+{{ include "rondb.ContainerSecurityContext" $ | indent 8 }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+{{ tpl (.Files.Get "files/scripts/mysqld_setup_users.sh") . | indent 10 }}
+        volumeMounts:
+        - name: mysqld-configs
+          # Using "raw", so that we can sed NodeIds into the file
+          mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
+          subPath: my.cnf
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ $.Values.mysql.credentialsSecretName }}
+              key: root
+{{- range $.Values.mysql.users }}
+{{ include "rondb.mysql.userPasswordEnvVar" (dict "user" . "credentialsSecretName" $.Values.mysql.credentialsSecretName) | indent 8 }}
+{{- end }}
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpus.mysqlds }}
+            memory: {{ .Values.resources.limits.memory.mysqldMiB }}Mi
+          requests:
+            cpu: {{ .Values.resources.requests.cpus.mysqlds }}
+            memory: {{ .Values.resources.requests.memory.mysqldMiB }}Mi
+      volumes:
+      - name: mysqld-configs
+        configMap:
+          name: mysqld-configs
+{{- end }}
