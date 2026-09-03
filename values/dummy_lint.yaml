@@ -115,6 +115,18 @@ mysql:
       table: '*'
       withGrantOption: true
     username: importantuser
+  - host: '%'
+    existingSecret:
+      name: my-app-passwords
+      key: reporting-password
+      rotationId: '2026-08-31'
+    privileges:
+    - database: helmtest
+      privileges:
+      - SELECT
+      table: '*'
+      withGrantOption: false
+    username: reportinguser
 networkPolicy:
   mgmds:
     enabled: true

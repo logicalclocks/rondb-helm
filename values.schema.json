@@ -1008,6 +1008,32 @@
                                     "%"
                                 ]
                             },
+                            "existingSecret": {
+                                "type": "object",
+                                "description": "Reference to a pre-created Kubernetes Secret holding this user's password. When set, the Helmchart does not generate or store a password for this user in mysql.credentialsSecretName; the referenced Secret must exist in the release namespace before install/upgrade.",
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "description": "Name of the Kubernetes Secret containing the user's password.",
+                                        "minLength": 1
+                                    },
+                                    "key": {
+                                        "type": "string",
+                                        "description": "Key within the Secret whose value is the user's password.",
+                                        "minLength": 1
+                                    },
+                                    "rotationId": {
+                                        "type": "string",
+                                        "description": "Opaque rotation marker. Bump this (e.g. to a date or counter) whenever the Secret's password is rotated. It participates in the user-setup Job's name, forcing a re-run that converges the MySQL password to the Secret (ALTER USER). Required for rotation under Argo CD / template-only rendering, where the release revision is constant; plain `helm upgrade` re-runs the Job on every upgrade regardless.",
+                                        "minLength": 1
+                                    }
+                                },
+                                "required": [
+                                    "name",
+                                    "key"
+                                ],
+                                "additionalProperties": false
+                            },
                             "privileges": {
                                 "type": "array",
                                 "items": {
