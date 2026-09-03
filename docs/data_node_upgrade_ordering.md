@@ -20,7 +20,7 @@ Implementation:
 - `values.schema.json` → `ndbmtdSequencedRollout` (source of truth;
   `values.yaml` regenerated via `json_to_yaml.py`)
 - `test_scripts/sequenced-rollout-test.sh` — rendering gates + the CronJob
-  script executed against a fake kubectl (46 assertions); wired into the
+  script executed against a fake kubectl (126 assertions); wired into the
   CI lint job, no cluster needed
 
 The chart code and schema are self-documenting and carry no references to
@@ -30,7 +30,54 @@ this document. Shipped comments and messages use plain wording ("rollout",
 
 Revision history:
 
-- **Rev 8 (current)** — corrected the idle-wake mechanism for Helm 4.
+- **Rev 9 (current)** — fixed the health gate's self-block deadlock,
+  demonstrated on hardware 2026-09-01 on a 10-group cluster. The Rev 8 gate
+  computed one all-groups health boolean, so a frozen group that was pending
+  *and* unhealthy disqualified itself from being unfrozen — and since every
+  `helm upgrade` re-freezes all groups (three-way merge restores the rendered
+  partition), the upgrade carrying a fix for a bad build re-froze the broken
+  group and then held its repair forever, logging "another group is
+  unhealthy" when no other group was unhealthy. Fix: hold only on groups
+  other than the unfreeze target and name them in the log; prefer a pending
+  group that is itself unhealthy over lower healthy ones (the update is
+  usually its repair; rolling it adds no exposure); unfreeze it only when
+  the controller would replace its dead pod first — never when the highest
+  not-yet-updated ordinal is alive while another pod is down, which would
+  cost an already degraded group a live replica. Pod reads in that check
+  fail closed (only NotFound means "gone") and the walk stops at an
+  updated-but-unavailable pod exactly where the controller itself waits,
+  and after unfreezing the run
+  deletes the dead pod itself instead of relying on the controller —
+  Kubernetes 1.35.0's MaxUnavailableStatefulSet path (beta/on there)
+  refuses every deletion in a group that already has an unavailable pod
+  (kubernetes/kubernetes#137409), which would otherwise turn the repair
+  into an indefinite honest stall on such clusters. The deletion re-checks
+  the pod immediately beforehand (kubectl can attach no UID precondition;
+  a replaced or recovered pod is left alone — the residual read-to-delete
+  gap can only reproduce the rolling update's own next deletion of an
+  old-revision pod in an unfrozen pending group, never remove a pod the
+  rollout would have kept: the walk stops wherever the controller would
+  wait, including at an updated-but-unavailable pod above the candidate,
+  and nominates a pod for deletion only when it is the group's sole
+  unavailable pod — availability meaning the controller's own notion,
+  Ready and not terminating, checked across ALL replicas including
+  ordinals below the partition, and re-validated in one sequential pass
+  immediately before the delete so nothing is trusted from the earlier
+  walk — the StatefulSet itself is re-read first — trusted only when
+  metadata.generation equals status.observedGeneration, since
+  status.updateRevision lags a spec change until the controller
+  reconciles — so a concurrent operation that re-froze the group or
+  changed its update revision cancels the delete; with a second pod down anywhere the delete is left
+  to the controller, since the MaxUnavailable path counts every replica
+  and would retain even a just-recovered candidate there)
+  and is retried on every later run while the group stays blocked, so one
+  failed delete cannot re-create the stall.
+  The walk honours the live partition as its lower bound — an ordinal
+  below the partition is recreated on the current revision, so deleting
+  it repairs nothing and would kill a slow-starting pod repeatedly. The
+  pods get/delete RBAC is restricted to the render-time-enumerable
+  data-node pod names.
+- **Rev 8** — corrected the idle-wake mechanism for Helm 4.
   Rev 7 rendered `suspend: false` and relied on Helm's client-side three-way
   merge to reset live drift; Helm 4 defaults to **server-side apply**, under
   which a field the chart declares *and* the run mutates has two owners, and
@@ -242,10 +289,25 @@ during the scan:
       past perGroupStallTimeoutMinutes log the stall (every run)
 
 after the scan, if nothing is unfrozen:
-  lowest pending frozen group, ALL groups healthy:
-      unfreeze it (partition = 0), stamp unfroze-at
-  lowest pending frozen group, some group unhealthy:
-      hold (log only) so the rollout never degrades two groups at once
+  target = lowest pending frozen group that is itself unhealthy,
+           else the lowest pending frozen group
+  some OTHER group unhealthy:
+      hold (log only, naming the unhealthy groups) so the rollout never
+      degrades two groups at once — the target's own health does not
+      count against it, or a broken group could never receive a fix
+  target unhealthy and the update would NOT replace its dead pod first
+  (highest not-yet-updated ordinal is alive):
+      hold (log only) — unfreezing would delete a live pod from an
+      already degraded group
+  otherwise:
+      unfreeze the target (partition = 0), stamp unfroze-at;
+      if the target was unhealthy, also delete its dead pod — the
+      replacement arrives on the update revision at partition 0. The
+      controller cannot be relied on for that deletion: Kubernetes
+      1.35.0's MaxUnavailableStatefulSet path (beta/on there) deletes
+      nothing in a group that already has an unavailable pod
+      (kubernetes/kubernetes#137409; gate re-disabled in later 1.35
+      patches, fixed for 1.37)
 ```
 
 Properties:
@@ -269,13 +331,30 @@ Properties:
   image) pauses the rollout — no further groups are unfrozen — and stays
   unfrozen, re-logged on every run. Deliberate: re-freezing wouldn't heal the
   crash-looping pod (the controller never reverts a live pod below the
-  partition), and leaving the group unfrozen means the *fix* — the next
-  `helm upgrade` — rolls into it immediately, after which the rollout
-  resumes.
-- **Held while any group is unhealthy.** A pending update is not started
-  while some frozen group has unready pods, so the rollout never degrades
-  two groups at once. This is a log-only hold (Rev 5); the revision-age
-  metric is the "not progressing" signal.
+  partition). Note the group does NOT stay unfrozen across the next helm
+  operation: every `helm upgrade` — the fix included, and even a re-apply of
+  identical values — writes the rendered (frozen) partition back over the
+  live value (the same three-way-merge behaviour the idle-wake design relies
+  on). Delivering the fix therefore depends on the unfreeze decision, which
+  is why a pending group's own sickness must not hold it (next bullet); Rev 8
+  and earlier deadlocked here, demonstrated on hardware 2026-09-01.
+- **Held while any OTHER group is unhealthy.** A pending update is not
+  started while some other group has unready pods, so the rollout never
+  degrades two groups at once; the hold log names the unhealthy groups.
+  Health is the controller's notion, not `status.readyReplicas` alone:
+  that field (and `availableReplicas`) still counts a Ready pod that is
+  terminating, while the rolling update treats it as unavailable — so
+  each run takes a one-call census of terminating data pods and counts
+  their groups unhealthy. The
+  target's own health does not count against it: a group broken by a bad
+  build can only be repaired by the update it is waiting for. A pending
+  group that is itself unhealthy is preferred over lower healthy ones
+  (rolling it adds no new exposure, and the update is often the repair), but
+  only when the controller would replace its dead pod first — if the highest
+  not-yet-updated ordinal is alive while another pod is down, unfreezing
+  would delete a live replica, so the run holds and says so. This is a
+  log-only hold (Rev 5); the revision-age metric is the "not progressing"
+  signal.
 - **Take-over-and-re-freeze semantics.** Any unfrozen group — including one
   an operator unfroze by hand — is taken over: the CronJob stamps its
   unfroze-at annotation, watches it converge, and re-freezes it. Manual
@@ -416,10 +495,17 @@ itself when idle; a Helm hook wakes it.**
 
 - **Bad image**: the rollout pauses at the first affected group — that
   group at single-replica with a crash-looping pod, all later groups
-  frozen-old, the stall logged on every run. Fix values → `helm upgrade` → new spec
-  lands (frozen) everywhere, the stalled group (unfrozen) rolls to the fix
-  immediately, the CronJob resumes the rollout. No zombie processes, no
-  release-state surgery.
+  frozen-old, the stall logged on every run. Fix values → `helm upgrade` →
+  new spec lands everywhere and **re-freezes every group, the stalled one
+  included** (three-way merge restores the rendered partition); the next
+  reconcile then unfreezes the broken group in preference to the healthy
+  ones — its dead pod is the highest not-updated ordinal, so the fix
+  replaces that pod first — and the rollout resumes. No zombie processes,
+  no release-state surgery. To also restore the group's redundancy without
+  waiting for the roll, delete the crash-looping pod *after* the upgrade:
+  it comes back on `currentRevision` (the working build), never touching
+  the healthy pod. Delete-the-pod alone, without the fixed upgrade, loops —
+  the sequencer re-applies the still-bad pending revision.
 - **Roll back instead**: `helm rollback` — pending updates in the old
   direction; the CronJob rolls them out; the bad pod is replaced when its
   group is unfrozen. (NDB caveat, inherent to any downgrade: a node that
@@ -429,7 +515,11 @@ itself when idle; a Helm hook wakes it.**
   StatefulSet. Manual escape: `kubectl patch sts node-group-$i -p
   '{"spec":{"updateStrategy":{"rollingUpdate":{"partition":0}}}}'` per
   group, in order, by hand — or disable the flag (see Values: pending
-  updates then roll concurrently, i.e. today's behavior).
+  updates then roll concurrently, i.e. today's behavior). Caveat: only
+  unfreeze a degraded group by hand when its *down* pod is the highest
+  not-yet-updated ordinal; otherwise the controller replaces a live pod
+  first and the group briefly has no replica at all (the same check the
+  reconcile run makes before unfreezing an unhealthy group).
 - **Rollback to a pre-feature revision**: drops the partition field and the
   CronJob → partition defaults to 0 → concurrent roll, exactly today's
   behavior. Acceptable.

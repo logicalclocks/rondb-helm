@@ -20,12 +20,32 @@
   same way, and a group unfrozen by hand is taken over and re-frozen.
 
   If a group doesn't finish within the stall timeout, the rollout stops there
-  (no later group is unfrozen), leaving the group unfrozen so the next
-  `helm upgrade` rolls a fix straight into it. Every run logs each group's
+  (no later group is unfrozen) and the group stays unfrozen — but note that
+  any `helm upgrade`, including the one carrying a fix and even a re-apply
+  of identical values, re-freezes every group: Helm's three-way merge
+  restores the rendered partition over the live value. Delivering a fix to
+  a broken group therefore depends on the unfreeze decision below, never on
+  the group happening to still be unfrozen. Every run logs each group's
   state, so the newest pod log always shows why the rollout is paused; the
-  durable "not progressing" signal is the revision-age metric alert. A
-  pending update also waits while any already-frozen group is unhealthy, so
-  the rollout never takes a second group down at the same time.
+  durable "not progressing" signal is the revision-age metric alert.
+
+  A pending update on a healthy group waits while any OTHER group is
+  unhealthy, so the rollout never takes a second group down at the same
+  time. A pending group that is itself unhealthy is NOT held back by its
+  own sickness — a group broken by a bad build can only be repaired by the
+  update it is waiting for, so holding it on its own account would deadlock
+  the rollout at exactly the moment a fix arrives. Such a group is
+  preferred over lower healthy pending groups (rolling an already-degraded
+  group adds no new exposure), but only when the update would replace its
+  dead pod first: the walk mirrors the controller — highest ordinal first,
+  stopping where the controller would wait (an updated-but-unavailable
+  pod), with "unavailable" meaning the controller's own notion, a
+  terminating pod included — so this never costs the group a live
+  replica. The run then deletes that dead pod itself rather than relying
+  on the controller: Kubernetes 1.35.0's
+  MaxUnavailableStatefulSet path (beta/on there) deletes nothing in a group
+  that already has an unavailable pod — not even the dead old-revision pod
+  (kubernetes/kubernetes#137409).
 
   Once everything is converged and frozen, the run suspends its own CronJob
   so nothing at all runs while idle. `.spec.suspend` is deliberately NOT
@@ -78,10 +98,24 @@ rules:
   {{- range $g := until (int .Values.clusterSize.numNodeGroups) }}
   - node-group-{{ $g }}
   {{- end }}
-# For logging pod status only; "list" can't be limited to named objects.
+# list: pod tables for stall logging ("list" can't be limited to names).
 - apiGroups: [""]
   resources: ["pods"]
-  verbs: ["get", "list"]
+  verbs: ["list"]
+# get/delete only on the data-node pods themselves: the unfreeze safety
+# check reads them, and the run replaces a dead one so a fix can reach a
+# blocked group — see the MaxUnavailableStatefulSet note in the reconcile
+# script. StatefulSet pod names are stable and enumerable at render time,
+# so the grant does not extend to any other pod in the namespace.
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "delete"]
+  resourceNames:
+  {{- range $g := until (int .Values.clusterSize.numNodeGroups) }}
+  {{- range $r := until (int $.Values.clusterSize.activeDataReplicas) }}
+  - node-group-{{ $g }}-{{ $r }}
+  {{- end }}
+  {{- end }}
 # The CronJob suspends itself while idle and resumes when work appears.
 - apiGroups: ["batch"]
   resources: ["cronjobs"]
@@ -215,11 +249,202 @@ spec:
                 set_suspend false >/dev/null || log "WARN: could not resume own schedule"
               }
 
+              update_replaces_dead_pod() { # <group-index> <replicas> <update-revision> <min-ordinal>
+                # Unfreezing tells the StatefulSet controller to delete the
+                # highest-ordinal pod that is not on the update revision. For
+                # an unhealthy group that is only safe when that pod is itself
+                # the dead one: deleting it costs nothing and its replacement
+                # carries the update. If it is alive while another pod of the
+                # group is down, deleting it would remove a live replica from
+                # an already degraded group. Walk the ordinals the way the
+                # controller does and check what it would delete first.
+                #
+                # min-ordinal is the partition the walk assumes: the decision
+                # to unfreeze passes 0 (that is what unfreezing sets), the
+                # retry for an already-unfrozen group passes the LIVE
+                # partition. The controller never updates an ordinal below the
+                # partition — such a pod is recreated on the current revision,
+                # so deleting it repairs nothing and would kill a slow-starting
+                # pod again on every reconcile.
+                # Availability everywhere below means the controller's own
+                # notion: Ready AND not terminating — a pod with a deletion
+                # timestamp counts as unavailable even while its Ready
+                # condition is still True (isRunningAndAvailable). The chart
+                # sets no minReadySeconds, so no extra availability term
+                # exists.
+                local g=$1 replicas=$2 update=$3 min=${4:-0} ord pod state term rev ready
+                for ((ord = replicas - 1; ord >= min; ord--)); do
+                  pod="node-group-$g-$ord"
+                  if ! state=$(kube get pod "$pod" -o jsonpath='{.metadata.deletionTimestamp}{"|"}{.metadata.labels.controller-revision-hash}{"|"}{.status.conditions[?(@.type=="Ready")].status}' 2>&1); then
+                    if [[ "$state" == *"(NotFound)"* || "$state" == *"not found"* ]]; then
+                      # Pod object gone: it is recreated (at partition 0, on
+                      # the update revision), not deleted — no live replica is
+                      # lost by unfreezing.
+                      return 0
+                    fi
+                    # Any other failure: fail closed. Assuming "gone" on a
+                    # timeout or auth error could green-light deleting the
+                    # group's only live replica.
+                    log "ERROR: could not read pod $pod: $state"
+                    exit 1
+                  fi
+                  IFS='|' read -r term rev ready <<< "$state"
+                  if [[ "$rev" != "$update" ]]; then
+                    # This is the pod the controller deletes first. Nominate
+                    # it only if it is unavailable (deleting it then costs
+                    # nothing — on a terminating pod it is a no-op); if it is
+                    # available, unfreezing would sacrifice a live replica of
+                    # a degraded group: hold.
+                    if [[ "$ready" != "True" || -n "$term" ]]; then
+                      repair_pod="$pod"
+                      return 0
+                    else
+                      return 1
+                    fi
+                  fi
+                  # Already on the update revision. If it is unavailable the
+                  # controller waits HERE and touches nothing below it (the
+                  # classic path returns at the first unavailable pod, the
+                  # MaxUnavailableStatefulSet path deletes nothing while any
+                  # pod is unavailable) — so stop exactly where it stops.
+                  # Walking on and deleting a lower old-revision pod would
+                  # diverge from the controller: it could remove a pod that
+                  # was about to recover on the still-working revision, or —
+                  # through the read-to-delete gap — one that already had.
+                  if [[ "$ready" != "True" || -n "$term" ]]; then
+                    return 1
+                  fi
+                  # Updated and available: never deleted; keep walking.
+                done
+                return 1  # every pod already updated; nothing to replace
+              }
+
+              replace_dead_pod() { # <pod> <update-revision> <group-index> <replicas> <expected-partition>
+                # Deletes a dead pod so its replacement — created on the
+                # update revision once the group is unfrozen — carries the fix
+                # in. Needed because Kubernetes 1.35.0's
+                # MaxUnavailableStatefulSet path (beta/on there) deletes
+                # nothing in a group that already has an unavailable pod, not
+                # even the dead old-revision pod itself
+                # (kubernetes/kubernetes#137409; gate re-disabled in later
+                # 1.35 patches, fix planned for 1.37). On other controllers
+                # this races the controller's own deletion of the same pod,
+                # benignly (NotFound is tolerated both ways).
+                #
+                # kubectl can attach no UID/resourceVersion precondition to a
+                # delete, so EVERY condition is validated in one sequential
+                # pass immediately before the delete — nothing is trusted
+                # from the earlier walk, which may be seconds old by now
+                # (annotate/patch calls sit in between, each with a 15s
+                # timeout budget):
+                #   1. the StatefulSet itself is re-read: if a concurrent
+                #      operation re-froze the group, changed its update
+                #      revision, or resized it since the decision, the
+                #      decision is stale — leave the pod to the next run.
+                #      status.updateRevision itself lags a spec change until
+                #      the controller reconciles (it is set together with
+                #      observedGeneration), so the read is trusted only when
+                #      metadata.generation == status.observedGeneration;
+                #      otherwise a just-pushed rollback could make the
+                #      candidate the newly DESIRED revision while the stale
+                #      status still calls it outdated. Note the unfreeze
+                #      run's own partition patch bumps the generation, so
+                #      that run's delete typically defers one reconcile until
+                #      the controller has observed it — the retry then lands
+                #      it.
+                #   2. every OTHER pod of the group must be available (Ready
+                #      and not terminating) — the gated controller counts
+                #      unavailable pods across ALL replicas, and with a
+                #      second pod down it would retain even a just-recovered
+                #      candidate. Unknown state (read failure, NotFound)
+                #      counts as unavailable: the safe direction is skipping.
+                #   3. the candidate is re-read LAST: if it was replaced
+                #      (revision now matches the update) or recovered
+                #      (available), leave it to the controller.
+                # Under those conditions the candidate is the very pod both
+                # controller paths delete next, so a mis-timed delete
+                # reproduces the controller's next action (or restarts a
+                # seconds-old replacement once); it never removes a pod the
+                # rollout would have kept. The residue is transitions inside
+                # this final pass itself (sequential reads, typically
+                # sub-second each though bounded only by the 15s per-call
+                # budget): a spec change, a non-candidate failing, or the
+                # candidate recovering after its own read — none excludable
+                # by any kubectl-expressible check; that is accepted and
+                # stated here rather than argued away. A failed or skipped
+                # delete is retried by later runs for as long as the group
+                # stays blocked on a dead old-revision pod.
+                local pod=$1 update=$2 g=$3 replicas=$4 expected_part=$5 ord other state term rev ready out
+                local live_repl live_part live_upd live_gen live_ogen
+                if ! state=$(get_field "node-group-$g" '{.spec.replicas}{"|"}{.spec.updateStrategy.rollingUpdate.partition}{"|"}{.status.currentRevision}{"|"}{.status.updateRevision}{"|"}{.status.readyReplicas}{"|"}{.metadata.generation}{"|"}{.status.observedGeneration}' 2>/dev/null); then
+                  log "WARN: could not re-read node-group-$g before delete (retried next run)"
+                  return 0
+                fi
+                IFS='|' read -r live_repl live_part _ live_upd _ live_gen live_ogen <<< "$state"
+                if [[ "${live_gen:-0}" != "${live_ogen:--1}" ]]; then
+                  log "node-group-$g has an unobserved spec change (generation ${live_gen:-?} vs observed ${live_ogen:-?}); leaving $pod to the next run"
+                  return 0
+                fi
+                if [[ "${live_repl:-}" != "$replicas" || "${live_part:-0}" -ne "$expected_part" || "$live_upd" != "$update" ]]; then
+                  log "node-group-$g changed since the decision (replicas/partition/revision); leaving $pod to the next run"
+                  return 0
+                fi
+                for ((ord = replicas - 1; ord >= 0; ord--)); do
+                  other="node-group-$g-$ord"
+                  [[ "$other" == "$pod" ]] && continue
+                  if ! state=$(kube get pod "$other" -o jsonpath='{.metadata.deletionTimestamp}{"|"}{.metadata.labels.controller-revision-hash}{"|"}{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null); then
+                    state="unavailable||"
+                  fi
+                  IFS='|' read -r term rev ready <<< "$state"
+                  if [[ "$ready" != "True" || -n "$term" ]]; then
+                    log "$pod is not the group's only unavailable pod; leaving its deletion to the controller"
+                    return 0
+                  fi
+                done
+                if ! state=$(kube get pod "$pod" -o jsonpath='{.metadata.deletionTimestamp}{"|"}{.metadata.labels.controller-revision-hash}{"|"}{.status.conditions[?(@.type=="Ready")].status}' 2>&1); then
+                  if [[ "$state" != *"(NotFound)"* && "$state" != *"not found"* ]]; then
+                    log "WARN: could not re-read $pod before delete (retried next run): $state"
+                  fi
+                  return 0
+                fi
+                IFS='|' read -r term rev ready <<< "$state"
+                if [[ "$rev" == "$update" || ( "$ready" == "True" && -z "$term" ) ]]; then
+                  log "$pod changed since the safety check; leaving it to the controller"
+                  return 0
+                fi
+                log "replacing dead pod $pod so the update reaches it"
+                if ! out=$(kube delete pod "$pod" --wait=false 2>&1); then
+                  [[ "$out" == *"(NotFound)"* || "$out" == *"not found"* ]] || \
+                    log "WARN: could not delete $pod (retried next run): $out"
+                fi
+              }
+
               log "run: groups=$NUM_NODE_GROUPS stallTimeout=${STALL_TIMEOUT_MINUTES}m"
+
+              # A pod with a deletion timestamp counts as unavailable to the
+              # rolling update even while its Ready condition is still True —
+              # but status.readyReplicas (and availableReplicas) still count
+              # it, so a group can look healthy in the StatefulSet status
+              # while the controller sees it as degraded. One list call finds
+              # every terminating data pod; its group is treated as unhealthy
+              # for this run's decisions. Fail closed like the StatefulSet
+              # reads: an unknown answer could let two groups degrade at once.
+              terminating_groups=""
+              if ! _term_out=$(kube get pods -l nodeGroup -o jsonpath='{range .items[?(@.metadata.deletionTimestamp)]}{.metadata.labels.nodeGroup}{"\n"}{end}' 2>&1); then
+                log "ERROR: could not list terminating pods: $_term_out"
+                exit 1
+              fi
+              while IFS= read -r _tg; do
+                [[ "$_tg" =~ ^[0-9]+$ ]] && terminating_groups="$terminating_groups node-group-$_tg"
+              done <<< "$_term_out"
+              [[ -n "$terminating_groups" ]] && log "groups with terminating pods (counted unhealthy):$terminating_groups"
 
               rolling_sts=""       # unfrozen group still updating (rollout in progress)
               lowest_pending=""    # lowest frozen group with a pending update
-              all_healthy=true
+              lowest_pending_unhealthy=""  # ... of those, the lowest that is itself unhealthy
+              lpu_group=""; lpu_replicas=""; lpu_update=""
+              unhealthy_groups=""  # names, so a hold can say who is actually blocking
+              repair_pod=""        # dead pod the update must replace, found by update_replaces_dead_pod
 
               for ((g = 0; g < NUM_NODE_GROUPS; g++)); do
                 sts="node-group-$g"
@@ -242,12 +467,17 @@ spec:
                 pending=false; [[ "$current" != "$update" ]] && pending=true
                 frozen=false;  [[ "$partition" -ge "$replicas" ]] && frozen=true
                 healthy=false; [[ "$ready" -eq "$replicas" ]] && healthy=true
+                [[ " $terminating_groups " == *" $sts "* ]] && healthy=false
 
-                [[ "$healthy" == false ]] && all_healthy=false
+                [[ "$healthy" == false ]] && unhealthy_groups="$unhealthy_groups $sts"
 
                 if [[ "$frozen" == true ]]; then
                   if [[ "$pending" == true && -z "$lowest_pending" ]]; then
                     lowest_pending="$sts"
+                  fi
+                  if [[ "$pending" == true && "$healthy" == false && -z "$lowest_pending_unhealthy" ]]; then
+                    lowest_pending_unhealthy="$sts"
+                    lpu_group="$g"; lpu_replicas="$replicas"; lpu_update="$update"
                   fi
                   continue
                 fi
@@ -291,6 +521,20 @@ spec:
                 else
                   log "$sts rolling for ${age}s (stall threshold ${STALL_SECONDS}s)"
                 fi
+
+                # If the group's convergence is blocked on a dead pod that is
+                # not on the update revision, replace it. The controller
+                # normally does this on its own; two cases need it done here:
+                # retrying a delete that failed on the run that unfroze the
+                # group, and Kubernetes 1.35.0's MaxUnavailableStatefulSet
+                # path, which refuses every deletion in a group that already
+                # has an unavailable pod (kubernetes/kubernetes#137409).
+                # During a healthy roll this finds nothing to do: the pod the
+                # controller is working on is already on the update revision.
+                repair_pod=""
+                if update_replaces_dead_pod "$g" "$replicas" "$update" "$partition" && [[ -n "$repair_pod" ]]; then
+                  replace_dead_pod "$repair_pod" "$update" "$g" "$replicas" "$partition"
+                fi
               done
 
               if [[ -n "$rolling_sts" ]]; then
@@ -301,14 +545,39 @@ spec:
 
               if [[ -n "$lowest_pending" ]]; then
                 ensure_awake
-                if [[ "$all_healthy" != true ]]; then
-                  log "pending update on $lowest_pending held: another group is unhealthy"
+                # Prefer a pending group that is already unhealthy: rolling it
+                # degrades nothing further, and when its sickness comes from a
+                # bad build the pending update is the repair. Holding such a
+                # group on account of its OWN sickness would deadlock the
+                # rollout at exactly the moment a fix arrives — nothing but
+                # the update it is being denied can make it healthy again.
+                target="$lowest_pending"
+                [[ -n "$lowest_pending_unhealthy" ]] && target="$lowest_pending_unhealthy"
+                blockers=""
+                for u in $unhealthy_groups; do
+                  [[ "$u" != "$target" ]] && blockers="$blockers $u"
+                done
+                if [[ -n "$blockers" ]]; then
+                  # Never degrade a second group while one is already down —
+                  # and name the groups actually failing the health check.
+                  log "pending update on $target held: unhealthy:$blockers"
                   exit 0
                 fi
-                log "unfreezing $lowest_pending (partition=0)"
-                kube annotate statefulset "$lowest_pending" \
+                if [[ -n "$lowest_pending_unhealthy" ]] && \
+                   ! update_replaces_dead_pod "$lpu_group" "$lpu_replicas" "$lpu_update" 0; then
+                  log "pending update on $target held: the group is unhealthy and the update would not replace its dead pod first"
+                  exit 0
+                fi
+                log "unfreezing $target (partition=0)"
+                kube annotate statefulset "$target" \
                   "${UNFROZE_AT_KEY}=${NOW}" --overwrite >/dev/null
-                set_partition "$lowest_pending" 0
+                set_partition "$target" 0
+                if [[ -n "$repair_pod" ]]; then
+                  # A failed or skipped delete is not fatal here: while the
+                  # group stays unfrozen with a dead old-revision pod, every
+                  # later run retries the replacement (unfrozen branch above).
+                  replace_dead_pod "$repair_pod" "$lpu_update" "$lpu_group" "$lpu_replicas" 0
+                fi
                 exit 0
               fi
 
