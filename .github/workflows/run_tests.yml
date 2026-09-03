@@ -5,10 +5,20 @@ on:
     # Not running on "closed" - that is taken care of by "push" (if merged)
     types: [opened, synchronize, reopened]
 
-# This cancels any previous job from the same PR if the PR has been updated.
-# This cancel-in-progress only works per PR (thus, two different PRs wont be cancelled).
-# Concurrency is not an issue because the self-hosted worker will anyways only run one
-# job at a time from one repo.
+# Cancels the previous run of the same PR when the PR is updated. The group is keyed on
+# github.ref, which is refs/pull/<N>/merge for pull_request events, so runs from two
+# different PRs land in different groups and never cancel each other.
+#
+# Do NOT add a job-level `concurrency: {group: self-hosted-runner}` to the self-hosted
+# jobs below. A concurrency group holds one running job plus at most one *pending* job,
+# and any newer arrival evicts the pending one; cancel-in-progress only guards the
+# running job. That made every new PR cancel another PR's queued job.
+#
+# The self-hosted jobs are already serialised by the runner: a single `self-hosted,ARM64`
+# runner is registered and a runner executes one job at a time, so the shared Minikube
+# cluster never sees concurrent access. Keep it to one such runner - the "Pre-cleanup
+# stale resources" steps below delete every rondb-helm-* namespace and the global
+# rondb-high-priority PriorityClass, so a second runner would break the tests regardless.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -70,9 +80,6 @@ jobs:
     needs: [lint-test]
     name: Benchmarking, scaling and stability
     if: github.repository == 'logicalclocks/rondb-helm'
-    concurrency:
-      group: self-hosted-runner
-      cancel-in-progress: false
     runs-on: [self-hosted, ARM64]
     env:
       K8S_NAMESPACE: rondb-helm-${{ github.run_id }}-${{ github.run_attempt }}
@@ -305,9 +312,6 @@ jobs:
     needs: [benchmark-and-stability]
     name: Test Global Replication with backup/restore
     if: github.repository == 'logicalclocks/rondb-helm'
-    concurrency:
-      group: self-hosted-runner
-      cancel-in-progress: false
     runs-on: [self-hosted, ARM64]
     env:
       CLUSTER_A_NAME: cluster-a
@@ -432,9 +436,6 @@ jobs:
     needs: [test-lifecycle]
     name: Cross-version chart upgrade (no arbitration loss)
     if: github.repository == 'logicalclocks/rondb-helm'
-    concurrency:
-      group: self-hosted-runner
-      cancel-in-progress: false
     runs-on: [self-hosted, ARM64]
     env:
       K8S_NAMESPACE: rondb-helm-upgrade-${{ github.run_id }}-${{ github.run_attempt }}
