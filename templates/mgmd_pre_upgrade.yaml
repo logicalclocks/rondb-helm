@@ -68,6 +68,7 @@ metadata:
     # before-hook-creation only; hook-succeeded would let Argo CD
     # delete this support resource before the wave-10 Job runs.
     "helm.sh/hook-delete-policy": before-hook-creation
+{{- include "rondb.serviceAccountAnnotationEntries" $ }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
