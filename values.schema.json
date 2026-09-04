@@ -40,7 +40,7 @@
                 },
                 "perGroupStallTimeoutMinutes": {
                     "type": "integer",
-                    "description": "Minutes an unfrozen node group may stay unconverged before the rollout CronJob reports a stall (logged on every run) and pauses; no further groups are unfrozen while the stalled group keeps trying, and the next 'helm upgrade' (e.g. a fixed image) rolls into it immediately. This is an alerting threshold - nothing is killed when it fires. 0 derives it from activeDataReplicas x timeoutsMinutes.ndbmtdStartupProbe plus 30 minutes slack.",
+                    "description": "Minutes an unfrozen node group may stay unconverged before the rollout CronJob reports a stall (logged on every run) and pauses; no further groups are unfrozen while the stalled group keeps trying. Note the next 'helm upgrade' (e.g. a fixed image) re-freezes every group, the stalled one included (Helm restores the rendered partition over the live value); the CronJob then delivers the fix by unfreezing the broken group again on the next run, in preference to healthy ones, and the StatefulSet controller replaces its dead pod. This is an alerting threshold - nothing is killed when it fires. 0 derives it from activeDataReplicas x timeoutsMinutes.ndbmtdStartupProbe plus 30 minutes slack.",
                     "default": 0,
                     "minimum": 0
                 }
