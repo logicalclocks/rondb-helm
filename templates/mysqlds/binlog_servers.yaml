@@ -72,10 +72,10 @@ spec:
       # We need to wait for the restore Job
       serviceAccountName: {{ include "rondb.serviceAccount.restoreWatcher" . }}
 {{- else }}
-      # Explicitly set to 'default' so Helm's three-way merge updates the field
-      # value rather than trying to delete it (which fails for scalar fields in
-      # nested pod template specs, leaving a stale SA reference).
-      serviceAccountName: default
+      # Explicitly set (never omitted) so Helm's three-way merge updates the
+      # field value rather than trying to delete it (which fails for scalar
+      # fields in nested pod template specs, leaving a stale SA reference).
+      serviceAccountName: {{ include "rondb.serviceAccountName" . }}
 {{- end }}
       initContainers:
       - name: mysqld-init-datadir

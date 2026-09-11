@@ -77,6 +77,7 @@ spec:
         {{ $k | quote }}: {{ $v | quote }}
 {{- end }}
     spec:
+      serviceAccountName: {{ include "rondb.serviceAccountName" $ }}
 {{- include "rondb.imagePullSecrets" $ | indent 6 }}
 {{- include "rondb.PodSecurityContext" $ | indent 6 }}
 {{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.ndbmtd) | indent 6 }}

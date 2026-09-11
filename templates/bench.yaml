@@ -17,6 +17,7 @@ spec:
       labels:
         rondbService: {{ include "rondb.labels.rondbService.benchmark" $ }}
     spec:
+      serviceAccountName: {{ include "rondb.serviceAccountName" . }}
       {{- include "rondb.imagePullSecrets" . | indent 6 }}
       # So we collect errors in case of failures
       restartPolicy: Never
@@ -124,6 +125,7 @@ metadata:
   name: fetch-bench-results
   namespace: {{ .Release.Namespace }}
 spec:
+  serviceAccountName: {{ include "rondb.serviceAccountName" . }}
 {{- include "rondb.PodSecurityContext" . | indent 2 }}
 {{- include "rondb.imagePullSecrets" . | indent 2 }}
   affinity:
