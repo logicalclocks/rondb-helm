@@ -80,6 +80,22 @@ wait-init-jobs
 wait-init-jobs-binding
 {{- end -}}
 
+{{/*
+    Service account for the upgrade-time setup-mysql-users Job. With a backup
+    ID set, its "rondb.container.waitRestore" init container does `kubectl wait`
+    on the restore Job, and only the restore-watcher Role may read it: the
+    wait-init-jobs Role is scoped to the mysqld setup Job alone, so running the
+    Job under wait-init-jobs-sa during a restore leaves the init container
+    crash-looping on Forbidden and the Job never completes.
+*/}}
+{{- define "rondb.mysqldJobServiceAccountName" -}}
+{{- if include "rondb.restoreFromBackup.backupId" . -}}
+{{- include "rondb.serviceAccount.restoreWatcher" . -}}
+{{- else -}}
+{{- include "rondb.mysqldServiceAccountName" . -}}
+{{- end -}}
+{{- end -}}
+
 ---
 
 # Easier to calculate serverIds with 100 per cluster
