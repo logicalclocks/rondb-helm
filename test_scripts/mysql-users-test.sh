@@ -14,7 +14,9 @@
 #   renders only for existingSecret users.
 # Part 2 — upgrade Job: setup-mysql-users renders only on upgrades with
 #   users declared, and its name changes with the user list.
-# Part 3 — validation: colliding/duplicate usernames and self-referencing
+# Part 3 — restore upgrade: the users Job waits on the native restore Job and
+#   runs under the ServiceAccount whose Role may read that Job.
+# Part 4 — validation: colliding/duplicate usernames and self-referencing
 #   existingSecret fail the render.
 
 set -euo pipefail
@@ -106,6 +108,31 @@ assert "rotationId alone yields a different Job name" '[[ -n "$NAME_ROT" && -n "
 echo "=== upgrade: no users -> no users Job ==="
 render "$WORK_DIR/upgrade-nousers.yaml" --set mode=upgrade
 assert "no users Job without mysql.users" '[[ $(count "name: setup-mysql-users" $WORK_DIR/upgrade-nousers.yaml) == 0 ]]'
+
+echo "=== restore upgrade: users Job waits on the restore Job under the restore-watcher SA ==="
+# With a backup ID set, the wait-restore-backup init container does `kubectl wait`
+# on the restore Job. Only restore-backup-watcher-sa is bound to a Role that may
+# read it; wait-init-jobs-sa (the Job's SA without a restore) may read the mysqld
+# setup Job alone, and a Job left on it crash-loops on Forbidden forever.
+RESTORE_FLAGS=(--set-string restoreFromBackup.backupId=123
+  --set restoreFromBackup.inPlace=true --set restoreFromBackup.forceDataClear=true
+  --set restoreFromBackup.s3.bucketName=b --set restoreFromBackup.s3.endpoint=http://minio:9000
+  --set restoreFromBackup.s3.provider=Minio --set restoreFromBackup.s3.region=r
+  --set restoreFromBackup.s3.keyCredentialsSecret.name=c --set restoreFromBackup.s3.keyCredentialsSecret.key=k
+  --set restoreFromBackup.s3.secretCredentialsSecret.name=c --set restoreFromBackup.s3.secretCredentialsSecret.key=s)
+render "$WORK_DIR/restore.yaml" --set mode=upgrade --set-json "mysql.users=[$GENERATED_USER]" "${RESTORE_FLAGS[@]}"
+users_job_manifest() { # <render-file> <output-file>
+  awk '/^# Source: rondb\/templates\/mysqlds\/setup_users_job.yaml/,/^---/' "$1" > "$2"
+}
+users_job_manifest "$WORK_DIR/restore.yaml" "$WORK_DIR/restorejob.yaml"
+users_job_manifest "$WORK_DIR/upgrade.yaml" "$WORK_DIR/plainjob.yaml"
+assert "users Job renders on a restore upgrade" '[[ $(count "name: setup-mysql-users-" $WORK_DIR/restorejob.yaml) == 1 ]]'
+assert "users Job waits for the restore Job" '[[ $(count "name: wait-restore-backup" $WORK_DIR/restorejob.yaml) == 1 ]]'
+assert "users Job waits on the restore Job by name" 'grep -q "job/restore-native-backup-123" $WORK_DIR/restorejob.yaml'
+assert "users Job runs as the restore-watcher SA" '[[ $(count "serviceAccountName: restore-backup-watcher-sa" $WORK_DIR/restorejob.yaml) == 1 ]]'
+assert "restore-watcher Role may read the restore Job" 'awk "/name: restore-backup-watcher$/,/^---/" $WORK_DIR/restore.yaml | grep -q "resourceNames: \[restore-native-backup-123\]"'
+assert "users Job keeps wait-init-jobs-sa without a restore" '[[ $(count "serviceAccountName: wait-init-jobs-sa" $WORK_DIR/plainjob.yaml) == 1 ]]'
+assert "users Job has no restore wait without a restore" '[[ $(count "name: wait-restore-backup" $WORK_DIR/plainjob.yaml) == 0 ]]'
 
 echo "=== validation failures ==="
 assert "username 'root' is rejected" 'render_fails "[{\"username\":\"root\",\"host\":\"%\",\"privileges\":[{\"database\":\"*\",\"table\":\"*\",\"privileges\":[\"ALL\"]}]}]"'

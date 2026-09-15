@@ -41,7 +41,7 @@ spec:
         rondbService: {{ include "rondb.labels.rondbService.setup-mysqld" $ }}
     spec:
       restartPolicy: OnFailure
-      serviceAccountName: {{ include "rondb.mysqldServiceAccountName" . }}
+      serviceAccountName: {{ include "rondb.mysqldJobServiceAccountName" . }}
 {{- include "rondb.PodSecurityContext" $ | indent 6 }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
 {{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.mysqld) | indent 6 }}
