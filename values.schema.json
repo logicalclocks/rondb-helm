@@ -1741,6 +1741,117 @@
                         }
                     }
                 },
+                "probes": {
+                    "type": "object",
+                    "description": "Timings of the RDRS container probes; the HTTP path, port and scheme are set by the chart. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.probes. A probe gives up after roughly (failureThreshold - 1) * periodSeconds + timeoutSeconds of consecutive failures.",
+                    "properties": {
+                        "startup": {
+                            "type": "object",
+                            "description": "Checks /ping until RDRS first answers; liveness and readiness only start after it passes. RDRS opens its port once it has preloaded its caches from RonDB, about 25 seconds with a few hundred feature views. Raise failureThreshold if that preload takes longer than the ~57 seconds allowed.",
+                            "properties": {
+                                "initialDelaySeconds": {
+                                    "type": "integer",
+                                    "default": 5,
+                                    "minimum": 0
+                                },
+                                "periodSeconds": {
+                                    "type": "integer",
+                                    "default": 5,
+                                    "minimum": 1
+                                },
+                                "timeoutSeconds": {
+                                    "type": "integer",
+                                    "default": 2,
+                                    "minimum": 1
+                                },
+                                "failureThreshold": {
+                                    "type": "integer",
+                                    "default": 11,
+                                    "minimum": 1
+                                }
+                            },
+                            "required": [
+                                "initialDelaySeconds",
+                                "periodSeconds",
+                                "timeoutSeconds",
+                                "failureThreshold"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "readiness": {
+                            "type": "object",
+                            "description": "Checks /health. A pod that keeps failing is removed from the Service after ~13 to 18 seconds with the defaults; connections it already holds stay open. More than one failure is required so that a single slow check under load does not take the pod out of the Service.",
+                            "properties": {
+                                "initialDelaySeconds": {
+                                    "type": "integer",
+                                    "default": 5,
+                                    "minimum": 0
+                                },
+                                "periodSeconds": {
+                                    "type": "integer",
+                                    "default": 5,
+                                    "minimum": 1
+                                },
+                                "timeoutSeconds": {
+                                    "type": "integer",
+                                    "default": 3,
+                                    "minimum": 1
+                                },
+                                "failureThreshold": {
+                                    "type": "integer",
+                                    "default": 3,
+                                    "minimum": 1
+                                }
+                            },
+                            "required": [
+                                "initialDelaySeconds",
+                                "periodSeconds",
+                                "timeoutSeconds",
+                                "failureThreshold"
+                            ],
+                            "additionalProperties": false
+                        },
+                        "liveness": {
+                            "type": "object",
+                            "description": "Checks /ping and restarts RDRS when it keeps failing. While a data node that failed has not yet been declared dead, RDRS requests touching it block and /ping cannot answer. Detection takes ~25 seconds per data node, and data nodes that go silent together can be detected one after the other. Size (failureThreshold - 1) * periodSeconds + timeoutSeconds above ~25 seconds per data node that can go silent at once, plus ~40 seconds. The defaults give ~115 seconds; restarting the data nodes of 8 node groups in parallel needs failureThreshold 30 (~295 seconds). A hung RDRS is only restarted once this time has passed; readiness takes it out of the Service before that.",
+                            "properties": {
+                                "initialDelaySeconds": {
+                                    "type": "integer",
+                                    "default": 5,
+                                    "minimum": 0
+                                },
+                                "periodSeconds": {
+                                    "type": "integer",
+                                    "default": 10,
+                                    "minimum": 1
+                                },
+                                "timeoutSeconds": {
+                                    "type": "integer",
+                                    "default": 5,
+                                    "minimum": 1
+                                },
+                                "failureThreshold": {
+                                    "type": "integer",
+                                    "default": 12,
+                                    "minimum": 1
+                                }
+                            },
+                            "required": [
+                                "initialDelaySeconds",
+                                "periodSeconds",
+                                "timeoutSeconds",
+                                "failureThreshold"
+                            ],
+                            "additionalProperties": false
+                        }
+                    },
+                    "required": [
+                        "startup",
+                        "readiness",
+                        "liveness"
+                    ],
+                    "additionalProperties": false
+                },
                 "externalMetadataCluster": {
                     "type": "object",
                     "description": "RDRSs will always be in the cluster of the data, not the metadata",
@@ -1780,7 +1891,8 @@
                 }
             },
             "required": [
-                "externalMetadataCluster"
+                "externalMetadataCluster",
+                "probes"
             ]
         },
         "tls": {
