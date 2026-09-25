@@ -54,6 +54,9 @@ jobs:
         - name: Fail-closed data node probe tests
           run: ./test_scripts/probe-fail-closed-test.sh
 
+        - name: RDRS probe tests
+          run: ./test_scripts/rdrs-probes-test.sh
+
         - name: MySQL users tests
           run: ./test_scripts/mysql-users-test.sh
 
