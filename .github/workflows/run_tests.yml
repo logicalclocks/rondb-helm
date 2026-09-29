@@ -57,6 +57,9 @@ jobs:
         - name: RDRS probe tests
           run: ./test_scripts/rdrs-probes-test.sh
 
+        - name: RDRS TTL purge tests
+          run: ./test_scripts/rdrs-ttl-purge-test.sh
+
         - name: MySQL users tests
           run: ./test_scripts/mysql-users-test.sh
 
