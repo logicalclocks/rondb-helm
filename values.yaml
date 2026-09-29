@@ -311,6 +311,9 @@ rdrs:
   security:
     apiKey:
       cacheRefreshIntervalMS: 180000
+  ttlPurge:
+    activeWindow: null
+    enable: null
 resources:
   limits:
     cpus:

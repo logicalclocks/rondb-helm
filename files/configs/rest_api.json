@@ -57,6 +57,27 @@
             "CacheRefreshIntervalMS": {{ $.Values.rdrs.security.apiKey.cacheRefreshIntervalMS | int }}
         }
     },
+{{- /*
+  Rendered only when a field is set: RDRS older than RonDB 26.02.9 rejects
+  the TTLPurge key ("Unexpected key") and does not start.
+*/}}
+{{- $ttlPurge := $.Values.rdrs.ttlPurge | default dict }}
+{{- $ttlPurgeFields := list }}
+{{- if and (hasKey $ttlPurge "enable") (not (eq $ttlPurge.enable nil)) }}
+{{- $ttlPurgeFields = append $ttlPurgeFields (printf "\"Enable\": %t" $ttlPurge.enable) }}
+{{- end }}
+{{- with $ttlPurge.activeWindow }}
+{{- $bounds := splitList "-" . }}
+{{- if eq (first $bounds) (last $bounds) }}
+{{- fail (printf "rdrs.ttlPurge.activeWindow %q: start and end must differ" .) }}
+{{- end }}
+{{- $ttlPurgeFields = append $ttlPurgeFields (printf "\"ActiveWindow\": %s" (toJson .)) }}
+{{- end }}
+{{- if $ttlPurgeFields }}
+    "TTLPurge": {
+        {{ join ",\n        " $ttlPurgeFields }}
+    },
+{{- end }}
     "Log": {
         "Level": "info"
     }

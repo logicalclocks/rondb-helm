@@ -1741,6 +1741,30 @@
                         }
                     }
                 },
+                "ttlPurge": {
+                    "type": "object",
+                    "description": "TTL purge worker settings of every RDRS pod, rendered as the TTLPurge section of rest_api.json. The section is rendered only when at least one field is set, because RDRS older than RonDB 26.02.9 rejects the TTLPurge key and does not start. Changes reach running pods only when they restart; a cluster-wide window in the mysql.ttl_purge_ctrl table takes precedence over activeWindow and needs no restart. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.ttlPurge. Unknown fields fail the render, so a misspelled field cannot silently leave purging running around the clock.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "enable": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "description": "Whether the RDRS pods run the TTL purge worker, which deletes expired rows of TTL tables. When null, RDRS decides (enabled). Can still be changed per pod at runtime through PUT /0.1.0/ttl-purge/config, until the pod restarts.",
+                            "default": null
+                        },
+                        "activeWindow": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "description": "Daily UTC window during which the TTL purge worker deletes expired rows, formatted \"HH:MM-HH:MM\" (e.g. \"03:00-05:00\"); it wraps past midnight when start > end (e.g. \"23:00-02:00\"). Start and end must differ. When null or empty, purging runs around the clock. A valid window in mysql.ttl_purge_ctrl (ctrl_id 2/3) takes precedence.",
+                            "pattern": "^$|^([01][0-9]|2[0-3]):[0-5][0-9]-([01][0-9]|2[0-3]):[0-5][0-9]$",
+                            "default": null
+                        }
+                    }
+                },
                 "probes": {
                     "type": "object",
                     "description": "Timings of the RDRS container probes; the HTTP path, port and scheme are set by the chart. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.probes. A probe gives up after roughly (failureThreshold - 1) * periodSeconds + timeoutSeconds of consecutive failures.",
