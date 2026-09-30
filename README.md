@@ -121,22 +121,22 @@ RDRS answers `/0.1.0/ping` and `/0.1.0/health` on two ports:
   enforce it with a NetworkPolicy.
 
 The chart points the startup, liveness and readiness probes at the probe port,
-which requires an RDRS image with `REST.ProbePort` support (releases **newer
-than 25.10.18**; older images reject the unknown config keys at startup). For
-pinned older images set `rdrs.probePort.enabled=false`: no probe keys are
-emitted and all probes go back to 4406.
+which requires an RDRS image with `REST.ProbePort` support (releases **25.10.19
+and newer**; older images reject the unknown config keys at startup). For pinned
+older images set `rdrs.probePort.enabled=false`: no probe keys are emitted and
+all probes go back to 4406.
 
 `rdrs.maxKeepaliveRequests` (default `0` = off) bounds the requests served on
 one keep-alive connection to the main port, after which the connection is
 closed gracefully. A Kubernetes Service balances per connection, so this lets
 clients re-balance after a rolling restart; use a high value (1000) and only
-where post-restart skew is observed. Requires releases **newer than 25.10.18**;
+where post-restart skew is observed. Requires releases **25.10.19 and newer**;
 at `0` the key is not emitted.
 
 `rdrs.uploadPath` (default `/tmp/rdrs-uploads`) is where RDRS buffers request
 bodies larger than 64 KiB. The container's working directory is not writable,
 so without it oversized bodies are silently read as empty. Requires releases
-**newer than 25.10.19**; set it to the empty string for pinned older images.
+**25.10.19 and newer**; set it to the empty string for pinned older images.
 
 ## Termination grace periods
 
