@@ -39,6 +39,7 @@ spec:
       annotations:
         configIniHash: {{ include "rondb.configIniHash" $ }}
     spec:
+      terminationGracePeriodSeconds: {{ include "rondb.gracePeriod" (dict "v" $.Values "component" "replicaAppliers") }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
       serviceAccountName: {{ include "rondb.mysqldServiceAccountName" . }}
       affinity:
@@ -136,7 +137,10 @@ spec:
     "globalServerIds" (list $replicaApplierServerId)
 ) | indent 10 }}
 
-          mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf
+          # exec: mysqld becomes PID 1 and receives the kubelet's SIGTERM
+          # directly (bash as PID 1 ignores it, which made every planned
+          # restart a SIGKILL at grace expiry - RONDB-1132).
+          exec mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf
         ports:
           - containerPort: 3306
         resources:
@@ -194,8 +198,9 @@ spec:
         - -c
         - |
           set -e
+{{ include "rondb.sigtermTrap" $ | indent 10 }}
 
-{{ include "rondb.sedMyCnfFile" (dict 
+{{ include "rondb.sedMyCnfFile" (dict
     "startingNodeId" $startingNodeId
     "connectionsPerMySQLd" 1
     "globalServerIds" (list $replicaApplierServerId)
@@ -213,7 +218,12 @@ spec:
               fi
           done
 
-          run_applier.sh
+          # run_applier.sh has no trap of its own on purpose: bash defers a
+          # trapped signal until the current command returns, and its mysql
+          # calls can block for minutes against a stopping mysqld or a remote
+          # binlog server, while the default disposition stops it at once.
+          # Replication state lives in the database and resumes on restart.
+{{ include "rondb.runDaemonAndWait" (dict "cmd" "run_applier.sh") | indent 10 }}
         resources:
           limits:
             cpu: 0.1

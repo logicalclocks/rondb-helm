@@ -675,3 +675,52 @@ true
 true
 {{- end -}}
 {{- end -}}
+
+{{/*
+rest_api.json is mounted with subPath, which never live-updates: without a
+hash of the rendered file in the pod template, a values change touching only
+the REST config (rdrs.maxKeepaliveRequests, rdrs.uploadPath, ...) updates the
+ConfigMap and rolls nothing.
+*/}}
+{{- define "rondb.restApiHash" -}}
+{{ tpl ($.Files.Get "files/configs/rest_api.json") $ | sha256sum }}
+{{- end -}}
+
+{{/*
+terminationGracePeriodSeconds for one component.
+Usage: {{ include "rondb.gracePeriod" (dict "v" $.Values "component" "ndbmtds") }}
+
+Before the per-component object the value was a single integer that only
+the data nodes applied; every other pod ran with the Kubernetes default of
+30s. Customers re-supply their values files on upgrade, so the integer form
+keeps rendering with exactly that meaning. A null (the Helm idiom for
+dropping an override) must fall back to the defaults: Helm deletes null keys
+before schema validation, so `| int` on the missing value would otherwise
+render 0, which the kubelet floors to ~2s.
+*/}}
+{{- define "rondb.gracePeriod" -}}
+{{- $default := 30 -}}
+{{- if eq .component "ndbmtds" -}}{{- $default = 300 -}}{{- end -}}
+{{- $g := .v.terminationGracePeriodSeconds -}}
+{{- if kindIs "map" $g -}}
+{{- index $g .component | default $default | int -}}
+{{- else if eq .component "ndbmtds" -}}
+{{- $g | default $default | int -}}
+{{- else -}}
+30
+{{- end -}}
+{{- end }}
+
+{{/*
+preStop drain for daemons behind a Service: endpoint removal and SIGTERM
+start concurrently on pod delete, and these daemons stop within seconds of
+SIGTERM, before kube-proxy and load balancers have dropped the endpoint.
+Keeping the pod serving for 5s (out of its grace budget) while the removal
+propagates avoids refused connections during rolling restarts.
+*/}}
+{{- define "rondb.lifecycle.preStopDrain" -}}
+lifecycle:
+  preStop:
+    exec:
+      command: ["/bin/sleep", "5"]
+{{- end }}

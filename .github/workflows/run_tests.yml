@@ -60,6 +60,31 @@ jobs:
         - name: RDRS TTL purge tests
           run: ./test_scripts/rdrs-ttl-purge-test.sh
 
+        - name: RDRS probe port tests
+          run: ./test_scripts/rdrs-probe-port-test.sh
+
+        # PyYAML is not part of the runner's Python standard library; the
+        # image-tag extraction below and the SIGTERM test import it. The
+        # runner's system Python is externally managed (PEP 668), so use apt
+        # rather than pip when it is missing.
+        - name: Ensure PyYAML is available
+          run: |
+            python3 -c "import yaml" 2>/dev/null \
+              || sudo apt-get install -y python3-yaml
+
+        # The SIGTERM test's docker half needs a rondb image (only its bash
+        # and filesystem layout matter); pull the chart's default so the
+        # behavioural part runs in CI instead of self-skipping.
+        - name: Pull RonDB image for the SIGTERM docker tests
+          run: |
+            docker pull "hopsworks/rondb:$(python3 -c \
+              "import yaml; print(yaml.safe_load(open('values.yaml'))['images']['rondb']['tag'])")"
+
+        - name: SIGTERM entrypoint tests
+          run: ./test_scripts/sigterm-entrypoint-test.sh
+          env:
+            SIGTERM_TEST_REQUIRE_DOCKER: "1"
+
         - name: MySQL users tests
           run: ./test_scripts/mysql-users-test.sh
 
@@ -138,7 +163,7 @@ jobs:
             --values ./values/minikube/mini.yaml \
             --set benchmarking.enabled=true \
             --set staticCpuManagerPolicy=true \
-            --set terminationGracePeriodSeconds=40 \
+            --set terminationGracePeriodSeconds.ndbmtds=40 \
             --set meta.rdrs.statefulSet.endToEndTls.enabled=true \
             --set clusterSize.numNodeGroups=2 \
             --set clusterSize.minNumMySQLServers=1 \
@@ -150,6 +175,14 @@ jobs:
           sleep 10
 
       - run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --timeout=10m --logs --filter name=generate-data
+
+      # The render-only checks in the lint job cannot verify that the paired
+      # image actually serves ping/health on both ports in-cluster; this
+      # helm test hook does (it probes every rdrs pod via the headless
+      # service and asserts the ClusterIP Service does NOT expose the
+      # unauthenticated probe port).
+      - name: RDRS probe-ports in-cluster test
+        run: helm test -n $K8S_NAMESPACE $RONDB_CLUSTER_NAME --timeout=5m --logs --filter name=rdrs-probe-ports-test
 
       - name: Waiting for benchmark job to complete
         run: bash .github/wait_job.sh $K8S_NAMESPACE benchs 240

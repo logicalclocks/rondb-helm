@@ -1,0 +1,181 @@
+# Copyright (c) 2024-2026 Hopsworks AB. All rights reserved.
+
+
+{{/*
+Helm test: the RDRS ping/health contract on BOTH ports, against every RDRS
+pod through the headless service (pod DNS reaches any pod port; the regular
+Services deliberately do not publish the probe port).
+
+- main port (4406): /0.1.0/ping and /0.1.0/health answer 200 - these honour
+  the auth flags, which this chart never sets for probes.
+- probe port (rdrs.probePort, when enabled): the same two endpoints answer
+  200 from the dedicated probe thread, without authentication.
+- negative: the ClusterIP service must NOT expose the probe port - it serves
+  unauthenticated endpoints and stays pod-local.
+
+Runs on the TOOLBOX image, not the rondb image: rondb images are stripped
+(26.02 ships neither openssl nor curl/python3), and with end-to-end TLS
+the request needs `openssl s_client`. Plain HTTP uses bash's /dev/tcp.
+The script fails loudly if a required client is missing - a missing tool
+must never read as 45 dead probes.
+
+With minNumRdrs: 0 the HPA may legitimately run zero RDRS pods, and a
+connectivity test that requires nothing proves nothing - skip the hook
+entirely instead of letting it pass vacuously.
+*/}}
+{{- if gt (.Values.clusterSize.minNumRdrs | int) 0 }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rdrs-probe-ports-test
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "1"
+spec:
+  restartPolicy: Never
+{{- include "rondb.imagePullSecrets" . | indent 2 }}
+  containers:
+    - name: rdrs-probe-ports-test
+      image: {{ include "image_address" (dict "image" .Values.images.toolbox) }}
+      command:
+        - /bin/bash
+        - -c
+        - |
+          set -u
+          # Check EVERY external command the script uses: under plain
+          # `set -u` a missing tool inside http_status would surface as a
+          # silent 000 (reported as a dead listener) instead of the
+          # explicit missing-tool error this check promises.
+          MISSING=""
+          for tool in getent awk grep sort timeout sleep{{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }} openssl head{{ end }}; do
+            command -v "$tool" >/dev/null 2>&1 || MISSING="$MISSING $tool"
+          done
+          if [ -n "$MISSING" ]; then
+            echo "FATAL: required tool(s) missing in the test image:$MISSING"
+            exit 1
+          fi
+          PASS=0; FAIL=0
+
+          # http_status <host> <port> <path>: HTTP status code, or 000 when
+          # the connection fails.
+          http_status() {
+            local host="$1" port="$2" path="$3" line
+{{- if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
+            line=$( (printf 'GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n' \
+                       "$path" "$host"; sleep 2) \
+                    | timeout 5 openssl s_client -quiet -verify_quiet \
+                        -connect "$host:$port" 2>/dev/null \
+                    | head -1 )
+{{- else }}
+            # ONE socket for connect, send and read, all inside one timed
+            # subprocess: a bare /dev/tcp open can hang on a black-holed
+            # port, and probing connectivity on a separate socket first
+            # would leave the socket actually used unbounded if the pod
+            # vanishes between the two connects.
+            line=$(timeout 7 bash -c '
+              exec 9<>"/dev/tcp/$1/$2" || exit 1
+              printf "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n" \
+                "$3" "$1" >&9
+              read -r line <&9
+              printf "%s" "$line"
+            ' probe "$host" "$port" "$path" 2>/dev/null)
+{{- end }}
+            line="${line-}"
+            [ -n "$line" ] && echo "$line" | awk '{print $2}' || echo 000
+          }
+
+          check() { # <description> <host> <port> <path> <want>
+            local got
+            got=$(http_status "$2" "$3" "$4")
+            if [ "$got" = "$5" ]; then
+              PASS=$((PASS + 1)); echo "ok: $1 ($got)"
+            else
+              FAIL=$((FAIL + 1)); echo "FAIL: $1 (want $5, got $got)"
+            fi
+          }
+
+          HEADLESS="{{ .Values.meta.rdrs.headlessClusterIpName }}.{{ .Release.Namespace }}.svc.cluster.local"
+          # Enumerate the pods at RUN time, not template time, so an HPA
+          # scale-up beyond minNumRdrs is probed too (a fixed template loop
+          # would silently skip a scaled-up pod with a broken listener).
+          # The headless service has publishNotReadyAddresses: true, so this
+          # lists STARTING pods as well as Ready ones - each pod therefore
+          # gets a bounded window to become serving before its endpoints are
+          # asserted; a pod that never serves within it fails the test,
+          # unless it left DNS meanwhile (it was terminating, not broken).
+          # Hook-wide budget for the serving waits: the pod loop below is
+          # SERIAL, so per-pod 90s windows alone (4 stuck pods = 360s)
+          # would exceed the CI job's 5-minute helm test timeout - helm
+          # then kills the hook BEFORE it prints the per-pod failure
+          # summary, which is the point of the test. 240s leaves the
+          # endpoint checks room inside that timeout; pods past the budget
+          # fail fast with their report still printed.
+          SERVING_DEADLINE=$((SECONDS + 240))
+          wait_serving() { # <host>: 0 once main-port ping answers 200
+            # Wall-clock deadline, not an attempt count: each attempt can
+            # itself burn ~7s in connect timeouts against a black-holed
+            # pod, which would multiply an attempt-counted loop far past
+            # the intended window (and past the helm test timeout, losing
+            # the per-pod failure report).
+            local deadline=$((SECONDS + 90))
+            if [ "$deadline" -gt "$SERVING_DEADLINE" ]; then deadline=$SERVING_DEADLINE; fi
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              [ "$(http_status "$1" 4406 /0.1.0/ping)" = "200" ] && return 0
+              sleep 2
+            done
+            return 1
+          }
+          PODS=$(getent hosts "$HEADLESS" | awk '{print $1}' | sort -u)
+          NUM=$(printf '%s\n' $PODS | grep -c . || true)
+          if [ "$NUM" -ge {{ .Values.clusterSize.minNumRdrs | int }} ]; then
+            PASS=$((PASS + 1))
+            echo "ok: headless DNS lists $NUM rdrs pod(s)"
+          else
+            FAIL=$((FAIL + 1))
+            echo "FAIL: headless DNS lists $NUM rdrs pod(s), want >= {{ .Values.clusterSize.minNumRdrs | int }}"
+          fi
+          # The DNS listing (unready pods included) only bounds enumeration;
+          # SERVED below is what proves pods actually answered, so the test
+          # cannot pass with zero Ready pods.
+          SERVED=0
+          for POD in $PODS; do
+            if wait_serving "$POD"; then
+              SERVED=$((SERVED + 1)); echo "ok: pod ${POD} is serving"
+            else
+              # An IP that meanwhile LEFT the headless DNS was a pod caught
+              # terminating (HPA scale-down mid-test), not a broken
+              # listener; only pods still listed and never serving fail.
+              if ! getent hosts "$HEADLESS" | awk '{print $1}' | grep -qx "$POD"; then
+                echo "skip: pod ${POD} left DNS during the wait (scale-down)"
+                continue
+              fi
+              FAIL=$((FAIL + 1)); echo "FAIL: pod ${POD} never served within its window"
+              continue
+            fi
+            check "pod ${POD} main ping"    "$POD" 4406 /0.1.0/ping   200
+            check "pod ${POD} main health"  "$POD" 4406 /0.1.0/health 200
+{{- if .Values.rdrs.probePort.enabled }}
+            check "pod ${POD} probe ping"   "$POD" {{ .Values.rdrs.probePort.port | int }} /0.1.0/ping   200
+            check "pod ${POD} probe health" "$POD" {{ .Values.rdrs.probePort.port | int }} /0.1.0/health 200
+{{- end }}
+          done
+          if [ "$SERVED" -ge {{ .Values.clusterSize.minNumRdrs | int }} ]; then
+            PASS=$((PASS + 1))
+            echo "ok: $SERVED rdrs pod(s) served"
+          else
+            FAIL=$((FAIL + 1))
+            echo "FAIL: only $SERVED rdrs pod(s) served, want >= {{ .Values.clusterSize.minNumRdrs | int }}"
+          fi
+
+{{- if .Values.rdrs.probePort.enabled }}
+          # The regular Service must not route to the unauthenticated probe
+          # port: a connection to it has no endpoint and must fail (000).
+          check "service does not expose the probe port" \
+            "{{ .Values.meta.rdrs.clusterIp.name }}.{{ .Release.Namespace }}.svc.cluster.local" \
+            {{ .Values.rdrs.probePort.port | int }} /0.1.0/ping 000
+{{- end }}
+
+          echo "passed: $PASS failed: $FAIL"
+          [ "$FAIL" = "0" ]
+{{- end }}

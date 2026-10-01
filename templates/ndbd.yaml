@@ -137,7 +137,7 @@ spec:
 {{- if $.Values.priorityClass }}
       priorityClassName: {{ $.Values.priorityClass | quote }}
 {{- end  }}
-      terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ include "rondb.gracePeriod" (dict "v" $.Values "component" "ndbmtds") }}
       initContainers:
 {{/*
     Placing this here speeds up the process of restoring from a backup.
@@ -379,7 +379,11 @@ spec:
         - -c
         - |
           set -e
-          sleep infinity
+          # `sleep` as PID 1 ignores SIGTERM, so this sidecar held the pod in
+          # Terminating for the whole grace period after ndbmtd had stopped.
+          trap 'exit 0' TERM
+          sleep infinity &
+          wait $!
         resources:
           # If not specified, requested resources are set to the limits.
           # This is important to acquire the QoS class Guaranteed.

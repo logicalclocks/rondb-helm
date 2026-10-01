@@ -292,6 +292,10 @@ rdrs:
     slotsPerNode: 1
   hpa:
     additionalMetrics: []
+  maxKeepaliveRequests: 0
+  probePort:
+    enabled: true
+    port: 4407
   probes:
     liveness:
       failureThreshold: 12
@@ -314,6 +318,7 @@ rdrs:
   ttlPurge:
     activeWindow: null
     enable: null
+  uploadPath: /tmp/rdrs-uploads
 resources:
   limits:
     cpus:
@@ -416,7 +421,13 @@ rondbConfig:
 serviceAccountAnnotations: {}
 skipMgmdPreUpgradeRollout: false
 staticCpuManagerPolicy: false
-terminationGracePeriodSeconds: 60
+terminationGracePeriodSeconds:
+  binlogServers: 30
+  mgmds: 30
+  mysqlds: 30
+  ndbmtds: 300
+  rdrs: 30
+  replicaAppliers: 30
 timeoutsMinutes:
   mysqldStartupProbe: 20
   ndbmtdStartupProbe: 240

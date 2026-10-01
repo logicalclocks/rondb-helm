@@ -24,6 +24,7 @@ spec:
       annotations:
         configIniHash: {{ include "rondb.configIniHash" $ }}
     spec:
+      terminationGracePeriodSeconds: {{ include "rondb.gracePeriod" (dict "v" $.Values "component" "mysqlds") }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
 {{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.mysqld) | indent 6 }}
 {{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.mysqld) | indent 6 }}
@@ -104,17 +105,22 @@ spec:
         - -c
         - |
           set -euo pipefail
+{{ include "rondb.sigtermTrap" $ | indent 10 }}
 {{/*
-  This is hardcoded here for now 
+  This is hardcoded here for now
 */}}
 {{ include "rondb.sedMyCnfFile" (dict
     "startingNodeId" $ddlNodeId
     "connectionsPerMySQLd" 1
     "globalServerIds" (list $ddlServerId)
 ) | indent 10 }}
-           mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf 2>&1 | tee -a -- "$RONDB_DATA_DIR/log/mysqld_${FIRST_NODE_ID}_out.log"
+{{ include "rondb.runDaemonAndWait" (dict
+    "cmd" "mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf"
+    "log" "$RONDB_DATA_DIR/log/mysqld_${FIRST_NODE_ID}_out.log"
+) | indent 10 }}
         ports:
           - containerPort: 3306
+{{ include "rondb.lifecycle.preStopDrain" $ | indent 8 }}
         resources:
           limits:
             cpu: {{ .Values.resources.limits.cpus.mysqlds }}

@@ -122,10 +122,56 @@
             "default": false
         },
         "terminationGracePeriodSeconds": {
-            "type": "integer",
-            "description": "TerminationGracePeriodSeconds for data nodes. For debugging. When removing the *entire* cluster, taking down data nodes will hang, since they try to contact the MGMd on shutdown. Hence, this is a way of shortening this wait.",
-            "default": 60,
-            "minimum": 10
+            "type": ["object", "integer"],
+            "minimum": 10,
+            "description": "Pod terminationGracePeriodSeconds per RonDB service type. The chart's daemons stop on SIGTERM, so this is a ceiling, not a wait: a pod is removed as soon as its processes have exited. The legacy integer form (charts up to 25.10.20) still validates (minimum 10) and keeps its meaning: it overrides the data nodes only, every other component keeps 30. Helm drops null keys before schema validation: a null whole key falls back to the defaults, a null component key is rejected (all six keys are required; partial values files still work because Helm merges in the chart defaults).",
+            "properties": {
+                "ndbmtds": {
+                    "type": "integer",
+                    "description": "Data nodes run a managed stop on SIGTERM: deactivate through the MGMd, then node shutdown with handover. Large nodes additionally need roughly 2 minutes per TB of data node memory for the kernel to tear the process down, so raise this for nodes above 1TB. Stops of several data nodes serialize at the MGMd. When deleting the entire cluster the MGMd may already be gone; data nodes then retry the deactivate for up to 60s before stopping directly.",
+                    "default": 300,
+                    "minimum": 30
+                },
+                "mgmds": {
+                    "type": "integer",
+                    "description": "MGMd stops within seconds; this matches the Kubernetes default.",
+                    "default": 30,
+                    "minimum": 10
+                },
+                "mysqlds": {
+                    "type": "integer",
+                    "description": "Used by MySQLds and DDL MySQLds; mysqld stops within seconds under no load, but allow time for open transactions to close.",
+                    "default": 30,
+                    "minimum": 10
+                },
+                "rdrs": {
+                    "type": "integer",
+                    "description": "RDRS stops within a few seconds; this matches the Kubernetes default.",
+                    "default": 30,
+                    "minimum": 10
+                },
+                "binlogServers": {
+                    "type": "integer",
+                    "description": "Binlog server MySQLds; see mysqlds.",
+                    "default": 30,
+                    "minimum": 10
+                },
+                "replicaAppliers": {
+                    "type": "integer",
+                    "description": "Replica applier pods: the controller container stops its run_applier.sh worker on SIGTERM, the pod's mysqld receives SIGTERM directly.",
+                    "default": 30,
+                    "minimum": 10
+                }
+            },
+            "required": [
+                "binlogServers",
+                "mgmds",
+                "mysqlds",
+                "ndbmtds",
+                "rdrs",
+                "replicaAppliers"
+            ],
+            "additionalProperties": false
         },
         "priorityClass": {
             "type": "string",
@@ -1711,6 +1757,45 @@
         "rdrs": {
             "type": "object",
             "properties": {
+                "probePort": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Dedicated RDRS probe listener. It serves only the ping and health endpoints, from its own thread, so Kubernetes probes keep being answered while every worker thread is blocked on data-node operations (a stalled data node otherwise fails the liveness probe of all RDRS pods at once). The probe port performs NO authentication, regardless of the PingRequiresAuth/HealthRequiresAuth settings. It is not published as a port of any Service or Ingress, but like any pod port it is reachable via pod IPs and the headless Service's DNS records; where isolation is required, enforce it with a NetworkPolicy. Requires an RDRS image with REST.ProbePort support (releases newer than 25.10.18): older images reject the unknown config keys at startup, so set enabled to false for pinned older images. Trade-off: the probe port answers as long as the process lives, so an RDRS whose worker threads are permanently wedged is not restarted by liveness.",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Serve ping/health on the dedicated probe port and point the startup, liveness and readiness probes at it (ping answers 503 until the main port accepts connections, so startup semantics are unchanged). false emits no probe configuration keys and points all probes back at the main port: the escape hatch for pinned RDRS images that predate REST.ProbePort.",
+                            "default": true
+                        },
+                        "port": {
+                            "type": "integer",
+                            "description": "TCP port of the dedicated probe listener. Must differ from the main REST port (4406).",
+                            "default": 4407,
+                            "minimum": 1,
+                            "maximum": 65535,
+                            "not": {
+                                "const": 4406
+                            }
+                        }
+                    },
+                    "required": [
+                        "enabled",
+                        "port"
+                    ]
+                },
+                "maxKeepaliveRequests": {
+                    "type": "integer",
+                    "description": "Maximum number of requests served on one keep-alive connection to the RDRS main port; after it the connection is closed gracefully (Connection: close). 0 (the default) disables the limit. A Kubernetes Service balances per TCP connection, so long-lived connections keep the skew that builds up after a rolling restart; bounding their lifetime lets clients re-balance. Each reconnect costs a TCP+TLS handshake: use a high value (1000 recommended, not below 500) and only where post-restart skew is observed. Does not apply to the probe port. Requires an RDRS image with REST.MaxKeepaliveRequests support (releases newer than 25.10.18); at 0 the key is not emitted, so older images keep working.",
+                    "default": 0,
+                    "minimum": 0,
+                    "maximum": 4294967295,
+                    "example": 1000
+                },
+                "uploadPath": {
+                    "type": "string",
+                    "description": "Writable directory where RDRS buffers HTTP request bodies larger than 64KiB. The container's working directory is not writable (RDRS runs as uid 1000): without this, every startup logs 256 'Permission denied' errors and oversized bodies are silently read as empty. Requires an RDRS image with REST.UploadPath support (releases newer than 25.10.19); set to the empty string for pinned older images, which reject the unknown key.",
+                    "default": "/tmp/rdrs-uploads"
+                },
                 "hpa": {
                     "type": "object",
                     "description": "Horizontal Pod Autoscaler for RDRS",
@@ -1837,7 +1922,7 @@
                         },
                         "liveness": {
                             "type": "object",
-                            "description": "Checks /ping and restarts RDRS when it keeps failing. While a data node that failed has not yet been declared dead, RDRS requests touching it block and /ping cannot answer. Detection takes ~25 seconds per data node, and data nodes that go silent together can be detected one after the other. Size (failureThreshold - 1) * periodSeconds + timeoutSeconds above ~25 seconds per data node that can go silent at once, plus ~40 seconds. The defaults give ~115 seconds; restarting the data nodes of 8 node groups in parallel needs failureThreshold 30 (~295 seconds). A hung RDRS is only restarted once this time has passed; readiness takes it out of the Service before that.",
+                            "description": "Checks /ping and restarts RDRS when it keeps failing. With rdrs.probePort.enabled (the default) /ping is answered from the dedicated probe thread, which keeps responding through data-node failures, so the defaults are ample. With probePort.enabled=false /ping shares the worker threads: while a failed data node has not yet been declared dead, requests touching it block and /ping cannot answer. Detection takes ~25 seconds per data node, so in that mode size (failureThreshold - 1) * periodSeconds + timeoutSeconds above ~25 seconds per data node that can go silent at once, plus ~40 seconds. The defaults give ~115 seconds; restarting the data nodes of 8 node groups in parallel needs failureThreshold 30 (~295 seconds).",
                             "properties": {
                                 "initialDelaySeconds": {
                                     "type": "integer",
@@ -1916,6 +2001,7 @@
             },
             "required": [
                 "externalMetadataCluster",
+                "probePort",
                 "probes"
             ]
         },

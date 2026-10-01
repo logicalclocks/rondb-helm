@@ -39,6 +39,7 @@ spec:
       annotations:
         configIniHash: {{ include "rondb.configIniHash" $ }}
     spec:
+      terminationGracePeriodSeconds: {{ include "rondb.gracePeriod" (dict "v" $.Values "component" "binlogServers") }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
       affinity:
         # Spread the pods across different nodes & zones
@@ -163,9 +164,13 @@ spec:
     "globalServerIds" $serverIds
 ) | indent 10 }}
 
-          mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf
+          # exec: mysqld becomes PID 1 and receives the kubelet's SIGTERM
+          # directly (bash as PID 1 ignores it, which made every planned
+          # restart a SIGKILL at grace expiry - RONDB-1132).
+          exec mysqld --defaults-file=$RONDB_DATA_DIR/my.cnf
         ports:
           - containerPort: 3306
+{{ include "rondb.lifecycle.preStopDrain" $ | indent 8 }}
         resources:
           limits:
             cpu: {{ .Values.resources.limits.cpus.mysqlds }}

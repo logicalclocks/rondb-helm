@@ -20,6 +20,97 @@ echo "[K8s Entrypoint ndbmtd] Running Node Id: $NODE_ID"
 
 MGM_CONNECTSTRING=$MGMD_HOST:1186
 
+# The data node is stopped by DEACTIVATING its node id through the MGMd (a
+# managed stop with handover), not by signalling ndbmtd - see handle_sigterm.
+# The trap is installed before anything that can take time: bash as PID 1
+# ignores an untrapped SIGTERM, so a pod deleted during startup would wait
+# out its whole grace period and be SIGKILLed.
+GRACE_S={{ include "rondb.gracePeriod" (dict "v" $.Values "component" "ndbmtds") }}
+DAEMON_PID=""   # set by rondb.runDaemonAndWait once ndbmtd runs
+TRAPPED=0       # tells its wait loop that this trap interrupted the wait
+
+handle_sigterm() {
+    TRAPPED=1
+    # A signal landing between ndbmtd's launch and the DAEMON_PID assignment
+    # finds the pid in the job table.
+    DAEMON_PID=${DAEMON_PID:-$(jobs -p %+ 2>/dev/null || true)}
+    echo "[K8s Entrypoint ndbmtd] SIGTERM received, deactivating node id $NODE_ID via MGM client"
+
+    # Even when not deactivating nodes, having too many nodes die at once can cause
+    # the arbitration to kill the cluster. The living node will not be able to form
+    # a majority. Usually, since we are using a RollingUpdate strategy, only one
+    # data node (per node group) will be killed at once. It does however become an issue
+    # if e.g. the number of replicas is changed from 3 to 1. Then replica 3 and 2 are
+    # killed simultaneously. When needing to debug such situtations it can be helpful
+    # to restart all data nodes at once.
+
+    # Two budgets, both derived from the grace period, which must also leave
+    # room for the node shutdown and process teardown that follow a late
+    # success: a fifth of the grace (at least 15s) is reserved for those.
+    # - Each deactivate CALL may run up to the full budget (grace minus the
+    #   reserve): `ndb_mgm -e "<id> deactivate"` stops the node and waits for
+    #   its stop report BEFORE it changes the configuration, so a legitimate
+    #   call blocks for the whole node shutdown (minutes on large nodes) and
+    #   cutting it short would lose the deactivation.
+    # - RETRIES after a failed call stop after 60s: against an unreachable
+    #   MGMd (the whole cluster being deleted, say) every call fails at
+    #   once, and retrying until the grace expires would end in the kubelet
+    #   SIGKILLing ndbmtd - the silent-node stall this handler exists to
+    #   prevent. After the cap ndbmtd is stopped directly.
+    # Exception: when the MGMd REFUSES because this node is its node group's
+    # last live replica, retries continue up to the full budget - a direct
+    # stop would down the cluster just the same, while a recovering partner
+    # may reach "started" meanwhile and make the deactivate succeed. The
+    # refusal strings are what `ndb_mgm -e` prints for error 2002
+    # (ndberror.cpp). The DEACTIVATE_*_LIMIT_S variables exist for the tests.
+    local reserve_s=$((GRACE_S / 5)); [ "$reserve_s" -ge 15 ] || reserve_s=15
+    local full_limit_s=$((GRACE_S - reserve_s)); [ "$full_limit_s" -ge 5 ] || full_limit_s=5
+    local retry_limit_s=$full_limit_s; [ "$retry_limit_s" -le 60 ] || retry_limit_s=60
+    retry_limit_s=${DEACTIVATE_RETRY_LIMIT_S:-$retry_limit_s}
+    full_limit_s=${DEACTIVATE_FULL_LIMIT_S:-$full_limit_s}
+    local full_deadline_s=$((SECONDS + full_limit_s)) retry_deadline_s=$((SECONDS + retry_limit_s))
+    local budget_s out deactivated=0
+    while :; do
+        budget_s=$((full_deadline_s - SECONDS))
+        [ "$budget_s" -ge 1 ] || break
+        if out=$(timeout "$budget_s" ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" --connect-retries=1 -e "$NODE_ID deactivate" 2>&1); then
+            echo "$out"; deactivated=1; break
+        fi
+        echo "$out"
+        if grep -q -e "would cause system crash" -e "not allowed while nodes are starting or stopping" <<< "$out"; then
+            echo "[K8s Entrypoint ndbmtd] MGMd refuses to stop node id $NODE_ID (last live replica of its node group); retrying for up to ${full_limit_s}s" >&2
+            retry_deadline_s=$full_deadline_s
+        fi
+        [ "$SECONDS" -lt "$retry_deadline_s" ] || break
+        echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client was unsuccessful. Retrying..." >&2
+
+        # We can be successful in shutting down the node, but unsuccessful in deactivating
+        # it. So far this can be the case if multiple node groups are shutting down at the
+        # same time. This is probably due to the fact that the configuration database can
+        # only run one change at a time.
+        budget_s=$((retry_deadline_s - SECONDS))
+        sleep $((budget_s < NODE_GROUP + 2 ? budget_s : NODE_GROUP + 2))
+    done
+    if [ "$deactivated" = 1 ]; then
+        echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client"
+    elif [ -n "$DAEMON_PID" ]; then
+        echo "[K8s Entrypoint ndbmtd] Deactivation of node id $NODE_ID did not succeed within its budget; stopping ndbmtd directly instead" >&2
+        # The angel process ignores SIGTERM (angel.cpp); the ndbd child it
+        # supervises shuts the node down cleanly on it (ndbd.cpp), after
+        # which the angel exits and the wait loop ends the container.
+        pkill -TERM -P "$DAEMON_PID" || true
+    fi
+    # Before ndbmtd runs there is nothing to wait for, and the pod must not
+    # go on to start a node id that was just deactivated.
+    if [ -z "$DAEMON_PID" ]; then
+        echo "[K8s Entrypoint ndbmtd] SIGTERM before ndbmtd start; exiting"
+        exit 0
+    fi
+}
+# This will NOT be triggered if the data node fails due to an error.
+# It WILL be triggered if the liveness probe fails or the Pod is updated/deleted/re-scheduled.
+trap handle_sigterm SIGTERM
+
 # Activating node slots is idempotent; it can however take some seconds.
 # Important to run this in main container. If a probe kills the container,
 # this script will deactivate the node id. But only the main container will be
@@ -34,39 +125,6 @@ echo "[K8s Entrypoint ndbmtd] Activated node id $NODE_ID via MGM client"
 # This is already run in the initContainer; doing this here as a sanity check.
 # A main container restart should not change the Pod's IP address.
 {{ include "rondb.resolveOwnIp" $ }}
-
-# Set by handle_sigterm; the settle wait and the pre-start check below use it
-# to avoid starting ndbmtd with a node id the trap has just deactivated.
-TERM_RECEIVED=0
-
-handle_sigterm() {
-    TERM_RECEIVED=1
-    echo "[K8s Entrypoint ndbmtd] SIGTERM received, deactivating node id $NODE_ID via MGM client"
-
-    # Even when not deactivating nodes, having too many nodes die at once can cause
-    # the arbitration to kill the cluster. The living node will not be able to form
-    # a majority. Usually, since we are using a RollingUpdate strategy, only one
-    # data node (per node group) will be killed at once. It does however become an issue
-    # if e.g. the number of replicas is changed from 3 to 1. Then replica 3 and 2 are
-    # killed simultaneously. When needing to debug such situtations it can be helpful
-    # to restart all data nodes at once.
-
-    while ! ndb_mgm --ndb-connectstring="$MGM_CONNECTSTRING" --connect-retries=1 -e "$NODE_ID deactivate"; do
-        echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client was unsuccessful. Retrying..." >&2
-
-        # We can be successful in shutting down the node, but unsuccessful in deactivating
-        # it. So far this can be the case if multiple node groups are shutting down at the
-        # same time. This is probably due to the fact that the configuration database can
-        # only run one change at a time.
-        sleep $((NODE_GROUP + 2))
-    done
-    echo "[K8s Entrypoint ndbmtd] Deactivated node id $NODE_ID via MGM client"
-}
-
-# We'll stop the data node by deactivating it instead of shutting it down.
-# This will NOT be triggered if the data node fails due to an error.
-# It WILL be triggered if the liveness probe fails or the Pod is updated/deleted/re-scheduled.
-trap handle_sigterm SIGTERM
 
 # Creating symlinks to the persistent volume
 BASE_DIR={{ include "rondb.dataDir" $ }}
@@ -222,13 +280,6 @@ wait_for_wave_to_settle() {
     ever_ok=0
 
     while true; do
-        # SIGTERM deactivates our node id and, mid-loop, execution would
-        # otherwise just continue; never go on to start a deactivated node.
-        if [ "$TERM_RECEIVED" = "1" ]; then
-            echo "[K8s Entrypoint ndbmtd] SIGTERM during settle wait; not starting ndbmtd"
-            exit 0
-        fi
-
         now=$(date +%s)
         if [ $((now - start_ts)) -ge "$max_s" ]; then
             echo "[K8s Entrypoint ndbmtd] Settle wait hit its ${max_s}s cap; starting anyway"
@@ -301,15 +352,11 @@ else
     wait_for_wave_to_settle
 fi
 
-# Final guard: SIGTERM at any point since the trap was installed (including
-# during the fallback sleep or between the settle wait and here) has already
-# deactivated our node id; starting ndbmtd now would crash-loop on
-# "Failed to allocate nodeid". The pod is being torn down anyway.
-if [ "$TERM_RECEIVED" = "1" ]; then
-    echo "[K8s Entrypoint ndbmtd] SIGTERM received before ndbmtd start; exiting"
-    exit 0
-fi
-
-# Start ndbmtd, log to stdout and file
-ndbmtd --nodaemon --ndb-nodeid=$NODE_ID $INITIAL_START --ndb-connectstring=$MGM_CONNECTION_STRING 2>&1 \
-    | tee -a -- "${LOG_DIR}/ndb_${NODE_ID}_out.log"
+# Start ndbmtd in the background and wait for it. bash defers traps while a
+# foreground command runs, so with the old foreground pipeline handle_sigterm
+# never ran and every planned restart ended in a SIGKILL at the end of the
+# grace period (RONDB-1132).
+{{ include "rondb.runDaemonAndWait" (dict
+    "cmd" "ndbmtd --nodaemon --ndb-nodeid=$NODE_ID $INITIAL_START --ndb-connectstring=$MGM_CONNECTION_STRING"
+    "log" "${LOG_DIR}/ndb_${NODE_ID}_out.log"
+) }}
