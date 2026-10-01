@@ -124,7 +124,7 @@
         "terminationGracePeriodSeconds": {
             "type": ["object", "integer"],
             "minimum": 10,
-            "description": "Pod terminationGracePeriodSeconds per RonDB service type. The chart's daemons stop on SIGTERM, so this is a ceiling, not a wait: a pod is removed as soon as its processes have exited. The legacy integer form (charts up to 25.10.20) still validates (minimum 10) and keeps its meaning: it overrides the data nodes only, every other component keeps 30. Helm drops null keys before schema validation: a null whole key falls back to the defaults, a null component key is rejected (all six keys are required; partial values files still work because Helm merges in the chart defaults).",
+            "description": "Pod terminationGracePeriodSeconds per RonDB service type. The chart's daemons stop on SIGTERM, so this is a ceiling, not a wait: a pod is removed as soon as its processes have exited. The legacy integer form (charts up to 26.2.19) still validates (minimum 10) and keeps its meaning: it overrides the data nodes only, every other component keeps 30. Helm drops null keys before schema validation: a null whole key falls back to the defaults, a null component key is rejected (all six keys are required; partial values files still work because Helm merges in the chart defaults).",
             "properties": {
                 "ndbmtds": {
                     "type": "integer",
@@ -921,7 +921,7 @@
                         "tag": {
                             "type": "string",
                             "description": "The version of RonDB to use; This should always be equivalent to .Chart.AppVersion",
-                            "default": "26.02.10"
+                            "default": "26.02.11"
                         }
                     }
                 },
@@ -1760,7 +1760,7 @@
                 "probePort": {
                     "type": "object",
                     "additionalProperties": false,
-                    "description": "Dedicated RDRS probe listener. It serves only the ping and health endpoints, from its own thread, so Kubernetes probes keep being answered while every worker thread is blocked on data-node operations (a stalled data node otherwise fails the liveness probe of all RDRS pods at once). The probe port performs NO authentication, regardless of the PingRequiresAuth/HealthRequiresAuth settings. It is not published as a port of any Service or Ingress, but like any pod port it is reachable via pod IPs and the headless Service's DNS records; where isolation is required, enforce it with a NetworkPolicy. Requires an RDRS image with REST.ProbePort support (releases newer than 25.10.18): older images reject the unknown config keys at startup, so set enabled to false for pinned older images. Trade-off: the probe port answers as long as the process lives, so an RDRS whose worker threads are permanently wedged is not restarted by liveness.",
+                    "description": "Dedicated RDRS probe listener. It serves only the ping and health endpoints, from its own thread, so Kubernetes probes keep being answered while every worker thread is blocked on data-node operations (a stalled data node otherwise fails the liveness probe of all RDRS pods at once). The probe port performs NO authentication, regardless of the PingRequiresAuth/HealthRequiresAuth settings. It is not published as a port of any Service or Ingress, but like any pod port it is reachable via pod IPs and the headless Service's DNS records; where isolation is required, enforce it with a NetworkPolicy. Requires an RDRS image with REST.ProbePort support (releases 26.02.11 and newer on the 26.02 line): older images reject the unknown config keys at startup, so set enabled to false for pinned older images. Trade-off: the probe port answers as long as the process lives, so an RDRS whose worker threads are permanently wedged is not restarted by liveness.",
                     "properties": {
                         "enabled": {
                             "type": "boolean",
@@ -1785,7 +1785,7 @@
                 },
                 "maxKeepaliveRequests": {
                     "type": "integer",
-                    "description": "Maximum number of requests served on one keep-alive connection to the RDRS main port; after it the connection is closed gracefully (Connection: close). 0 (the default) disables the limit. A Kubernetes Service balances per TCP connection, so long-lived connections keep the skew that builds up after a rolling restart; bounding their lifetime lets clients re-balance. Each reconnect costs a TCP+TLS handshake: use a high value (1000 recommended, not below 500) and only where post-restart skew is observed. Does not apply to the probe port. Requires an RDRS image with REST.MaxKeepaliveRequests support (releases newer than 25.10.18); at 0 the key is not emitted, so older images keep working.",
+                    "description": "Maximum number of requests served on one keep-alive connection to the RDRS main port; after it the connection is closed gracefully (Connection: close). 0 (the default) disables the limit. A Kubernetes Service balances per TCP connection, so long-lived connections keep the skew that builds up after a rolling restart; bounding their lifetime lets clients re-balance. Each reconnect costs a TCP+TLS handshake: use a high value (1000 recommended, not below 500) and only where post-restart skew is observed. Does not apply to the probe port. Requires an RDRS image with REST.MaxKeepaliveRequests support (releases 26.02.11 and newer on the 26.02 line); at 0 the key is not emitted, so older images keep working.",
                     "default": 0,
                     "minimum": 0,
                     "maximum": 4294967295,
@@ -1793,7 +1793,7 @@
                 },
                 "uploadPath": {
                     "type": "string",
-                    "description": "Writable directory where RDRS buffers HTTP request bodies larger than 64KiB. The container's working directory is not writable (RDRS runs as uid 1000): without this, every startup logs 256 'Permission denied' errors and oversized bodies are silently read as empty. Requires an RDRS image with REST.UploadPath support (releases newer than 25.10.19); set to the empty string for pinned older images, which reject the unknown key.",
+                    "description": "Writable directory where RDRS buffers HTTP request bodies larger than 64KiB. The container's working directory is not writable (RDRS runs as uid 1000): without this, every startup logs 256 'Permission denied' errors and oversized bodies are silently read as empty. Requires an RDRS image with REST.UploadPath support (releases 26.02.11 and newer on the 26.02 line); set to the empty string for pinned older images, which reject the unknown key.",
                     "default": "/tmp/rdrs-uploads"
                 },
                 "hpa": {
