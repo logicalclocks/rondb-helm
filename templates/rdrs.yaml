@@ -21,7 +21,9 @@ spec:
         rondbService: {{ include "rondb.labels.rondbService.rdrs" $ }}
       annotations:
         configIniHash: {{ include "rondb.configIniHash" $ }}
+        restApiHash: {{ include "rondb.restApiHash" $ }}
     spec:
+      terminationGracePeriodSeconds: {{ include "rondb.gracePeriod" (dict "v" $.Values "component" "rdrs") }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}
 {{- include "rondb.nodeSelector" (dict "nodeSelector" $.Values.nodeSelector.rdrs) | indent 6 }}
 {{- include "rondb.tolerations" (dict "tolerations" $.Values.tolerations.rdrs) | indent 6 }}
@@ -65,16 +67,27 @@ spec:
           - /bin/bash
           - -c
           - |
+            set -euo pipefail
+{{ include "rondb.sigtermTrap" $ | indent 12 }}
+
             # This is already done in the init container, so having this
             # here is just a sanity check if the main container is restarted.
-            set -euo pipefail
 {{ include "rondb.resolveOwnIp" $ | indent 12 }}
 
-            rdrs2 --config {{ include "rondb.dataDir" $ }}/rest_api.json 2>&1 \
-                | tee -a -- "{{ include "rondb.dataDir" $ }}/log/rdrs_out.log"
+{{ include "rondb.runDaemonAndWait" (dict
+    "cmd" (printf "rdrs2 --config %s/rest_api.json" (include "rondb.dataDir" $))
+    "log" (printf "%s/log/rdrs_out.log" (include "rondb.dataDir" $))
+) | indent 12 }}
         ports:
-          - containerPort: 4406
-          - containerPort: 5406
+          - name: rest
+            containerPort: 4406
+{{- if .Values.rdrs.probePort.enabled }}
+          # ping/health only, unauthenticated, answered from its own thread;
+          # not published by any Service or Ingress.
+          - name: probe
+            containerPort: {{ .Values.rdrs.probePort.port | int }}
+{{- end }}
+{{ include "rondb.lifecycle.preStopDrain" $ | indent 8 }}
         resources:
           limits:
             cpu: {{ .Values.resources.limits.cpus.rdrs }}
@@ -82,10 +95,19 @@ spec:
           requests:
             cpu: {{ .Values.resources.requests.cpus.rdrs }}
             memory: {{ .Values.resources.requests.memory.rdrsMiB }}Mi
+        # With the probe port enabled all three probes use it: ping/health
+        # there are answered from a dedicated thread, so a data-node stall that
+        # blocks every worker thread no longer fails the liveness probes of the
+        # whole rdrs fleet at once. Its ping answers 503 until the main port
+        # accepts connections, so startup semantics are unchanged.
         readinessProbe:
           httpGet:
             path: "0.1.0/health"
+{{- if .Values.rdrs.probePort.enabled }}
+            port: {{ .Values.rdrs.probePort.port | int }}
+{{- else }}
             port: 4406
+{{- end }}
 {{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
             scheme: HTTPS
 {{- else }}
@@ -95,7 +117,11 @@ spec:
         startupProbe:
           httpGet:
             path: "0.1.0/ping"
+{{- if .Values.rdrs.probePort.enabled }}
+            port: {{ .Values.rdrs.probePort.port | int }}
+{{- else }}
             port: 4406
+{{- end }}
 {{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
             scheme: HTTPS
 {{- else }}
@@ -105,7 +131,11 @@ spec:
         livenessProbe:
           httpGet:
             path: "0.1.0/ping"
+{{- if .Values.rdrs.probePort.enabled }}
+            port: {{ .Values.rdrs.probePort.port | int }}
+{{- else }}
             port: 4406
+{{- end }}
 {{ if .Values.meta.rdrs.statefulSet.endToEndTls.enabled }}
             scheme: HTTPS
 {{- else }}

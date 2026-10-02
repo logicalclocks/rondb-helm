@@ -90,3 +90,59 @@ while true; do
   fi
 done
 {{- end }}
+
+{{/*
+    SIGTERM delivery to daemons run under a bash PID 1 (RONDB-1132).
+
+    bash as PID 1 ignores an untrapped SIGTERM, and defers a trapped one
+    until the current foreground command returns. The entrypoints ran their
+    daemon as a foreground `daemon | tee` pipeline, so the kubelet's SIGTERM
+    never reached it and every planned pod stop ended in a SIGKILL when the
+    grace period expired. For a data node that leaves a silent node with
+    open sockets, which stalls the cluster until heartbeat detection.
+
+    Scope: the daemons the chart runs this way - ndb_mgmd, mysqld, rdrs2,
+    run_applier.sh, and ndbmtd (ndbmtds.sh keeps its own trap, the managed
+    stop, and uses rondb.runDaemonAndWait only). Init containers and Jobs are
+    deliberately NOT covered: a deleted pod waiting out its grace period
+    there is a delay, not an outage.
+
+    rondb.sigtermTrap is the entrypoint's first statement: it forwards
+    SIGTERM to the daemon once it runs and exits before that. The daemons
+    themselves shut down cleanly on SIGTERM.
+    rondb.runDaemonAndWait (dict "cmd" <command> "log" <file, optional>)
+    starts the daemon in the background, through tee when a log file is
+    given (RONDB-982's log capture), waits for it and exits with its status.
+    Contract between the two: the trap sets TRAPPED=1 and signals DAEMON_PID.
+*/}}
+{{ define "rondb.sigtermTrap" -}}
+# Forward SIGTERM to the daemon, or exit while it is not running yet; see
+# rondb.sigtermTrap in _scripts.tpl. The job-table lookup covers a signal
+# landing between the daemon's launch and the DAEMON_PID assignment.
+DAEMON_PID=""
+TRAPPED=0
+trap 'TRAPPED=1; DAEMON_PID=${DAEMON_PID:-$(jobs -p %+ 2>/dev/null || true)}; if [ -n "$DAEMON_PID" ]; then kill -TERM "$DAEMON_PID" 2>/dev/null || true; else echo "SIGTERM during startup; exiting"; exit 0; fi' TERM
+{{- end }}
+
+{{ define "rondb.runDaemonAndWait" -}}
+# Background launch + interruptible wait; see rondb.runDaemonAndWait in
+# _scripts.tpl.
+{{ .cmd }}{{ if .log }} 2>&1 | tee -a -- "{{ .log }}"{{ end }} &
+DAEMON_PID=${DAEMON_PID:-$(jobs -p %+)}    # the pipeline's first process
+# Waiting on the daemon's pid waits for its whole pipeline (tee has written
+# the last lines when it returns) and reports the pipeline's status, which
+# is the daemon's only under pipefail.
+set -o pipefail
+# A wait interrupted by the trap returns 143 without collecting the daemon's
+# exit status, so wait again whenever the trap fired: bash keeps the status
+# of a daemon that exited while the trap ran. A daemon that itself died of
+# a signal also reports >128; its second wait returns the same saved status
+# and the loop ends.
+RC=0
+while :; do
+    TRAPPED=0
+    if wait "$DAEMON_PID" 2>/dev/null; then RC=0; else RC=$?; fi
+    if [ "$TRAPPED" = 0 ] || [ "$RC" -le 128 ]; then break; fi
+done
+exit "$RC"
+{{- end }}
