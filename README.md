@@ -106,6 +106,59 @@ See [Backups](docs/backups.md) for this.
 
 See [Global Replication](docs/global_replication.md) for this.
 
+## RDRS probe port
+
+RDRS answers `/0.1.0/ping` and `/0.1.0/health` on two ports:
+
+- **4406**, the main REST port: shares the worker threads with data requests,
+  so when a stalled data node blocks all workers these stop answering too.
+- **4407** (`rdrs.probePort`, enabled by default): the same two endpoints
+  from a dedicated thread that never runs data operations. `/ping` answers
+  503 until the main port accepts connections and 200 from then on.
+  **This port performs no authentication.** It is not published as a port
+  of any Service or Ingress, but like any pod port it is reachable via pod
+  IPs and the headless Service's DNS records; where isolation is required,
+  enforce it with a NetworkPolicy.
+
+The chart points the startup, liveness and readiness probes at the probe port,
+which requires an RDRS image with `REST.ProbePort` support (releases **newer
+than 25.10.18**; older images reject the unknown config keys at startup). For
+pinned older images set `rdrs.probePort.enabled=false`: no probe keys are
+emitted and all probes go back to 4406.
+
+`rdrs.maxKeepaliveRequests` (default `0` = off) bounds the requests served on
+one keep-alive connection to the main port, after which the connection is
+closed gracefully. A Kubernetes Service balances per connection, so this lets
+clients re-balance after a rolling restart; use a high value (1000) and only
+where post-restart skew is observed. Requires releases **newer than 25.10.18**;
+at `0` the key is not emitted.
+
+`rdrs.uploadPath` (default `/tmp/rdrs-uploads`) is where RDRS buffers request
+bodies larger than 64 KiB. The container's working directory is not writable,
+so without it oversized bodies are silently read as empty. Requires releases
+**newer than 25.10.19**; set it to the empty string for pinned older images.
+
+## Termination grace periods
+
+`terminationGracePeriodSeconds` is a per-component object:
+
+```yaml
+terminationGracePeriodSeconds:
+  ndbmtds: 300   # min 30; add ~2 minutes per TB of data node memory
+  mgmds: 30
+  mysqlds: 30
+  rdrs: 30
+  binlogServers: 30
+  replicaAppliers: 30
+```
+
+Every daemon stops on SIGTERM, so these are ceilings: a pod is removed as soon
+as its processes have exited. The old integer form still validates (minimum
+10) and keeps its old meaning: charts up to 25.10.20 applied it to the data
+nodes only, every other pod ran with the Kubernetes default of 30s, and that is
+what the integer still does. Setting only some keys of the object is fine, the
+rest default.
+
 ## Test Ingress with Minikube
 
 Ingress towards MySQLds or RDRSs can be tested using the following steps:

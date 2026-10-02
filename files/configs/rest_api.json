@@ -2,7 +2,24 @@
     "REST": {
         "Enable": true,
         "ServerIP": "0.0.0.0",
+{{- /* Optional keys are emitted only when set: RDRS images that predate
+       them reject unknown config keys at startup. */}}
+{{- if gt ($.Values.rdrs.maxKeepaliveRequests | int) 0 }}
+        "MaxKeepaliveRequests": {{ $.Values.rdrs.maxKeepaliveRequests | int }},
+{{- end }}
+{{- if $.Values.rdrs.uploadPath }}
+        "UploadPath": {{ $.Values.rdrs.uploadPath | quote }},
+{{- end }}
+{{- if $.Values.rdrs.probePort.enabled }}
+{{- /* PingRequiresAuth/HealthRequiresAuth must never be emitted together
+       with the probe port: it never authenticates and rdrs2 refuses to
+       start on that combination. */}}
+        "ServerPort": 4406,
+        "ProbeEnable": true,
+        "ProbePort": {{ $.Values.rdrs.probePort.port | int }}
+{{- else }}
         "ServerPort": 4406
+{{- end }}
     },
     "RonDB": {
         "Mgmds": [

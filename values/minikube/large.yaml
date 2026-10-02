@@ -69,4 +69,5 @@ rondbConfig:
   ReservedConcurrentOperations: 50000
   SharedGlobalMemory: 300M
   TransactionMemory: 300M
-terminationGracePeriodSeconds: 25
+terminationGracePeriodSeconds:
+  ndbmtds: 30
