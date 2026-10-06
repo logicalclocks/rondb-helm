@@ -396,6 +396,14 @@
                                     "default": true,
                                     "description": "LoadBalancer is managed by provider"
                                 },
+                                "nodePort": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "Explicit nodePort for the service when the load balancer is unmanaged (managed: false), so a load balancer outside Kubernetes can target a fixed port. Null lets Kubernetes allocate one from the cluster's node-port range.",
+                                    "default": null
+                                },
                                 "name": {
                                     "type": "string",
                                     "default": "mysqld-external"
@@ -535,6 +543,14 @@
                                     "type": "boolean",
                                     "default": true,
                                     "description": "LoadBalancer is managed by provider"
+                                },
+                                "nodePort": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "Explicit nodePort for the service when the load balancer is unmanaged (managed: false), so a load balancer outside Kubernetes can target a fixed port. Null lets Kubernetes allocate one from the cluster's node-port range.",
+                                    "default": null
                                 },
                                 "name": {
                                     "type": "string",

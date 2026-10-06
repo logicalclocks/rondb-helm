@@ -57,6 +57,9 @@ jobs:
         - name: RDRS probe tests
           run: ./test_scripts/rdrs-probes-test.sh
 
+        - name: External load balancer nodePort tests
+          run: ./test_scripts/external-lb-nodeport-test.sh
+
         - name: RDRS TTL purge tests
           run: ./test_scripts/rdrs-ttl-purge-test.sh
 

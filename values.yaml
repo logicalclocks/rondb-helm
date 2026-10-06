@@ -167,6 +167,7 @@ meta:
       enabled: false
       managed: true
       name: mysqld-external
+      nodePort: null
       nodeSelector: {}
       port: 3306
     headlessClusterIp:
@@ -200,6 +201,7 @@ meta:
       enabled: false
       managed: true
       name: rdrs-external
+      nodePort: null
       nodeSelector: {}
     headlessClusterIpName: rdrs-cluster-ip
     ingress:

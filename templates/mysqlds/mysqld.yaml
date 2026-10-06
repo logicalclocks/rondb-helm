@@ -331,4 +331,7 @@ spec:
     - protocol: TCP
       port: {{ .Values.meta.mysqld.externalLoadBalancer.port }}
       targetPort: 3306
+      {{- if and (include "mysqld.unmanagedLoadBalancers" .) .Values.meta.mysqld.externalLoadBalancer.nodePort }}
+      nodePort: {{ .Values.meta.mysqld.externalLoadBalancer.nodePort | int }}
+      {{- end }}
 {{- end }}
