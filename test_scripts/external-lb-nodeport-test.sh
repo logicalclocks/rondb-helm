@@ -9,7 +9,7 @@
 # Part 1, unmanaged: a set nodePort lands on the NodePort Service; unset,
 #   Kubernetes allocates one.
 # Part 2, managed: the LoadBalancer Service ignores the value.
-# Part 3, schema: a non-integer nodePort fails the render.
+# Part 3, schema: a non-integer or out-of-range nodePort fails the render.
 
 set -euo pipefail
 
@@ -82,10 +82,15 @@ done
 echo "Part 3 - schema"
 
 REJECTED="$WORK_DIR/rejected.yaml"
-assert "rejects a string mysqld nodePort" \
-  '! render "$REJECTED" false --set-string meta.mysqld.externalLoadBalancer.nodePort=31306'
-assert "rejects a string rdrs nodePort" \
-  '! render "$REJECTED" false --set-string meta.rdrs.externalLoadBalancer.nodePort=31406'
+for svc in mysqld rdrs; do
+  assert "rejects a string $svc nodePort" \
+    '! render "$REJECTED" false --set-string meta.$svc.externalLoadBalancer.nodePort=31306'
+  # 0 would otherwise pass as "unset" through the template's truthiness check.
+  for port in 0 -1 65536; do
+    assert "rejects $svc nodePort $port" \
+      '! render "$REJECTED" false --set meta.$svc.externalLoadBalancer.nodePort=$port'
+  done
+done
 
 echo
 echo "passed: $PASS, failed: $FAIL"
