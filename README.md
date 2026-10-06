@@ -27,6 +27,14 @@ This Helm chart supports:
 
 ## Quickstart
 
+The commands in this README run from a clone of this repository. The helper scripts, example values files and
+docs they use are not part of the packaged chart.
+
+```bash
+git clone --branch branch-25.10 https://github.com/logicalclocks/rondb-helm.git
+cd rondb-helm
+```
+
 ### Optional: Set up cloud object storage for backups
 
 Cloud object storage is required for creating backups and restoring from them. Periodical backups can be
