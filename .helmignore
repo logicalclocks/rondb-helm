@@ -21,3 +21,14 @@
 .idea/
 *.tmproj
 .vscode/
+# Written into the chart root by the publish_chart action before
+# `helm package`, for the gh-pages README
+values.schema.md
+# Used from a git checkout only. Templates read chart files from files/
+.github/
+docs/
+test_scripts/
+values/
+standalone_deps.sh
+# Created by the README's `.github/requirements.txt` setup
+venv/
