@@ -280,4 +280,7 @@ spec:
       protocol: TCP
       port: 4406
       targetPort: 4406
+      {{- if and (include "rdrs.unmanagedLoadBalancers" .) .Values.meta.rdrs.externalLoadBalancer.nodePort }}
+      nodePort: {{ .Values.meta.rdrs.externalLoadBalancer.nodePort | int }}
+      {{- end }}
 {{- end }}
