@@ -1337,7 +1337,7 @@
                                 },
                                 "rdrsMiB": {
                                     "type": "integer",
-                                    "default": 500
+                                    "default": 2048
                                 },
                                 "benchsMiB": {
                                     "type": "integer",
@@ -1392,7 +1392,7 @@
                                 },
                                 "rdrsMiB": {
                                     "type": "integer",
-                                    "default": 100
+                                    "default": 2048
                                 },
                                 "benchsMiB": {
                                     "type": "integer",
@@ -1777,6 +1777,315 @@
         "rdrs": {
             "type": "object",
             "properties": {
+                "internal": {
+                    "type": "object",
+                    "description": "Request handling, scan diagnostics and memory settings of every RDRS pod, rendered as the Internal section of rest_api.json. Each key is rendered only when set, and the section only when at least one key is set, so RDRS images that predate a key keep starting (they reject unknown keys). DisableTransparentHugePages, MaxHttpReqSize, MaxBuffers, BufferPoolSharePercent, BufferShrinkAfterS, MaxBlobTextValueBytes, MaxOperationsPerBatchRequest and MaxOperationsPerNdbExecute need an RDRS with RONDB-1144. When a key is null, RDRS uses its own default; for maxBuffers that default (0) derives the cap from the pod's memory limit. The request and response buffer sizes are not settings: RDRS computes them from the RonDB row limits (ReqBufferSize and RespBufferSize were removed from RDRS in RONDB-1144). When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.internal.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "maxHttpReqSize": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Maximum HTTP body size of a REST request in bytes (Internal.MaxHttpReqSize; RDRS images before RONDB-1144 call it maxReqSize); larger bodies are rejected before RDRS parses them. Every worker thread keeps a parse buffer of this size, so rest.numThreads times this value is part of the pod's memory budget. At least 256. RDRS default 1048576 (1 MiB).",
+                            "default": null,
+                            "minimum": 256,
+                            "maximum": 4294967295
+                        },
+                        "scanRespBufferSize": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Initial reservation for the JSON of a scan response, in bytes; the buffer grows when a response exceeds it. At least 1024. RDRS default 262144 (256 KiB).",
+                            "default": null,
+                            "minimum": 1024,
+                            "maximum": 4294967295
+                        },
+                        "scanTimingEnabled": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "description": "Collect scan timing metrics: a per-scan timing breakdown and a circular buffer of slow scans for diagnostics. RDRS default false.",
+                            "default": null
+                        },
+                        "slowScanThresholdUs": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Scans taking longer than this many microseconds are recorded in the slow scan buffer (needs scanTimingEnabled). RDRS default 10000 (10 ms).",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "slowScanBufferSize": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Number of slow scan entries kept in the circular buffer (needs scanTimingEnabled). RDRS default 1000.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "preAllocatedBuffers": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Request and response buffers of each kind mapped at startup and never released by the idle shrink. RDRS default 128.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "disableTransparentHugePages": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "description": "Internal.DisableTransparentHugePages. RDRS with RONDB-1144 opts its process out of transparent huge pages at startup (prctl PR_SET_THP_DISABLE); false allows THP again. On nodes with transparent_hugepage/enabled=always, khugepaged collapses the sparse memory of an idle RDRS into resident 2 MiB pages until the pod reaches its memory limit and is restarted by its probes, with no traffic and nothing logged. Leave it null unless THP is wanted. Images before RONDB-1144 do not opt out and reject the key: leave it null with them and set transparent_hugepage/enabled=madvise on the nodes. RDRS default true.",
+                            "default": null
+                        },
+                        "maxBuffers": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Cap on the buffers of each kind the pool may hold; a request that needs more is answered 503 \"buffer pool exhausted\". 0 or null: derived from the pod's memory limit and bufferPoolSharePercent. When non-zero, it must be at least 2 and at least preAllocatedBuffers (RDRS default 128); the chart fails the render otherwise, as rdrs2 would refuse to start.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "bufferPoolSharePercent": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Share of the pod's memory limit the buffer pools, together with the JSON responses written from them, may use when maxBuffers is derived. RDRS default 50; the rest is left for the JSON parse buffers, the NDB API and the process itself, so keep the memory limit at 2 GiB or more.",
+                            "default": null,
+                            "minimum": 1,
+                            "maximum": 90
+                        },
+                        "bufferShrinkAfterS": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Seconds of idle time after which buffers above preAllocatedBuffers are unmapped and returned to the OS. 0 disables the shrink. Chart default 900 (15 minutes), so a pool that serves bursts some minutes apart keeps its buffers; this is the one Internal key the chart renders by default. null leaves the RDRS default, 300 (five minutes); RDRS images before RONDB-1144 reject the key, so set it to null with them.",
+                            "default": 900,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "maxOperationsPerBatchRequest": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Largest number of operations one batch request may carry (for a batch feature store request: entries); larger batches are answered 413 before any buffer is taken. Large batches of wide rows can take most of a 2 GiB pod's buffer pool; raise the RDRS memory limit for such workloads. RDRS default 4096.",
+                            "default": null,
+                            "minimum": 1,
+                            "maximum": 4294967295
+                        },
+                        "maxBlobTextValueBytes": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Largest BLOB or TEXT value, in stored bytes, that a read returns (Internal.MaxBlobTextValueBytes). A read of a larger value fails with 413 naming the column; in a batch only that operation fails. 0 means no limit. RDRS default 2097152 (2 MiB).",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "maxOperationsPerNdbExecute": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Operations of a batch request RDRS sends to NDB in one execute round; not a cap on the batch request (see maxOperationsPerBatchRequest). Between 50 and 512. RDRS default 128. Replaces BatchMaxSize, which RDRS with RONDB-1144 no longer accepts.",
+                            "default": null,
+                            "minimum": 50,
+                            "maximum": 512
+                        },
+                        "operationIdMaxSize": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Maximum length of an operation ID string in a batch request (Internal.OperationIDMaxSize). At most 4096. RDRS default 256.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4096
+                        }
+                    }
+                },
+                "rest": {
+                    "type": "object",
+                    "description": "HTTP server settings of every RDRS pod, rendered into the REST section of rest_api.json next to the chart-managed listener keys (ServerIP, ServerPort, ProbeEnable, ProbePort). Each key is rendered only when set, so RDRS images that predate a key keep starting (they reject unknown keys). rdrs.maxKeepaliveRequests and rdrs.uploadPath are the same kind of key and stay where they are. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.rest.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "numThreads": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Worker threads of the RDRS HTTP server (REST.NumThreads). Each thread holds a JSON parse buffer of internal.maxHttpReqSize bytes (1 MiB by default), so the thread count is part of the pod's memory budget. Between 2 and 991. RDRS default 64.",
+                            "default": null,
+                            "minimum": 2,
+                            "maximum": 991
+                        },
+                        "useCompression": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "description": "Send responses gzip-compressed. RDRS default true.",
+                            "default": null
+                        },
+                        "useSingleTransaction": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "description": "Run all operations of a batch request in one NDB transaction. RDRS default true.",
+                            "default": null
+                        },
+                        "idleConnectionTimeoutS": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Seconds a keep-alive connection on the main port may sit idle before RDRS closes it; 0 keeps the built-in 60 second timeout. Complements rdrs.maxKeepaliveRequests for clients that hold connections open but send rarely. Does not apply to the probe port. Requires an RDRS image with REST.IdleConnectionTimeoutS support (releases 26.02.11 and newer on the 26.02 line). RDRS default 0.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        }
+                    }
+                },
+                "rondb": {
+                    "type": "object",
+                    "description": "Connection and retry settings of every RDRS pod towards RonDB. The chart renders each set key into BOTH the RonDB (data) and the RonDBMetadataCluster (metadata) sections of rest_api.json, which have the same keys; the management server addresses, connection pool sizes and node IDs of both sections come from rondbConfig and rdrs.externalMetadataCluster. Each key is rendered only when set. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.rondb.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "connectionRetries": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Attempts to connect to the cluster before RDRS gives up. RDRS default 5.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "connectionRetryDelayInSec": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Seconds to wait after a failed connection attempt before trying again. RDRS default 5.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "opRetryOnTransientErrorsCount": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Times an operation that failed with a transient NDB error is retried. RDRS default 3.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "opRetryInitialDelayInMS": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Delay in milliseconds before the first retry of an operation. RDRS default 500.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "opRetryJitterInMS": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Random jitter in milliseconds added to each retry delay. RDRS default 100.",
+                            "default": null,
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        }
+                    }
+                },
+                "featureStore": {
+                    "type": "object",
+                    "description": "Feature store settings of every RDRS pod, rendered as the FeatureStore section of rest_api.json only when a key is set, so RDRS images that predate a key keep starting. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.featureStore.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "metadataCachePreloadThreads": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "description": "Threads that preload the feature view metadata cache from RonDB in parallel at startup (FeatureStore.FeatureStoreMetadataCache.PreloadThreads); the startup probe passes only once preloading is done. At least 1. RDRS default 3.",
+                            "default": null,
+                            "minimum": 1,
+                            "maximum": 4294967295
+                        }
+                    }
+                },
+                "rateLimit": {
+                    "type": "object",
+                    "description": "USER rate limiting of the NDB traffic of every RDRS pod (RONDB-978), rendered as the RateLimit section of rest_api.json only when a key is set, so RDRS images that predate it keep starting. The identity is always the Hopsworks API key of the request: RateLimit.Identity has no other legal value and is not exposed. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.rateLimit.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "enable": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "description": "Tag the NDB transactions of REST requests with the request's API key so the data nodes enforce USER rate limits. The data nodes must run with ActivateRateLimits, and an identity without a provisioned USER entity runs unmetered. RDRS default false.",
+                            "default": null
+                        },
+                        "fullApiKey": {
+                            "type": [
+                                "boolean",
+                                "null"
+                            ],
+                            "description": "Use the full API key as the rate limit identity (RateLimit.FullAPIKey) instead of its prefix. RDRS default false.",
+                            "default": null
+                        }
+                    }
+                },
+                "log": {
+                    "type": "object",
+                    "description": "Logging of every RDRS pod, rendered as the Log section of rest_api.json. The pod logs to stdout, so the log file keys (FilePath, MaxSizeMb, MaxBackups, MaxAge) are not exposed. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.log.",
+                    "additionalProperties": false,
+                    "properties": {
+                        "level": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "description": "Log level (Log.Level), rendered only when set; null leaves RDRS at its own default, warn. Current rdrs2 releases parse the key but do not act on it (logging goes through the NDB event logger at a fixed level).",
+                            "default": null,
+                            "enum": [
+                                "panic",
+                                "fatal",
+                                "error",
+                                "warn",
+                                "warning",
+                                "info",
+                                "debug",
+                                "trace",
+                                null
+                            ]
+                        }
+                    }
+                },
                 "probePort": {
                     "type": "object",
                     "additionalProperties": false,
@@ -1840,7 +2149,18 @@
                                     "type": "integer",
                                     "description": "How often the API key cache refreshes project associations from the database (in milliseconds). Lower values reduce staleness when project memberships change but increase database load.",
                                     "default": 180000,
-                                    "minimum": 1000
+                                    "minimum": 1000,
+                                    "maximum": 4294967295
+                                },
+                                "preloadThreads": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "Threads that preload the API key cache from RonDB in parallel at startup (Security.APIKey.PreloadThreads); the startup probe passes only once preloading is done. At least 1. RDRS default 3. Rendered only when set, so RDRS images that predate the key keep starting.",
+                                    "default": null,
+                                    "minimum": 1,
+                                    "maximum": 4294967295
                                 }
                             }
                         }

@@ -66,6 +66,9 @@ jobs:
         - name: RDRS probe port tests
           run: ./test_scripts/rdrs-probe-port-test.sh
 
+        - name: RDRS config tests
+          run: ./test_scripts/rdrs-config-test.sh
+
         # PyYAML is not part of the runner's Python standard library; the
         # image-tag extraction below and the SIGTERM test import it. The
         # runner's system Python is externally managed (PEP 668), so use apt
