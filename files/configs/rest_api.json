@@ -1,7 +1,30 @@
+{{- /*
+  rdrs2 configuration. Every rdrs.* key that maps to a rest_api.json key is
+  rendered only when set (rondb.rdrs.configFields), and a section that the
+  chart does not manage itself only when at least one of its keys is set:
+  RDRS images that predate a key reject it at startup ("Unexpected key").
+*/}}
+{{- $rest := $.Values.rdrs.rest | default dict }}
+{{- $restFields := include "rondb.rdrs.configFields" (dict "values" $rest "indent" 8 "keys" (list
+      (list "numThreads" "NumThreads")
+      (list "useCompression" "UseCompression")
+      (list "useSingleTransaction" "UseSingleTransaction")
+      (list "idleConnectionTimeoutS" "IdleConnectionTimeoutS"))) }}
+{{- /* Both RonDB classes of rdrs2 have the same retry keys, and the chart
+       renders both sections, so one value feeds both. */}}
+{{- $rondbFields := include "rondb.rdrs.configFields" (dict "values" $.Values.rdrs.rondb "indent" 8 "keys" (list
+      (list "connectionRetries" "ConnectionRetries")
+      (list "connectionRetryDelayInSec" "ConnectionRetryDelayInSec")
+      (list "opRetryOnTransientErrorsCount" "OpRetryOnTransientErrorsCount")
+      (list "opRetryInitialDelayInMS" "OpRetryInitialDelayInMS")
+      (list "opRetryJitterInMS" "OpRetryJitterInMS"))) -}}
 {
     "REST": {
         "Enable": true,
         "ServerIP": "0.0.0.0",
+{{- if $restFields }}
+        {{ $restFields }},
+{{- end }}
 {{- /* Optional keys are emitted only when set: RDRS images that predate
        them reject unknown config keys at startup. */}}
 {{- if gt ($.Values.rdrs.maxKeepaliveRequests | int) 0 }}
@@ -29,6 +52,9 @@
             }
         ],
         "ConnectionPoolSize": {{ $.Values.rondbConfig.RdrsSlotsPerNode }}
+{{- if $rondbFields }},
+        {{ $rondbFields }}
+{{- end }}
     },
 {{- if eq (len $.Values.rdrs.externalMetadataCluster.mgmds) 0 }}
     "RonDBMetadataCluster": {
@@ -39,6 +65,9 @@
             }
         ],
         "ConnectionPoolSize": {{ $.Values.rondbConfig.RdrsMetadataSlotsPerNode }}
+{{- if $rondbFields }},
+        {{ $rondbFields }}
+{{- end }}
     },
 {{- else }}
     "RonDBMetadataCluster": {
@@ -51,29 +80,19 @@
 {{- end }}
         ],
         "ConnectionPoolSize": {{ $.Values.rdrs.externalMetadataCluster.slotsPerNode }}
+{{- if $rondbFields }},
+        {{ $rondbFields }}
+{{- end }}
     },
 {{- end }}
-    "Security": {
-        "TLS": {
-{{- with $endToEndTls := $.Values.meta.rdrs.statefulSet.endToEndTls }}
-{{- if $endToEndTls.enabled }}
-            "EnableTLS": true,
-            "CertificateFile": "/etc/tls/{{ $endToEndTls.filenames.cert }}",
-            "PrivateKeyFile": "/etc/tls/{{ $endToEndTls.filenames.key }}",
-{{- if $endToEndTls.filenames.ca }}
-            "RootCACertFile": "/etc/tls/{{ $endToEndTls.filenames.ca }}",
-{{- end }}
-{{- else }}
-            "EnableTLS": false,
-{{- end }}
-{{- end }}
-            "RequireAndVerifyClientCert": false
-        },
-        "APIKey": {
-            "UseHopsworksAPIKeys": true,
-            "CacheRefreshIntervalMS": {{ $.Values.rdrs.security.apiKey.cacheRefreshIntervalMS | int }}
+{{- with include "rondb.rdrs.configFields" (dict "values" $.Values.rdrs.featureStore "indent" 12 "keys" (list
+      (list "metadataCachePreloadThreads" "PreloadThreads"))) }}
+    "FeatureStore": {
+        "FeatureStoreMetadataCache": {
+            {{ . }}
         }
     },
+{{- end }}
 {{- /*
   Rendered only when a field is set: RDRS older than RonDB 26.02.9 rejects
   the TTLPurge key ("Unexpected key") and does not start.
@@ -95,7 +114,80 @@
         {{ join ",\n        " $ttlPurgeFields }}
     },
 {{- end }}
+{{- /* DisableTransparentHugePages, MaxHttpReqSize, MaxBlobTextValueBytes,
+       MaxBuffers, BufferPoolSharePercent, BufferShrinkAfterS,
+       MaxOperationsPerBatchRequest and MaxOperationsPerNdbExecute need an
+       RDRS with RONDB-1144. rdrs2 refuses to start when a non-zero
+       MaxBuffers is below 2 or below PreAllocatedBuffers (RDRS default 128),
+       so that fails the render. */}}
+{{- $internal := $.Values.rdrs.internal | default dict }}
+{{- if and (hasKey $internal "maxBuffers") (not (eq $internal.maxBuffers nil)) }}
+{{- $maxBuffers := $internal.maxBuffers | int }}
+{{- $preAllocated := 128 }}
+{{- if and (hasKey $internal "preAllocatedBuffers") (not (eq $internal.preAllocatedBuffers nil)) }}
+{{- $preAllocated = $internal.preAllocatedBuffers | int }}
+{{- end }}
+{{- if and (ne $maxBuffers 0) (lt $maxBuffers (max 2 $preAllocated | int)) }}
+{{- fail (printf "rdrs.internal.maxBuffers %d is below %d: rdrs2 needs at least 2 and at least preAllocatedBuffers (%d, the RDRS default when unset is 128). Raise maxBuffers, lower preAllocatedBuffers, or set maxBuffers to 0 to derive it from the memory limit." $maxBuffers (max 2 $preAllocated | int) $preAllocated) }}
+{{- end }}
+{{- end }}
+{{- with include "rondb.rdrs.configFields" (dict "values" $internal "indent" 8 "keys" (list
+      (list "maxHttpReqSize" "MaxHttpReqSize")
+      (list "maxBlobTextValueBytes" "MaxBlobTextValueBytes")
+      (list "scanRespBufferSize" "ScanRespBufferSize")
+      (list "scanTimingEnabled" "ScanTimingEnabled")
+      (list "slowScanThresholdUs" "SlowScanThresholdUs")
+      (list "slowScanBufferSize" "SlowScanBufferSize")
+      (list "preAllocatedBuffers" "PreAllocatedBuffers")
+      (list "disableTransparentHugePages" "DisableTransparentHugePages")
+      (list "maxBuffers" "MaxBuffers")
+      (list "bufferPoolSharePercent" "BufferPoolSharePercent")
+      (list "bufferShrinkAfterS" "BufferShrinkAfterS")
+      (list "maxOperationsPerBatchRequest" "MaxOperationsPerBatchRequest")
+      (list "maxOperationsPerNdbExecute" "MaxOperationsPerNdbExecute")
+      (list "operationIdMaxSize" "OperationIDMaxSize"))) }}
+    "Internal": {
+        {{ . }}
+    },
+{{- end }}
+{{- with include "rondb.rdrs.configFields" (dict "values" $.Values.rdrs.rateLimit "indent" 8 "keys" (list
+      (list "enable" "Enable")
+      (list "fullApiKey" "FullAPIKey"))) }}
+    "RateLimit": {
+        {{ . }}
+    },
+{{- end }}
+{{- with include "rondb.rdrs.configFields" (dict "values" $.Values.rdrs.log "indent" 8 "keys" (list
+      (list "level" "Level"))) }}
     "Log": {
-        "Level": "info"
+        {{ . }}
+    },
+{{- end }}
+{{- /* Security is always rendered, so it closes the file: every optional
+       section before it ends with a comma. */}}
+    "Security": {
+        "TLS": {
+{{- with $endToEndTls := $.Values.meta.rdrs.statefulSet.endToEndTls }}
+{{- if $endToEndTls.enabled }}
+            "EnableTLS": true,
+            "CertificateFile": "/etc/tls/{{ $endToEndTls.filenames.cert }}",
+            "PrivateKeyFile": "/etc/tls/{{ $endToEndTls.filenames.key }}",
+{{- if $endToEndTls.filenames.ca }}
+            "RootCACertFile": "/etc/tls/{{ $endToEndTls.filenames.ca }}",
+{{- end }}
+{{- else }}
+            "EnableTLS": false,
+{{- end }}
+{{- end }}
+            "RequireAndVerifyClientCert": false
+        },
+        "APIKey": {
+            "UseHopsworksAPIKeys": true,
+            "CacheRefreshIntervalMS": {{ $.Values.rdrs.security.apiKey.cacheRefreshIntervalMS | int }}
+{{- with include "rondb.rdrs.configFields" (dict "values" $.Values.rdrs.security.apiKey "indent" 12 "keys" (list
+      (list "preloadThreads" "PreloadThreads"))) }},
+            {{ . }}
+{{- end }}
+        }
     }
 }
