@@ -9,6 +9,10 @@ metadata:
 {{- $mysqldDict := dict
     "tls" $.Values.meta.mysqld.statefulSet.endToEndTls
 }}
+{{- $servingMysqldDict := dict
+    "tls" $.Values.meta.mysqld.statefulSet.endToEndTls
+    "forServingMysqlds" true
+}}
 {{- $binlogDict := dict
     "forBinlogServers" true
     "tls" $.Values.meta.binlogServers.statefulSet.endToEndTls
@@ -20,6 +24,10 @@ metadata:
 data:
     my.cnf: |
 {{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $mysqldDict) | indent 6 }}
+{{- if include "rondb.disabledStorageEngines" $ }}
+    my-serving-mysqlds.cnf: |
+{{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $servingMysqldDict) | indent 6 }}
+{{- end }}
     my-binlog-servers.cnf: |
 {{ tpl (.Files.Get "files/configs/my.cnf") (deepCopy $ | mustMerge $binlogDict) | indent 6 }}
     my-replica-appliers.cnf: |
