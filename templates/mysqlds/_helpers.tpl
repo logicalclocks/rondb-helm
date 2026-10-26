@@ -337,3 +337,11 @@ true
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+The storage engines the serving MySQLds refuse, or empty. Applied only beside a DDL MySQLd: without one the
+serving MySQLds run the DDL, migrations and local temporary tables themselves.
+*/}}
+{{- define "rondb.disabledStorageEngines" -}}
+{{- if .Values.meta.ddlMySQLd.enabled }}{{ .Values.mysql.config.disabledStorageEngines }}{{ end -}}
+{{- end }}
