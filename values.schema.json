@@ -941,7 +941,7 @@
                         "tag": {
                             "type": "string",
                             "description": "The version of RonDB to use; This should always be equivalent to .Chart.AppVersion",
-                            "default": "26.02.11"
+                            "default": "26.02.12"
                         }
                     }
                 },
@@ -1779,7 +1779,7 @@
             "properties": {
                 "internal": {
                     "type": "object",
-                    "description": "Request handling, scan diagnostics and memory settings of every RDRS pod, rendered as the Internal section of rest_api.json. Each key is rendered only when set, and the section only when at least one key is set, so RDRS images that predate a key keep starting (they reject unknown keys). DisableTransparentHugePages, MaxHttpReqSize, MaxBuffers, BufferPoolSharePercent, BufferShrinkAfterS, MaxBlobTextValueBytes, MaxOperationsPerBatchRequest and MaxOperationsPerNdbExecute need an RDRS with RONDB-1144. When a key is null, RDRS uses its own default; for maxBuffers that default (0) derives the cap from the pod's memory limit. The request and response buffer sizes are not settings: RDRS computes them from the RonDB row limits (ReqBufferSize and RespBufferSize were removed from RDRS in RONDB-1144). When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.internal.",
+                    "description": "Request handling, scan diagnostics and memory settings of every RDRS pod, rendered as the Internal section of rest_api.json. Each key is rendered only when set, and the section only when at least one key is set, so RDRS images that predate a key keep starting (they reject unknown keys). DisableTransparentHugePages, MaxHttpReqSize, MaxBuffers, BufferPoolSharePercent, BufferShrinkAfterS, MaxBlobTextValueBytes, MaxOperationsPerBatchRequest and MaxOperationsPerNdbExecute need RDRS 26.02.12 or newer. When a key is null, RDRS uses its own default; for maxBuffers that default (0) derives the cap from the pod's memory limit. The request and response buffer sizes are not settings: RDRS computes them from the RonDB row limits (ReqBufferSize and RespBufferSize were removed from RDRS in RONDB-1144). When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.internal.",
                     "additionalProperties": false,
                     "properties": {
                         "maxHttpReqSize": {
@@ -1787,7 +1787,7 @@
                                 "integer",
                                 "null"
                             ],
-                            "description": "Maximum HTTP body size of a REST request in bytes (Internal.MaxHttpReqSize; RDRS images before RONDB-1144 call it maxReqSize); larger bodies are rejected before RDRS parses them. Every worker thread keeps a parse buffer of this size, so rest.numThreads times this value is part of the pod's memory budget. At least 256. RDRS default 1048576 (1 MiB).",
+                            "description": "Maximum HTTP body size of a REST request in bytes (Internal.MaxHttpReqSize; RDRS images before 26.02.12 call it maxReqSize); larger bodies are rejected before RDRS parses them. Every worker thread keeps a parse buffer of this size, so rest.numThreads times this value is part of the pod's memory budget. At least 256. RDRS default 1048576 (1 MiB).",
                             "default": null,
                             "minimum": 256,
                             "maximum": 4294967295
@@ -1845,7 +1845,7 @@
                                 "boolean",
                                 "null"
                             ],
-                            "description": "Internal.DisableTransparentHugePages. RDRS with RONDB-1144 opts its process out of transparent huge pages at startup (prctl PR_SET_THP_DISABLE); false allows THP again. On nodes with transparent_hugepage/enabled=always, khugepaged collapses the sparse memory of an idle RDRS into resident 2 MiB pages until the pod reaches its memory limit and is restarted by its probes, with no traffic and nothing logged. Leave it null unless THP is wanted. Images before RONDB-1144 do not opt out and reject the key: leave it null with them and set transparent_hugepage/enabled=madvise on the nodes. RDRS default true.",
+                            "description": "Internal.DisableTransparentHugePages. RDRS 26.02.12 and newer opts its process out of transparent huge pages at startup (prctl PR_SET_THP_DISABLE); false allows THP again. On nodes with transparent_hugepage/enabled=always, khugepaged collapses the sparse memory of an idle RDRS into resident 2 MiB pages until the pod reaches its memory limit and is restarted by its probes, with no traffic and nothing logged. Leave it null unless THP is wanted. Images before 26.02.12 do not opt out and reject the key: leave it null with them and set transparent_hugepage/enabled=madvise on the nodes. RDRS default true.",
                             "default": null
                         },
                         "maxBuffers": {
@@ -1873,7 +1873,7 @@
                                 "integer",
                                 "null"
                             ],
-                            "description": "Seconds of idle time after which buffers above preAllocatedBuffers are unmapped and returned to the OS. 0 disables the shrink. Chart default 900 (15 minutes), so a pool that serves bursts some minutes apart keeps its buffers; this is the one Internal key the chart renders by default. null leaves the RDRS default, 300 (five minutes); RDRS images before RONDB-1144 reject the key, so set it to null with them.",
+                            "description": "Seconds of idle time after which buffers above preAllocatedBuffers are unmapped and returned to the OS. 0 disables the shrink. Chart default 900 (15 minutes), so a pool that serves bursts some minutes apart keeps its buffers; this is the one Internal key the chart renders by default. null leaves the RDRS default, 300 (five minutes); RDRS images before 26.02.12 reject the key, so set it to null with them.",
                             "default": 900,
                             "minimum": 0,
                             "maximum": 4294967295
@@ -1903,7 +1903,7 @@
                                 "integer",
                                 "null"
                             ],
-                            "description": "Operations of a batch request RDRS sends to NDB in one execute round; not a cap on the batch request (see maxOperationsPerBatchRequest). Between 50 and 512. RDRS default 128. Replaces BatchMaxSize, which RDRS with RONDB-1144 no longer accepts.",
+                            "description": "Operations of a batch request RDRS sends to NDB in one execute round; not a cap on the batch request (see maxOperationsPerBatchRequest). Between 50 and 512. RDRS default 128. Replaces BatchMaxSize, which RDRS 26.02.12 and newer no longer reads.",
                             "default": null,
                             "minimum": 50,
                             "maximum": 512

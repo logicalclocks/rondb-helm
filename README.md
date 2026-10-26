@@ -155,12 +155,12 @@ pages. The pod's memory usage climbs from about 300 MiB to its limit in a
 quarter of an hour with no traffic, the probes time out and the kubelet
 restarts it (exit 137, reason `Error`, not `OOMKilled`), indefinitely.
 
-An RDRS with RONDB-1144 opts its own process out of THP at startup
+RDRS 26.02.12 and newer opts its own process out of THP at startup
 (`prctl(PR_SET_THP_DISABLE)`); on nodes set to `madvise` or `never` that
 changes nothing. `rdrs.internal.disableTransparentHugePages` (default `null`,
 nothing rendered, RDRS default `true`) keeps it that way; `false` renders
 `Internal.DisableTransparentHugePages: false`, which tells RDRS to allow THP
-again. Leave it unset unless THP is wanted. Images before RONDB-1144 do not opt
+again. Leave it unset unless THP is wanted. Images before 26.02.12 do not opt
 out and reject that key, so with them leave it unset and set the nodes to
 `madvise`.
 
@@ -169,7 +169,7 @@ out and reject that key, so with them leave it unset and set the nodes to
 **Upgrading values from older charts.** Remove `rdrs.internal.bufferSize`,
 `rdrs.internal.gomaxprocs` and `rdrs.internal.maxAllocatedBuffers` (under
 `rondb.rondb.rdrs.internal` when installed through the Hopsworks chart) before
-upgrading to a chart that pairs with RONDB-1144. They were settings of the old
+upgrading to a chart that pairs with RonDB 26.02.12. They were settings of the old
 Go REST server, and no chart release since 25.10.5 reads them, so removing
 them changes nothing on a running cluster. This chart validates
 `rdrs.internal` strictly, and `helm upgrade` fails with "at '/rdrs/internal':
@@ -179,7 +179,7 @@ pool now sizes itself from the pod's memory limit. To tune it, use
 `rdrs.internal.maxBuffers`, `preAllocatedBuffers` and `bufferPoolSharePercent`
 below.
 
-**Defaults that change with this chart and a RONDB-1144 image.** Nothing needs
+**Defaults that change with this chart and RonDB 26.02.12.** Nothing needs
 editing for these, but a running cluster notices them:
 
 - The RDRS memory request and limit default to 2 GiB per pod (the request was
@@ -212,11 +212,11 @@ Every `rdrs2` setting that the chart does not manage itself is a value under
 chart), rendered into the pods' `rest_api.json` under its `rdrs2` key. The
 rule for all of them: **a key is rendered only when set, and a section that
 only carries such keys only when at least one of them is set.** An RDRS image
-older than RONDB-1144 rejects config keys it does not know ("Unexpected key")
+older than 26.02.12 rejects config keys it does not know ("Unexpected key")
 and does not start; newer images log a warning and ignore them. Leaving a key
 `null` keeps every image starting with the RDRS default. The one exception is
 `rdrs.internal.bufferShrinkAfterS`, which the chart sets to 900 by default; set
-it to `null` for images older than RONDB-1144. A change to the
+it to `null` for images older than 26.02.12. A change to the
 rendered file rolls the RDRS pods (the pod template carries its hash);
 `rdrs2 --config /srv/hops/mysql-cluster/rest_api.json --print-limits` in an
 RDRS pod shows the values in effect (without `--config` it reads no file and
@@ -259,15 +259,15 @@ probe passes only once preloading is done)
 | `rdrs.security.apiKey.preloadThreads` | `Security.APIKey.PreloadThreads` | 3 | Threads preloading the API key cache. |
 | `rdrs.featureStore.metadataCachePreloadThreads` | `FeatureStore.FeatureStoreMetadataCache.PreloadThreads` | 3 | Threads preloading the feature view metadata cache. |
 
-**Internal** (request handling and memory). An RDRS with RONDB-1144 bounds its
+**Internal** (request handling and memory). RDRS 26.02.12 and newer bounds its
 memory: the request and response buffer sizes are computed from the RonDB row
 limits (there is no setting for them), the number of buffers is capped from
 the pod's memory limit, buffers that sit idle are returned to the OS, and a
 batch request may carry at most a fixed number of operations. `MaxBuffers`,
 `MaxHttpReqSize` (older images call it `maxReqSize`), `MaxBlobTextValueBytes`,
 `BufferPoolSharePercent`, `BufferShrinkAfterS`, `DisableTransparentHugePages`,
-`MaxOperationsPerBatchRequest` and `MaxOperationsPerNdbExecute` need an RDRS
-with RONDB-1144.
+`MaxOperationsPerBatchRequest` and `MaxOperationsPerNdbExecute` need RDRS
+26.02.12 or newer.
 
 | value | rest_api.json key | RDRS default | meaning |
 |---|---|---|---|

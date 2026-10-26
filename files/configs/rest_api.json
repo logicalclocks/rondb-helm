@@ -116,8 +116,8 @@
 {{- end }}
 {{- /* DisableTransparentHugePages, MaxHttpReqSize, MaxBlobTextValueBytes,
        MaxBuffers, BufferPoolSharePercent, BufferShrinkAfterS,
-       MaxOperationsPerBatchRequest and MaxOperationsPerNdbExecute need an
-       RDRS with RONDB-1144. rdrs2 refuses to start when a non-zero
+       MaxOperationsPerBatchRequest and MaxOperationsPerNdbExecute need
+       RDRS 26.02.12 or newer. rdrs2 refuses to start when a non-zero
        MaxBuffers is below 2 or below PreAllocatedBuffers (RDRS default 128),
        so that fails the render. */}}
 {{- $internal := $.Values.rdrs.internal | default dict }}
