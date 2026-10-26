@@ -687,6 +687,33 @@ ConfigMap and rolls nothing.
 {{- end -}}
 
 {{/*
+The set keys of one rest_api.json section, as `"JSONKey": value` lines joined
+by ",\n" plus the indent of the section's keys (8 for a top-level section).
+Usage: {{ include "rondb.rdrs.configFields" (dict
+    "values" $.Values.rdrs.internal
+    "keys" (list (list "maxBuffers" "MaxBuffers") ...)
+    "indent" 8) }}
+
+A null value renders nothing, and the caller renders the section only when
+this returns something: RDRS images that predate a key reject it at startup
+("Unexpected key"), so a key stays out of the file until it is set. Values
+go through toJson so bools, integers and strings render as their JSON type.
+"values" may be nil: Helm deletes null-valued keys before rendering, so a
+section whose keys are all null may be missing altogether.
+*/}}
+{{- define "rondb.rdrs.configFields" -}}
+{{- $values := .values | default dict -}}
+{{- $fields := list -}}
+{{- range $pair := .keys -}}
+{{- $value := index $values (first $pair) -}}
+{{- if not (eq $value nil) -}}
+{{- $fields = append $fields (printf "\"%s\": %s" (last $pair) (toJson $value)) -}}
+{{- end -}}
+{{- end -}}
+{{- join (printf ",\n%s" (repeat (.indent | int) " ")) $fields -}}
+{{- end -}}
+
+{{/*
 terminationGracePeriodSeconds for one component.
 Usage: {{ include "rondb.gracePeriod" (dict "v" $.Values "component" "ndbmtds") }}
 

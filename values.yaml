@@ -94,7 +94,7 @@ images:
     name: rondb
     registry: docker.io
     repository: hopsworks
-    tag: 26.02.11
+    tag: 26.02.12
   toolbox:
     name: hwutils
     registry: docker.io
@@ -293,8 +293,27 @@ rdrs:
   externalMetadataCluster:
     mgmds: []
     slotsPerNode: 1
+  featureStore:
+    metadataCachePreloadThreads: null
   hpa:
     additionalMetrics: []
+  internal:
+    bufferPoolSharePercent: null
+    bufferShrinkAfterS: 900
+    disableTransparentHugePages: null
+    maxBlobTextValueBytes: null
+    maxBuffers: null
+    maxHttpReqSize: null
+    maxOperationsPerBatchRequest: null
+    maxOperationsPerNdbExecute: null
+    operationIdMaxSize: null
+    preAllocatedBuffers: null
+    scanRespBufferSize: null
+    scanTimingEnabled: null
+    slowScanBufferSize: null
+    slowScanThresholdUs: null
+  log:
+    level: null
   maxKeepaliveRequests: 0
   probePort:
     enabled: true
@@ -315,9 +334,24 @@ rdrs:
       initialDelaySeconds: 5
       periodSeconds: 5
       timeoutSeconds: 2
+  rateLimit:
+    enable: null
+    fullApiKey: null
+  rest:
+    idleConnectionTimeoutS: null
+    numThreads: null
+    useCompression: null
+    useSingleTransaction: null
+  rondb:
+    connectionRetries: null
+    connectionRetryDelayInSec: null
+    opRetryInitialDelayInMS: null
+    opRetryJitterInMS: null
+    opRetryOnTransientErrorsCount: null
   security:
     apiKey:
       cacheRefreshIntervalMS: 180000
+      preloadThreads: null
   ttlPurge:
     activeWindow: null
     enable: null
@@ -337,7 +371,7 @@ resources:
       mysqldExportersMiB: 100
       mysqldMiB: 1400
       ndbmtdsMiB: 5000
-      rdrsMiB: 500
+      rdrsMiB: 2048
   requests:
     cpus:
       benchs: 1
@@ -349,7 +383,7 @@ resources:
       benchsMiB: 100
       mysqldExportersMiB: 50
       mysqldMiB: 650
-      rdrsMiB: 100
+      rdrsMiB: 2048
     storage:
       binlogGiB: 4
       classes:
