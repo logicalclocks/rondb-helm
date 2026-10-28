@@ -2112,6 +2112,11 @@
                         "port"
                     ]
                 },
+                "priorityClassName": {
+                    "type": "string",
+                    "description": "PriorityClass of the RDRS pods. Empty (the default) sets none, so the pods take the cluster default. Independent of the top-level priorityClass, which the data nodes, MySQL servers and management server use.",
+                    "default": ""
+                },
                 "maxKeepaliveRequests": {
                     "type": "integer",
                     "description": "Maximum number of requests served on one keep-alive connection to the RDRS main port; after it the connection is closed gracefully (Connection: close). 0 (the default) disables the limit. A Kubernetes Service balances per TCP connection, so long-lived connections keep the skew that builds up after a rolling restart; bounding their lifetime lets clients re-balance. Each reconnect costs a TCP+TLS handshake: use a high value (1000 recommended, not below 500) and only where post-restart skew is observed. Does not apply to the probe port. Requires an RDRS image with REST.MaxKeepaliveRequests support (releases 26.02.11 and newer on the 26.02 line); at 0 the key is not emitted, so older images keep working.",

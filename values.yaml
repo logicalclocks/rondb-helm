@@ -314,6 +314,7 @@ rdrs:
   log:
     level: null
   maxKeepaliveRequests: 0
+  priorityClassName: ""
   probePort:
     enabled: true
     port: 4407
