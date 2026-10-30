@@ -655,7 +655,8 @@ true
   {{- if $containers -}}
     {{- range $c := $containers -}}
       {{- if eq $c.name "mgmd" -}}
-        {{- $imageSplits := regexSplit ":+" $c.image -1 -}}
+        {{- /* A digest pin ends the ref in "@sha256:<hex>"; the version is the tag before it */ -}}
+        {{- $imageSplits := regexSplit ":+" (regexReplaceAll "@sha256:[0-9a-f]+$" $c.image "") -1 -}}
         {{- $tag := last $imageSplits -}}
         {{- $majorStr := regexFind "^[0-9]+" $tag -}}
         {{- if $majorStr -}}
