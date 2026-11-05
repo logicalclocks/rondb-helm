@@ -1218,6 +1218,11 @@
                             "type": "integer",
                             "description": "Maximum number of prepared statements.",
                             "default": 65530
+                        },
+                        "disabledStorageEngines": {
+                            "type": "string",
+                            "description": "Comma-separated storage engines that tables cannot be created with on the MySQLd StatefulSet (disabled_storage_engines), e.g. 'InnoDB,MyISAM,MEMORY'. A table in a local engine lives on one MySQLd only, so clients that may land on any MySQLd should only create NDB tables. Not applied to the DDL MySQLd, binlog servers, replica appliers or the setup Jobs, which may need local temporary tables. Note that CREATE TEMPORARY TABLE uses InnoDB by default and fails on a MySQLd where InnoDB is disabled. Applied only when meta.ddlMySQLd.enabled: without a DDL MySQLd the serving MySQLds run the DDL, migrations and local temporary tables themselves, so nothing is disabled. Empty disables nothing.",
+                            "default": ""
                         }
                     }
                 }
