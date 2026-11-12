@@ -6,8 +6,9 @@
 # (files/scripts/wait_ndbmtds.sh). Needs only helm and bash — no cluster.
 #
 # Part 1 — rendering: MySQLds get the time limit from
-#   timeoutsMinutes.waitAllDatanodes; the restore Job and setup-mysqld Job
-#   wait for every data node without a time limit.
+#   timeoutsMinutes.waitAllDatanodes (2 min when the setting is absent); the
+#   restore Job and setup-mysqld Job wait for every data node without a time
+#   limit.
 # Part 2 — behavior: extracts the rendered script and runs it against a
 #   fake ndb_mgm for a cluster of 2 node groups x 2 active replicas
 #   (node ids 1 2 | 4 5; 3 and 6 are inactive slots).
@@ -39,6 +40,12 @@ render() { # <output-file> <template> [helm args...]
 }
 
 render "$WORK_DIR/mysqld.yaml" templates/mysqlds/mysqld.yaml
+# null deletes the setting, as "helm upgrade --reuse-values" does for a
+# release installed with a chart that predates it.
+render "$WORK_DIR/mysqld_absent.yaml" templates/mysqlds/mysqld.yaml \
+  --set timeoutsMinutes.waitAllDatanodes=null
+render "$WORK_DIR/mysqld_zero.yaml" templates/mysqlds/mysqld.yaml \
+  --set timeoutsMinutes.waitAllDatanodes=0
 render "$WORK_DIR/setup_job.yaml" templates/mysqlds/setup_job.yaml
 render "$WORK_DIR/restore.yaml" templates/backups/restore.yaml \
   --set-string restoreFromBackup.backupId=1 \
@@ -70,6 +77,10 @@ echo "Part 1 - rendering"
 
 assert "mysqld waits at most timeoutsMinutes.waitAllDatanodes (2 min) for every data node" \
   '[ "$(wait_limit "$WORK_DIR/mysqld.yaml")" = "\"120\"" ]'
+assert "timeoutsMinutes.waitAllDatanodes absent (helm upgrade --reuse-values from an older chart): 2 min" \
+  '[ "$(wait_limit "$WORK_DIR/mysqld_absent.yaml")" = "\"120\"" ]'
+assert "timeoutsMinutes.waitAllDatanodes 0 is kept, not replaced by the 2 min default" \
+  '[ "$(wait_limit "$WORK_DIR/mysqld_zero.yaml")" = "\"0\"" ]'
 assert "setup-mysqld Job waits for every data node without a time limit" \
   '[ "$(wait_limit "$WORK_DIR/setup_job.yaml")" = "\"\"" ]'
 assert "restore Job waits for every data node without a time limit" \
