@@ -134,19 +134,39 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
 {{ end }}
 {{- end }}
 
+{{/*
+Wait until every node group has a started ndbmtd, then for at most
+timeoutsMinutes.waitAllDatanodes until every active ndbmtd is started. For
+consumers that only need an operational cluster: MySQLds and SQL Jobs.
+*/}}
 {{- define "rondb.container.waitDatanodes" -}}
+{{- include "rondb.container.waitDatanodesCommon" (dict "root" . "waitAllSeconds" (mul (int .Values.timeoutsMinutes.waitAllDatanodes) 60)) -}}
+{{- end }}
+
+{{/*
+Wait, without a time limit, until every active ndbmtd is started. For
+consumers that act on every ndbmtd (restore) or set up a new cluster.
+*/}}
+{{- define "rondb.container.waitAllDatanodes" -}}
+{{- include "rondb.container.waitDatanodesCommon" (dict "root" . "waitAllSeconds" "") -}}
+{{- end }}
+
+{{- define "rondb.container.waitDatanodesCommon" -}}
+{{- $root := .root -}}
 - name: wait-datanodes-dependency
-  image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
-{{ include "rondb.ContainerSecurityContext" $ | indent 2 }}
-  imagePullPolicy: {{ $.Values.imagePullPolicy }}
+  image: {{ include "image_address" (dict "image" $root.Values.images.rondb) }}
+{{ include "rondb.ContainerSecurityContext" $root | indent 2 }}
+  imagePullPolicy: {{ $root.Values.imagePullPolicy }}
   command:
   - /bin/bash
   - -c
   - |
-{{ tpl (.Files.Get "files/scripts/wait_ndbmtds.sh") . | indent 4 }}
+{{ tpl ($root.Files.Get "files/scripts/wait_ndbmtds.sh") $root | indent 4 }}
   env:
   - name: MGMD_HOSTNAME
-    value: {{ include "rondb.mgmdHostname" . }}
+    value: {{ include "rondb.mgmdHostname" $root }}
+  - name: WAIT_ALL_DATANODES_SECONDS
+    value: {{ .waitAllSeconds | quote }}
   resources:
     limits:
       cpu: 0.3

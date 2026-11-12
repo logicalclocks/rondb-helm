@@ -469,6 +469,7 @@ timeoutsMinutes:
   ndbmtdStartupProbe: 240
   restoreNativeBackup: 120
   singleSetupMySQLds: 5
+  waitAllDatanodes: 2
 tls:
   caSecretName: null
 tolerations:
