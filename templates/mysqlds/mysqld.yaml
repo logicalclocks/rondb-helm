@@ -173,7 +173,7 @@ spec:
         - name: mysqld-configs
           # Using "raw", so that we can sed NodeIds into the file
           mountPath: {{ include "rondb.dataDir" $ }}/my-raw.cnf
-          subPath: my.cnf
+          subPath: {{ if include "rondb.disabledStorageEngines" $ }}my-serving-mysqlds.cnf{{ else }}my.cnf{{ end }}
         - name: mysqld-configs
           mountPath: {{ include "rondb.dataDir" $ }}/metadata_create.sh
           subPath: metadata_create.sh
