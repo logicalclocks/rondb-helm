@@ -26,7 +26,7 @@ spec:
 {{- end }}
       initContainers:
 {{/*
-    1. Wait for data nodes to be up
+    1. Wait for every data node to be up; step 4 runs in every data node Pod
     2. Start up a MySQLd to create MySQL system tables; shut it down again
     3. One ndbd runs restore-meta and disable-indexes
     4. All ndbds run restore-data
@@ -41,7 +41,7 @@ spec:
     Also note that following this, there will be a MySQLd Job spinning up to restore
     MySQL metadata (users and databases).
 */}}
-{{ include "rondb.container.waitDatanodes" . | indent 6 }}
+{{ include "rondb.container.waitAllDatanodes" . | indent 6 }}
       - name: initialize-mysqld-once
         image: {{ include "image_address" (dict "image" .Values.images.rondb) }}
         imagePullPolicy: {{ $.Values.imagePullPolicy }}

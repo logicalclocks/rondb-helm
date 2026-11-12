@@ -2461,13 +2461,20 @@
                     "description": "Maximum time a MySQLd pod (mysqld, ddl mysqld, binlog server, replica applier) is given to start up before Kubernetes restarts its container.",
                     "default": 20,
                     "minimum": 1
+                },
+                "waitAllDatanodes": {
+                    "type": "integer",
+                    "description": "Once every node group has a started ndbmtd, how long MySQLd pods and the SQL upgrade Jobs wait for the remaining active ndbmtds to be started before they start anyway. An ndbmtd that is down, e.g. after its host crashed, then does not keep MySQLds from (re)starting while the cluster is operational. Waiting until every node group has a started ndbmtd has no time limit, and the Jobs that restore a backup or set up a new cluster always wait for every active ndbmtd. 0 starts as soon as every node group has a started ndbmtd.",
+                    "default": 2,
+                    "minimum": 0
                 }
             },
             "required": [
                 "singleSetupMySQLds",
                 "restoreNativeBackup",
                 "ndbmtdStartupProbe",
-                "mysqldStartupProbe"
+                "mysqldStartupProbe",
+                "waitAllDatanodes"
             ]
         },
         "restoreFromBackup": {

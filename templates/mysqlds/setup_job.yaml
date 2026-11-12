@@ -78,8 +78,10 @@ spec:
 {{/* 
     Always wait for data nodes first so that wait-for-restore-timeout is more accurate.
     Downloading the native backups happens in the data node Pods before the ndbmtds start up.
+    Wait for every data node: this sets up a new cluster (or an in-place restore), may run DDL
+    from the SQL init files, and has backoffLimit 0.
 */}}
-{{ include "rondb.container.waitDatanodes" $ | indent 6 }}
+{{ include "rondb.container.waitAllDatanodes" $ | indent 6 }}
 {{ include "rondb.container.waitRestore" $ | indent 6 }}
 {{/* 
     Very important that binlog servers do not miss any binlog events.

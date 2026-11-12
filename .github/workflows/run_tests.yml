@@ -54,6 +54,9 @@ jobs:
         - name: Fail-closed data node probe tests
           run: ./test_scripts/probe-fail-closed-test.sh
 
+        - name: Data node wait tests
+          run: ./test_scripts/wait-datanodes-test.sh
+
         - name: RDRS probe tests
           run: ./test_scripts/rdrs-probes-test.sh
 
@@ -226,6 +229,20 @@ jobs:
             --set clusterSize.minNumMySQLServers=2 \
             --set clusterSize.activeDataReplicas=2 \
             .
+
+      - name: Test deploy stability
+        shell: bash
+        timeout-minutes: 12
+        env:
+          SLEEP_SECONDS: 10
+          MIN_STABLE_MINUTES: 1
+        run: bash .github/test_deploy_stability.sh
+      - run: kubectl -n $K8S_NAMESPACE get pods
+
+      # A MySQLd restarting while a data node stays down must still come up
+      - name: Restart MySQLds while a data node is down
+        timeout-minutes: 15
+        run: bash .github/test_mysqld_restart_datanode_down.sh $K8S_NAMESPACE
 
       - name: Test deploy stability
         shell: bash
