@@ -138,9 +138,18 @@ storageClassName: {{ .Values.resources.requests.storage.classes.binlogFiles | qu
 Wait until every node group has a started ndbmtd, then for at most
 timeoutsMinutes.waitAllDatanodes until every active ndbmtd is started. For
 consumers that only need an operational cluster: MySQLds and SQL Jobs.
+
+The setting may be absent: "helm upgrade --reuse-values" of a release
+installed with an older chart keeps that chart's values, which lack it. It
+then defaults to 2 minutes, as in values.yaml. Checks presence rather than
+using "default", so that an explicit 0 is kept.
 */}}
 {{- define "rondb.container.waitDatanodes" -}}
-{{- include "rondb.container.waitDatanodesCommon" (dict "root" . "waitAllSeconds" (mul (int .Values.timeoutsMinutes.waitAllDatanodes) 60)) -}}
+{{- $minutes := 2 -}}
+{{- if hasKey .Values.timeoutsMinutes "waitAllDatanodes" -}}
+{{- $minutes = .Values.timeoutsMinutes.waitAllDatanodes -}}
+{{- end -}}
+{{- include "rondb.container.waitDatanodesCommon" (dict "root" . "waitAllSeconds" (mul (int $minutes) 60)) -}}
 {{- end }}
 
 {{/*
