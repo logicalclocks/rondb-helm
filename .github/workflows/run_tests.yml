@@ -97,6 +97,9 @@ jobs:
         - name: MySQL users tests
           run: ./test_scripts/mysql-users-test.sh
 
+        - name: Disk-column sizing tests
+          run: ./test_scripts/disk-columns-sizing-test.sh
+
         - name: Helm template
           if: always()
           run: |

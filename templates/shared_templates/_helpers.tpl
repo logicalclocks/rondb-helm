@@ -102,7 +102,9 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
     $.Values.resources.requests.storage.logGiB
 }}
 {{- if not $.Values.resources.requests.storage.classes.diskColumns }}
-{{- $requiredStorage := add
+{{- /* "=" not ":=": a ":=" here would declare a new variable scoped to this
+if-block and the addition would never reach the comparison below. */}}
+{{- $requiredStorage = add
   $requiredStorage
   $.Values.resources.requests.storage.diskColumnGiB
 }}
@@ -120,8 +122,39 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- $size := $claim.spec.resources.requests.storage }}
   storage: {{ $size }} # In case of an upgrade use the existing value
 {{- else }}
-  # Fallback to the value set via values.yaml 
+  # Fallback to the value set via values.yaml
   storage: {{ $.Values.resources.requests.storage.ndbmtdGiB | int }}Gi
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{ define "rondb.ndbmtd.diskColumnStorageSize" -}}
+{{- $ := .root }}
+{{- $diskColumnGiB := int $.Values.resources.requests.storage.diskColumnGiB }}
+{{- /* Filesystem overhead grows with the volume: ~1.6% inode tables plus the
+journal on ext4. 3% + 2 GiB keeps the diskColumnGiB tablespace file within
+the usable capacity (RONDB-1154). */}}
+{{- $computedGiB := add $diskColumnGiB (div (mul $diskColumnGiB 3) 100) 2 }}
+{{- if include "rondb.isInstall" $ }}
+  storage: {{ $computedGiB }}Gi
+{{- else }}
+{{- $statefulSetName := printf "node-group-%d" .nodeGroup }}
+{{- $sts := lookup "apps/v1" "StatefulSet" $.Release.Namespace $statefulSetName }}
+{{- if $sts }}
+{{- $existingSize := "" }}
+{{- range $claim := $sts.spec.volumeClaimTemplates }}
+{{- if eq $claim.metadata.name "rondb-ndbmtd-dc" }}
+{{- $existingSize = $claim.spec.resources.requests.storage }}
+{{- end }}
+{{- end }}
+{{- if $existingSize }}
+  storage: {{ $existingSize }} # In case of an upgrade use the existing value
+{{- else }}
+{{ fail (printf "StatefulSet %s exists without a rondb-ndbmtd-dc volume claim. Enabling resources.requests.storage.classes.diskColumns on an existing cluster is not supported: Kubernetes does not allow adding volumeClaimTemplates to a StatefulSet." $statefulSetName) }}
+{{- end }}
+{{- else }}
+  # Fallback to the value computed from values.yaml
+  storage: {{ $computedGiB }}Gi
 {{- end }}
 {{- end }}
 {{- end }}
