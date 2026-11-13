@@ -102,7 +102,9 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
     $.Values.resources.requests.storage.logGiB
 }}
 {{- if not $.Values.resources.requests.storage.classes.diskColumns }}
-{{- $requiredStorage := add
+{{- /* "=" not ":=": a ":=" here would declare a new variable scoped to this
+if-block and the addition would never reach the comparison below. */}}
+{{- $requiredStorage = add
   $requiredStorage
   $.Values.resources.requests.storage.diskColumnGiB
 }}

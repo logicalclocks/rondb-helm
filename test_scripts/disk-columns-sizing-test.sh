@@ -11,6 +11,10 @@
 #   falls back to the same formula.
 # Part 2 — InitialTablespaceSizeGiB: unset, zero and negative default to
 #   diskColumnGiB; values up to diskColumnGiB render; larger values fail.
+# Part 3 — shared volume: without classes.diskColumns the tablespace lands
+#   on the ndbmtd volume, so the install-time storage check counts
+#   diskColumnGiB there (and only there). The check runs on install only;
+#   upgrades of existing clusters are never blocked by it.
 
 set -euo pipefail
 
@@ -120,6 +124,37 @@ assert "explicit value above diskColumnGiB fails the render" \
     --set resources.requests.storage.classes.diskColumns=csi-rbd \
     --set resources.requests.storage.diskColumnGiB=250 \
     --set rondbConfig.InitialTablespaceSizeGiB=300"
+
+echo "Part 3 — shared-volume storage check"
+
+# With the small preset the non-disk-column components need 20 GiB
+# (the check's own failure message reports the total).
+assert "install: shared volume too small for the tablespace fails the render" \
+  "render_fails 'is not enough for the ndbmtds' \
+    --set mode=install \
+    --set resources.requests.storage.diskColumnGiB=100"
+
+render "$WORK_DIR/dedicated.yaml" --set mode=install \
+  --set resources.requests.storage.diskColumnGiB=100
+assert "install: the same values render once the tablespace has its own volume" \
+  "grep -q 'name: rondb-ndbmtd-dc' '$WORK_DIR/dedicated.yaml'"
+
+helm template t "$CHART" --values "$CHART/values/minikube/small.yaml" \
+  --set mode=install \
+  --set resources.requests.storage.diskColumnGiB=100 \
+  --set resources.requests.storage.ndbmtdGiB=120 \
+  > "$WORK_DIR/exactfit.yaml" 2> "$WORK_DIR/exactfit.yaml.err" \
+  || { echo "helm template failed:"; tail -5 "$WORK_DIR/exactfit.yaml.err"; exit 1; }
+assert "install: a shared volume exactly matching the requirement renders" \
+  "grep -q 'storage: 120Gi' '$WORK_DIR/exactfit.yaml'"
+
+helm template t "$CHART" --values "$CHART/values/minikube/small.yaml" \
+  --set mode=upgrade \
+  --set resources.requests.storage.diskColumnGiB=100 \
+  > "$WORK_DIR/sharedupgrade.yaml" 2> "$WORK_DIR/sharedupgrade.yaml.err" \
+  || { echo "helm template failed:"; tail -5 "$WORK_DIR/sharedupgrade.yaml.err"; exit 1; }
+assert "upgrade: the check never blocks an existing undersized cluster" \
+  "grep -q 'kind: StatefulSet' '$WORK_DIR/sharedupgrade.yaml'"
 
 echo
 echo "passed: $PASS  failed: $FAIL"
