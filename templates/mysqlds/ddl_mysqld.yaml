@@ -7,6 +7,8 @@ kind: StatefulSet
 metadata:
   name: {{ .Values.meta.ddlMySQLd.statefulSet.name }}
   namespace: {{ .Release.Namespace }}
+  annotations:
+    rondb.hopsworks.ai/rollout-target: {{ include "rondb.rolloutTarget" $ | quote }}
 spec:
   serviceName: {{ $.Values.meta.ddlMySQLd.headlessClusterIp.name }}
   replicas: 1

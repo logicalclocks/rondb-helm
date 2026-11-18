@@ -6,6 +6,8 @@ kind: ConfigMap
 metadata:
   name: mysqld-configs
   namespace: {{ .Release.Namespace }}
+  annotations:
+    rondb.hopsworks.ai/rollout-target: {{ include "rondb.rolloutTarget" $ | quote }}
 {{- $mysqldDict := dict
     "tls" $.Values.meta.mysqld.statefulSet.endToEndTls
 }}

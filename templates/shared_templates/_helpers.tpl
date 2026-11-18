@@ -336,6 +336,15 @@ spec:
 {{ mustRegexReplaceAll "NodeActive *=.*" (tpl ($.Files.Get "files/configs/config.ini") $) "" | sha256sum }}
 {{- end -}}
 
+# Identifies the release this render asks for. It is stamped on the StatefulSets
+# and on the mysqld-configs ConfigMap, so a client can tell that a StatefulSet
+# has received this render before trusting `kubectl rollout status`, which
+# reports an unpatched StatefulSet as complete. Keep it out of pod templates:
+# it changes with every value, and there it would restart RonDB each time.
+{{- define "rondb.rolloutTarget" -}}
+{{ dict "chartVersion" $.Chart.Version "values" $.Values | mustToJson | sha256sum }}
+{{- end -}}
+
 # MaxDMLOperationsPerTransaction cannot exceed MaxNoOfConcurrentOperations
 {{- define "rondb.validatedMaxDMLOperationsPerTransaction" -}}
 {{- $dml := (.Values.rondbConfig.MaxDMLOperationsPerTransaction | default 32768) | int -}}
