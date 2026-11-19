@@ -95,8 +95,10 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- $ := .root }}
 {{- if include "rondb.isInstall" $ }}
 {{- $memoryGiB := div $.Values.resources.limits.memory.ndbmtdsMiB 1024 | int }}
-{{- $requiredStorage := add 
-    (mul $memoryGiB 2.25)
+{{- /* mulf, not mul: sprig's integer functions truncate every argument,
+so (mul $memoryGiB 2.25) is 2 x memory and under-counts the LCP budget. */}}
+{{- $requiredStorage := add
+    (mulf $memoryGiB 2.25 | ceil | int)
     $.Values.resources.requests.storage.redoLogGiB
     (mul $.Values.resources.requests.storage.undoLogsGiB 2)
     $.Values.resources.requests.storage.logGiB
@@ -109,9 +111,13 @@ if-block and the addition would never reach the comparison below. */}}
   $.Values.resources.requests.storage.diskColumnGiB
 }}
 {{- end }}
-{{- if gt $requiredStorage (int $.Values.resources.requests.storage.ndbmtdGiB) }}
+{{- /* The filesystem takes its own share of the volume (~1.6% inode tables
+plus the journal on ext4): the same 3% + 2 GiB margin as the dedicated
+disk-column volume (RONDB-1154). */}}
+{{- $fsOverheadGiB := add (div (mul (int $.Values.resources.requests.storage.ndbmtdGiB) 3) 100) 2 }}
+{{- if gt (add $requiredStorage $fsOverheadGiB) (int $.Values.resources.requests.storage.ndbmtdGiB) }}
 # Validate that the requested storage is enough for the different components
-{{ fail (printf "The requested storage size %dGiB is not enough for the ndbmtds. Required: %dGiB" (int $.Values.resources.requests.storage.ndbmtdGiB) $requiredStorage) }}
+{{ fail (printf "The requested storage size %dGiB is not enough for the ndbmtds. Required: %dGiB plus %dGiB filesystem overhead" (int $.Values.resources.requests.storage.ndbmtdGiB) $requiredStorage $fsOverheadGiB) }}
 {{- end }}
   storage: {{ $.Values.resources.requests.storage.ndbmtdGiB | int }}Gi
 {{- else }}

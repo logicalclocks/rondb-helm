@@ -13,8 +13,9 @@
 #   diskColumnGiB; values up to diskColumnGiB render; larger values fail.
 # Part 3 — shared volume: without classes.diskColumns the tablespace lands
 #   on the ndbmtd volume, so the install-time storage check counts
-#   diskColumnGiB there (and only there). The check runs on install only;
-#   upgrades of existing clusters are never blocked by it.
+#   diskColumnGiB there (and only there), plus the same 3% + 2 GiB
+#   filesystem margin the dedicated volume gets. The check runs on install
+#   only; upgrades of existing clusters are never blocked by it.
 
 set -euo pipefail
 
@@ -127,7 +128,7 @@ assert "explicit value above diskColumnGiB fails the render" \
 
 echo "Part 3 — shared-volume storage check"
 
-# With the small preset the non-disk-column components need 20 GiB
+# With the small preset the non-disk-column components need 21 GiB
 # (the check's own failure message reports the total).
 assert "install: shared volume too small for the tablespace fails the render" \
   "render_fails 'is not enough for the ndbmtds' \
@@ -139,14 +140,25 @@ render "$WORK_DIR/dedicated.yaml" --set mode=install \
 assert "install: the same values render once the tablespace has its own volume" \
   "grep -q 'name: rondb-ndbmtd-dc' '$WORK_DIR/dedicated.yaml'"
 
+# small.yaml's 3300 MiB of memory is 3 GiB, so the LCP budget is
+# ceil(3 x 2.25) = 7 GiB (6 before the mulf fix); with redo 4, undo 2x4,
+# log 2 and the 100 GiB tablespace the components need 121 GiB. The exact
+# numbers in the message pin both review fixes: the ceil'd LCP budget and
+# the filesystem margin (3% of 121 truncates to 3, plus 2).
+assert "install: a volume matching the components but not the margin fails" \
+  "render_fails 'Required: 121GiB plus 5GiB filesystem overhead' \
+    --set mode=install \
+    --set resources.requests.storage.diskColumnGiB=100 \
+    --set resources.requests.storage.ndbmtdGiB=121"
+
 helm template t "$CHART" --values "$CHART/values/minikube/small.yaml" \
   --set mode=install \
   --set resources.requests.storage.diskColumnGiB=100 \
-  --set resources.requests.storage.ndbmtdGiB=120 \
+  --set resources.requests.storage.ndbmtdGiB=126 \
   > "$WORK_DIR/exactfit.yaml" 2> "$WORK_DIR/exactfit.yaml.err" \
   || { echo "helm template failed:"; tail -5 "$WORK_DIR/exactfit.yaml.err"; exit 1; }
-assert "install: a shared volume exactly matching the requirement renders" \
-  "grep -q 'storage: 120Gi' '$WORK_DIR/exactfit.yaml'"
+assert "install: a shared volume covering components plus the margin renders" \
+  "grep -q 'storage: 126Gi' '$WORK_DIR/exactfit.yaml'"
 
 helm template t "$CHART" --values "$CHART/values/minikube/small.yaml" \
   --set mode=upgrade \
