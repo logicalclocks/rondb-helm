@@ -95,21 +95,29 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- $ := .root }}
 {{- if include "rondb.isInstall" $ }}
 {{- $memoryGiB := div $.Values.resources.limits.memory.ndbmtdsMiB 1024 | int }}
-{{- $requiredStorage := add 
-    (mul $memoryGiB 2.25)
+{{- /* mulf, not mul: sprig's integer functions truncate every argument,
+so (mul $memoryGiB 2.25) is 2 x memory and under-counts the LCP budget. */}}
+{{- $requiredStorage := add
+    (mulf $memoryGiB 2.25 | ceil | int)
     $.Values.resources.requests.storage.redoLogGiB
     (mul $.Values.resources.requests.storage.undoLogsGiB 2)
     $.Values.resources.requests.storage.logGiB
 }}
 {{- if not $.Values.resources.requests.storage.classes.diskColumns }}
-{{- $requiredStorage := add
+{{- /* "=" not ":=": a ":=" here would declare a new variable scoped to this
+if-block and the addition would never reach the comparison below. */}}
+{{- $requiredStorage = add
   $requiredStorage
   $.Values.resources.requests.storage.diskColumnGiB
 }}
 {{- end }}
-{{- if gt $requiredStorage (int $.Values.resources.requests.storage.ndbmtdGiB) }}
+{{- /* The filesystem takes its own share of the volume (~1.6% inode tables
+plus the journal on ext4): the same 3% + 2 GiB margin as the dedicated
+disk-column volume (RONDB-1154). */}}
+{{- $fsOverheadGiB := add (div (mul (int $.Values.resources.requests.storage.ndbmtdGiB) 3) 100) 2 }}
+{{- if gt (add $requiredStorage $fsOverheadGiB) (int $.Values.resources.requests.storage.ndbmtdGiB) }}
 # Validate that the requested storage is enough for the different components
-{{ fail (printf "The requested storage size %dGiB is not enough for the ndbmtds. Required: %dGiB" (int $.Values.resources.requests.storage.ndbmtdGiB) $requiredStorage) }}
+{{ fail (printf "The requested storage size %dGiB is not enough for the ndbmtds. Required: %dGiB plus %dGiB filesystem overhead" (int $.Values.resources.requests.storage.ndbmtdGiB) $requiredStorage $fsOverheadGiB) }}
 {{- end }}
   storage: {{ $.Values.resources.requests.storage.ndbmtdGiB | int }}Gi
 {{- else }}
@@ -120,8 +128,39 @@ storageClassName: {{ .Values.resources.requests.storage.classes.diskColumns | qu
 {{- $size := $claim.spec.resources.requests.storage }}
   storage: {{ $size }} # In case of an upgrade use the existing value
 {{- else }}
-  # Fallback to the value set via values.yaml 
+  # Fallback to the value set via values.yaml
   storage: {{ $.Values.resources.requests.storage.ndbmtdGiB | int }}Gi
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{ define "rondb.ndbmtd.diskColumnStorageSize" -}}
+{{- $ := .root }}
+{{- $diskColumnGiB := int $.Values.resources.requests.storage.diskColumnGiB }}
+{{- /* Filesystem overhead grows with the volume: ~1.6% inode tables plus the
+journal on ext4. 3% + 2 GiB keeps the diskColumnGiB tablespace file within
+the usable capacity (RONDB-1154). */}}
+{{- $computedGiB := add $diskColumnGiB (div (mul $diskColumnGiB 3) 100) 2 }}
+{{- if include "rondb.isInstall" $ }}
+  storage: {{ $computedGiB }}Gi
+{{- else }}
+{{- $statefulSetName := printf "node-group-%d" .nodeGroup }}
+{{- $sts := lookup "apps/v1" "StatefulSet" $.Release.Namespace $statefulSetName }}
+{{- if $sts }}
+{{- $existingSize := "" }}
+{{- range $claim := $sts.spec.volumeClaimTemplates }}
+{{- if eq $claim.metadata.name "rondb-ndbmtd-dc" }}
+{{- $existingSize = $claim.spec.resources.requests.storage }}
+{{- end }}
+{{- end }}
+{{- if $existingSize }}
+  storage: {{ $existingSize }} # In case of an upgrade use the existing value
+{{- else }}
+{{ fail (printf "StatefulSet %s exists without a rondb-ndbmtd-dc volume claim. Enabling resources.requests.storage.classes.diskColumns on an existing cluster is not supported: Kubernetes does not allow adding volumeClaimTemplates to a StatefulSet." $statefulSetName) }}
+{{- end }}
+{{- else }}
+  # Fallback to the value computed from values.yaml
+  storage: {{ $computedGiB }}Gi
 {{- end }}
 {{- end }}
 {{- end }}
