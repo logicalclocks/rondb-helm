@@ -1452,6 +1452,15 @@
                                     "default": 2,
                                     "minimum": 1
                                 },
+                                "diskColumnVolumeGiB": {
+                                    "type": [
+                                        "integer",
+                                        "null"
+                                    ],
+                                    "description": "The size in GiB of the persistent volume that classes.diskColumns gives the disk columns, wherever the chart computes that size: in new installations, and when an upgrade cannot read the existing volume claim template from the cluster, as in argo deployments. An upgrade that can read it keeps the existing size whatever this value. When null, the computed size is diskColumnGiB plus 3% plus 2 GiB, which leaves room for the filesystem: leave it null in a new installation, where a smaller size is rejected. Charts before 26.2.25 sized the volume differently (26.2.24: diskColumnGiB plus 2 GiB) and the volume claim template of an existing StatefulSet cannot change: before such a cluster is upgraded in an argo deployment, with mode upgrade, set this to the request of the rondb-ndbmtd-dc volume claim template of its node-group StatefulSets (252 for 252Gi).",
+                                    "default": null,
+                                    "minimum": 1
+                                },
                                 "redoLogGiB": {
                                     "type": "integer",
                                     "description": "64GiB is recommended for optimal performance",
