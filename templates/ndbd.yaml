@@ -8,6 +8,8 @@ metadata:
   # This will have the form of "node-group-0-0", "node-group-0-1", etc.
   name: node-group-{{ $nodeGroup }}
   namespace: {{ $.Release.Namespace }}
+  annotations:
+    rondb.hopsworks.ai/rollout-target: {{ include "rondb.rolloutTarget" $ | quote }}
 spec:
   serviceName: ndbmtd-ng-{{ $nodeGroup }}
   # When using a startup probe, one ndbmtd is only started after
