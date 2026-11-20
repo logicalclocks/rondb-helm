@@ -180,10 +180,16 @@ rendered "apiKey.preloadThreads keeps CacheRefreshIntervalMS" '180000' "Security
   --set rdrs.security.apiKey.preloadThreads=5
 rendered "featureStore.metadataCachePreloadThreads" '{"FeatureStoreMetadataCache":{"PreloadThreads":6}}' "FeatureStore" \
   --set rdrs.featureStore.metadataCachePreloadThreads=6
-rendered "rateLimit.enable alone" '{"Enable":true}' "RateLimit" --set rdrs.rateLimit.enable=true
+# rateLimit.enable requires rondbConfig.MaxNoOfUserObjects (rate-limit-test.sh).
+rendered "rateLimit.enable alone" '{"Enable":true}' "RateLimit" --set rdrs.rateLimit.enable=true \
+  --set rondbConfig.MaxNoOfUserObjects=100
 rendered "rateLimit.fullApiKey=false alone is rendered" '{"FullAPIKey":false}' "RateLimit" --set rdrs.rateLimit.fullApiKey=false
-rendered "both RateLimit keys" '{"Enable":true,"FullAPIKey":true}' "RateLimit" \
-  --set rdrs.rateLimit.enable=true --set rdrs.rateLimit.fullApiKey=true
+rendered "rateLimit.identity=username alone" '{"Identity":"username"}' "RateLimit" --set rdrs.rateLimit.identity=username
+rendered "identity username with fullApiKey=false" '{"Identity":"username","FullAPIKey":false}' "RateLimit" \
+  --set rdrs.rateLimit.identity=username --set rdrs.rateLimit.fullApiKey=false
+rendered "all RateLimit keys, in rdrs2 key order" '{"Enable":true,"Identity":"apikey","FullAPIKey":true}' "RateLimit" \
+  --set rdrs.rateLimit.enable=true --set rdrs.rateLimit.identity=apikey --set rdrs.rateLimit.fullApiKey=true \
+  --set rondbConfig.MaxNoOfUserObjects=100
 rendered "log.level=debug" '"debug"' "Log Level" --set rdrs.log.level=debug
 rendered "log.level=null renders no Log section" absent "Log" --set rdrs.log.level=null
 rendered "log.level=warning (accepted alias)" '"warning"' "Log Level" --set rdrs.log.level=warning
@@ -207,6 +213,9 @@ rejects "a string for a bool" --set rdrs.rest.useCompression=yes
 rejects "a string for disableTransparentHugePages" --set rdrs.internal.disableTransparentHugePages=no
 rejects "a bool for an integer" --set rdrs.rest.numThreads=true
 rejects "an integer for a bool" --set rdrs.rateLimit.enable=1
+rejects "an identity other than apikey or username" --set rdrs.rateLimit.identity=user
+rejects "identity username with fullApiKey true (rdrs2 refuses it)" \
+  --set rdrs.rateLimit.identity=username --set rdrs.rateLimit.fullApiKey=true
 rejects "numThreads 1 (rdrs2 needs at least 2)" --set rdrs.rest.numThreads=1
 rejects "numThreads 992" --set rdrs.rest.numThreads=992
 rejects "a negative idleConnectionTimeoutS" --set rdrs.rest.idleConnectionTimeoutS=-1
