@@ -103,6 +103,9 @@ jobs:
         - name: Disk-column sizing tests
           run: ./test_scripts/disk-columns-sizing-test.sh
 
+        - name: Rate limit tests
+          run: ./test_scripts/rate-limit-test.sh
+
         - name: Helm template
           if: always()
           run: |
