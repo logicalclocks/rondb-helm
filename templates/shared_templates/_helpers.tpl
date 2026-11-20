@@ -414,6 +414,31 @@ spec:
 {{- end -}}
 {{- end -}}
 
+# MaxNoOfUserObjects as an integer, empty when unset. A values file passes
+# numbers as floats, and a float of a million or more prints as 1e+06.
+{{- define "rondb.maxNoOfUserObjects" -}}
+{{- if and (hasKey .Values.rondbConfig "MaxNoOfUserObjects") (not (eq .Values.rondbConfig.MaxNoOfUserObjects nil)) -}}
+{{- .Values.rondbConfig.MaxNoOfUserObjects | int -}}
+{{- end -}}
+{{- end -}}
+
+# MaxNoOfSchemaObjects as rendered: the explicit value, else, with a
+# MaxNoOfUserObjects allowance, the smallest value the data nodes start with:
+# tables + ordered indexes + unique hash indexes + the allowance, at least
+# RonDB's default of 20320. The chart sets neither index count, so they are
+# RonDB's automatic-memory defaults (Configuration.cpp): 128 ordered indexes
+# (its 10000 applies to an explicit 0 only) and 2300 unique hash indexes; an
+# unset MaxNoOfTables is 8000.
+{{- define "rondb.maxNoOfSchemaObjects" -}}
+{{- $config := .Values.rondbConfig -}}
+{{- $userObjects := include "rondb.maxNoOfUserObjects" . -}}
+{{- if $config.MaxNoOfSchemaObjects -}}
+{{- $config.MaxNoOfSchemaObjects -}}
+{{- else if $userObjects -}}
+{{- max 20320 (add ($config.MaxNoOfTables | default 8000) 128 2300 $userObjects) -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "rondb.isAWS" -}}
 {{- if and .Values.global .Values.global._hopsworks (eq (upper .Values.global._hopsworks.cloudProvider) "AWS") -}}
 true
