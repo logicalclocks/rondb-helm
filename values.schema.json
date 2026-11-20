@@ -1126,7 +1126,7 @@
                                     },
                                     "rotationId": {
                                         "type": "string",
-                                        "description": "Opaque rotation marker. Bump this (e.g. to a date or counter) whenever the Secret's password is rotated. It participates in the user-setup Job's name, forcing a re-run that converges the MySQL password to the Secret (ALTER USER). Required for rotation under Argo CD / template-only rendering, where the release revision is constant; plain `helm upgrade` re-runs the Job on every upgrade regardless.",
+                                        "description": "Opaque rotation marker. Bump this (e.g. to a date or counter) when rotating the Secret's password under Argo CD or another template-only renderer. Changing the marker gives the users Job a new name so it applies the password. On ordinary Helm upgrades the release revision already gives the Job a new name. On in-place restores the mysqld setup Job applies the password.",
                                         "minLength": 1
                                     }
                                 },
