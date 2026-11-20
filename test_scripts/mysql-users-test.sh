@@ -12,10 +12,10 @@
 #   generated Secret; existingSecret users don't, and their env vars point
 #   at the customer's Secret instead. ALTER USER (password convergence)
 #   renders only for existingSecret users.
-# Part 2 — upgrade Job: setup-mysql-users renders only on upgrades with
-#   users declared, and its name changes with the user list.
-# Part 3 — restore upgrade: the users Job waits on the native restore Job and
-#   runs under the ServiceAccount whose Role may read that Job.
+# Part 2 — ordinary upgrades use a dedicated Job when users are declared.
+#   Its name changes with the user list.
+# Part 3 — on in-place restore, the setup Job waits for the native restore
+#   and applies the configured users itself.
 # Part 4 — validation: colliding/duplicate usernames and self-referencing
 #   existingSecret fail the render.
 
@@ -35,7 +35,7 @@ count() { grep -c "$1" "$2" || true; }
 # Render from a copy without venv/.git: helm loads every file in the chart
 # directory, and a local venv makes each render take minutes.
 CHART="$WORK_DIR/chart"
-rsync -a --exclude venv --exclude .git --exclude .claude "$REPO_ROOT/" "$CHART/"
+rsync -a --exclude venv --exclude .git --exclude .claude --exclude .agents "$REPO_ROOT/" "$CHART/"
 
 GENERATED_USER='{"username":"importantuser","host":"%","privileges":[{"database":"*","table":"*","privileges":["ALL"],"withGrantOption":true}]}'
 EXTERNAL_USER='{"username":"reportinguser","host":"%","existingSecret":{"name":"my-app-passwords","key":"reporting-password"},"privileges":[{"database":"helmtest","table":"*","privileges":["SELECT"]}]}'
@@ -57,14 +57,13 @@ render_fails() { # <users-json>
   grep -q "mysql.users:" <<< "$err"
 }
 
-# Extract the generated passwords Secret manifest from a render
-secret_manifest() { # <render-file> <output-file>
-  awk '/^# Source: rondb\/templates\/mysqlds\/secrets.yaml/,/^---/' "$1" > "$2"
+mysql_manifest() { # <render-file> <template-filename>
+  awk -v source="# Source: rondb/templates/mysqlds/$2" '$0 == source, /^---$/' "$1"
 }
 
 echo "=== install: generated + existingSecret users ==="
 render "$WORK_DIR/install.yaml" --set-json "mysql.users=[$GENERATED_USER,$EXTERNAL_USER]"
-secret_manifest "$WORK_DIR/install.yaml" "$WORK_DIR/secret.yaml"
+mysql_manifest "$WORK_DIR/install.yaml" secrets.yaml > "$WORK_DIR/secret.yaml"
 assert "generated Secret has a key for the generated user" '[[ $(count "^  importantuser:" $WORK_DIR/secret.yaml) == 1 ]]'
 assert "generated Secret has no key for the existingSecret user" '[[ $(count "reportinguser" $WORK_DIR/secret.yaml) == 0 ]]'
 assert "generated user env reads from the generated Secret" 'grep -A4 "name: MYSQL_IMPORTANTUSER_PASSWORD" $WORK_DIR/install.yaml | grep -q "key: importantuser"'
@@ -84,11 +83,13 @@ echo "=== upgrade: users Job renders, setup Job does not ==="
 render "$WORK_DIR/upgrade.yaml" --set mode=upgrade --set-json "mysql.users=[$GENERATED_USER,$EXTERNAL_USER]"
 assert "users Job renders on upgrade" '[[ $(count "name: setup-mysql-users-" $WORK_DIR/upgrade.yaml) == 1 ]]'
 assert "install setup Job absent on upgrade" '[[ $(count "name: setup-mysqld-dont-remove" $WORK_DIR/upgrade.yaml) == 0 ]]'
-awk "/name: setup-mysql-users-/,0" "$WORK_DIR/upgrade.yaml" > "$WORK_DIR/usersjob.yaml"
+mysql_manifest "$WORK_DIR/upgrade.yaml" setup_users_job.yaml > "$WORK_DIR/usersjob.yaml"
 assert "users Job reads root password from generated Secret" 'grep -A4 "name: MYSQL_ROOT_PASSWORD" $WORK_DIR/usersjob.yaml | grep -q "key: root"'
 assert "users Job reads existingSecret user from customer Secret" 'grep -A4 "name: MYSQL_REPORTINGUSER_PASSWORD" $WORK_DIR/usersjob.yaml | grep -q "name: my-app-passwords"'
 assert "users Job creates users" '[[ $(count "CREATE USER IF NOT EXISTS" $WORK_DIR/usersjob.yaml) -ge 2 ]]'
 assert "users Job SQL-escapes passwords" '[[ $(count "MY_PW//" $WORK_DIR/usersjob.yaml) -ge 4 ]]'
+assert "users Job runs as wait-init-jobs-sa on upgrade" 'grep -q "serviceAccountName: wait-init-jobs-sa[[:space:]]*$" "$WORK_DIR/usersjob.yaml"'
+assert "users Job has no restore wait on upgrade" '[[ $(count "name: wait-restore-backup" "$WORK_DIR/usersjob.yaml") == 0 ]]'
 
 echo "=== upgrade: Job name changes with the user list (Argo immutable Jobs) ==="
 render "$WORK_DIR/upgrade2.yaml" --set mode=upgrade --set-json "mysql.users=[$GENERATED_USER]"
@@ -109,11 +110,7 @@ echo "=== upgrade: no users -> no users Job ==="
 render "$WORK_DIR/upgrade-nousers.yaml" --set mode=upgrade
 assert "no users Job without mysql.users" '[[ $(count "name: setup-mysql-users" $WORK_DIR/upgrade-nousers.yaml) == 0 ]]'
 
-echo "=== restore upgrade: users Job waits on the restore Job under the restore-watcher SA ==="
-# With a backup ID set, the wait-restore-backup init container does `kubectl wait`
-# on the restore Job. Only restore-backup-watcher-sa is bound to a Role that may
-# read it; wait-init-jobs-sa (the Job's SA without a restore) may read the mysqld
-# setup Job alone, and a Job left on it crash-loops on Forbidden forever.
+echo "=== in-place restore: the setup Job applies mysql.users ==="
 RESTORE_FLAGS=(--set-string restoreFromBackup.backupId=123
   --set restoreFromBackup.inPlace=true --set restoreFromBackup.forceDataClear=true
   --set restoreFromBackup.s3.bucketName=b --set restoreFromBackup.s3.endpoint=http://minio:9000
@@ -121,18 +118,16 @@ RESTORE_FLAGS=(--set-string restoreFromBackup.backupId=123
   --set restoreFromBackup.s3.keyCredentialsSecret.name=c --set restoreFromBackup.s3.keyCredentialsSecret.key=k
   --set restoreFromBackup.s3.secretCredentialsSecret.name=c --set restoreFromBackup.s3.secretCredentialsSecret.key=s)
 render "$WORK_DIR/restore.yaml" --set mode=upgrade --set-json "mysql.users=[$GENERATED_USER]" "${RESTORE_FLAGS[@]}"
-users_job_manifest() { # <render-file> <output-file>
-  awk '/^# Source: rondb\/templates\/mysqlds\/setup_users_job.yaml/,/^---/' "$1" > "$2"
-}
-users_job_manifest "$WORK_DIR/restore.yaml" "$WORK_DIR/restorejob.yaml"
-users_job_manifest "$WORK_DIR/upgrade.yaml" "$WORK_DIR/plainjob.yaml"
-assert "users Job renders on a restore upgrade" '[[ $(count "name: setup-mysql-users-" $WORK_DIR/restorejob.yaml) == 1 ]]'
-assert "users Job waits for the restore Job" '[[ $(count "name: wait-restore-backup" $WORK_DIR/restorejob.yaml) == 1 ]]'
-assert "users Job waits on the restore Job by name" 'grep -q "job/restore-native-backup-123" $WORK_DIR/restorejob.yaml'
-assert "users Job runs as the restore-watcher SA" '[[ $(count "serviceAccountName: restore-backup-watcher-sa" $WORK_DIR/restorejob.yaml) == 1 ]]'
+mysql_manifest "$WORK_DIR/restore.yaml" setup_job.yaml > "$WORK_DIR/restore-setup.yaml"
+mysql_manifest "$WORK_DIR/restore.yaml" setup_users_job.yaml > "$WORK_DIR/restore-users.yaml"
+assert "no users Job on in-place restore" '[[ $(count "^kind: Job$" "$WORK_DIR/restore-users.yaml") == 0 ]]'
+assert "one setup Job on in-place restore" '[[ $(count "^kind: Job$" "$WORK_DIR/restore-setup.yaml") == 1 ]]'
+assert "setup Job name includes the backup ID" 'grep -q "^  name: setup-mysqld-dont-remove-123$" "$WORK_DIR/restore-setup.yaml"'
+assert "setup Job creates the configured user" 'grep -q "CREATE USER IF NOT EXISTS .importantuser" "$WORK_DIR/restore-setup.yaml"'
+assert "setup Job waits for the native restore" 'grep -q "name: wait-restore-backup$" "$WORK_DIR/restore-setup.yaml"'
+assert "setup Job waits on the restore Job by name" 'grep -q "job/restore-native-backup-123" "$WORK_DIR/restore-setup.yaml"'
+assert "setup Job runs as the restore-watcher SA" 'grep -q "serviceAccountName: restore-backup-watcher-sa[[:space:]]*$" "$WORK_DIR/restore-setup.yaml"'
 assert "restore-watcher Role may read the restore Job" 'awk "/name: restore-backup-watcher$/,/^---/" $WORK_DIR/restore.yaml | grep -q "resourceNames: \[restore-native-backup-123\]"'
-assert "users Job keeps wait-init-jobs-sa without a restore" '[[ $(count "serviceAccountName: wait-init-jobs-sa" $WORK_DIR/plainjob.yaml) == 1 ]]'
-assert "users Job has no restore wait without a restore" '[[ $(count "name: wait-restore-backup" $WORK_DIR/plainjob.yaml) == 0 ]]'
 
 echo "=== validation failures ==="
 assert "username 'root' is rejected" 'render_fails "[{\"username\":\"root\",\"host\":\"%\",\"privileges\":[{\"database\":\"*\",\"table\":\"*\",\"privileges\":[\"ALL\"]}]}]"'
