@@ -141,8 +141,25 @@ disk-column volume (RONDB-1154). */}}
 journal on ext4. 3% + 2 GiB keeps the diskColumnGiB tablespace file within
 the usable capacity (RONDB-1154). */}}
 {{- $computedGiB := add $diskColumnGiB (div (mul $diskColumnGiB 3) 100) 2 }}
+{{- /* A render without cluster access cannot read the size a cluster was
+installed with, and charts before 26.2.25 sized this volume differently
+(26.2.24: diskColumnGiB + 2 GiB). diskColumnVolumeGiB states the size of
+the existing claim there, where the formula would otherwise change it. */}}
+{{- $claimGiB := $computedGiB }}
+{{- $volumeGiB := $.Values.resources.requests.storage.diskColumnVolumeGiB }}
+{{- if $volumeGiB }}
+{{- $claimGiB = int $volumeGiB }}
+{{- end }}
 {{- if include "rondb.isInstall" $ }}
-  storage: {{ $computedGiB }}Gi
+{{- /* An install creates the volume, so it never gets less than the formula,
+which keeps diskColumnGiB usable next to the filesystem's own share; a size
+copied from an older cluster is below it. This also holds for an existing
+cluster that is still rendered as an install; its size is taken as stated
+once it is rendered as an upgrade. */}}
+{{- if lt $claimGiB $computedGiB }}
+{{ fail (printf "resources.requests.storage.diskColumnVolumeGiB (%d) is smaller than the %d GiB a new disk column volume needs (diskColumnGiB + 3%% + 2). Leave it unset in a new installation; render an existing cluster as an upgrade (mode: upgrade)." $claimGiB $computedGiB) }}
+{{- end }}
+  storage: {{ $claimGiB }}Gi
 {{- else }}
 {{- $statefulSetName := printf "node-group-%d" .nodeGroup }}
 {{- $sts := lookup "apps/v1" "StatefulSet" $.Release.Namespace $statefulSetName }}
@@ -159,8 +176,8 @@ the usable capacity (RONDB-1154). */}}
 {{ fail (printf "StatefulSet %s exists without a rondb-ndbmtd-dc volume claim. Enabling resources.requests.storage.classes.diskColumns on an existing cluster is not supported: Kubernetes does not allow adding volumeClaimTemplates to a StatefulSet." $statefulSetName) }}
 {{- end }}
 {{- else }}
-  # Fallback to the value computed from values.yaml
-  storage: {{ $computedGiB }}Gi
+  # Fallback to the value from values.yaml
+  storage: {{ $claimGiB }}Gi
 {{- end }}
 {{- end }}
 {{- end }}

@@ -391,6 +391,7 @@ resources:
         diskColumns: null
         mgmd: null
       diskColumnGiB: 2
+      diskColumnVolumeGiB: null
       logGiB: 2
       mgmdGiB: 1
       ndbmtdGiB: 30
