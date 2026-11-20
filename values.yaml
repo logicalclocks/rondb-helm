@@ -241,6 +241,7 @@ mode: ''
 mysql:
   clusterUser: helm
   config:
+    disabledStorageEngines: ''
     maxConnectErrors: '9223372036854775807'
     maxConnections: 512
     maxPreparedStmtCount: 65530
