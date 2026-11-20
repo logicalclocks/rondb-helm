@@ -8,7 +8,8 @@
 # Part 1 — dedicated volume: with classes.diskColumns set, the volume is
 #   sized diskColumnGiB + 3% + 2 GiB so the initial tablespace file fits
 #   after filesystem overhead. The non-install render without a cluster
-#   falls back to the same formula.
+#   falls back to the same formula, unless diskColumnVolumeGiB states the
+#   size of the existing claim: charts before 26.2.25 sized it differently.
 # Part 2 — InitialTablespaceSizeGiB: unset, zero and negative default to
 #   diskColumnGiB; values up to diskColumnGiB render; larger values fail.
 # Part 3 — shared volume: without classes.diskColumns the tablespace lands
@@ -29,6 +30,23 @@ assert() { # <description> <command>
   else FAIL=$((FAIL + 1)); echo "  FAIL: $1"; echo "    check: $2"; fi
 }
 count() { grep -c "$1" "$2" || true; }
+# Requests of the rondb-ndbmtd-dc claim templates in a render, one per node
+# group. A claim template reads "name: rondb-ndbmtd-dc", a volume mount
+# "- name: rondb-ndbmtd-dc"; only a "storage:" one level under "requests:"
+# counts, with nothing but comments in between.
+dc_claim_sizes() {
+  awk '
+    /^ +name: rondb-ndbmtd-dc$/ { claim = 1; requests = 0; next }
+    claim && /^ +requests: *$/ { match($0, /^ +/); requests = RLENGTH; next }
+    claim && requests && /^ +#/ { next }
+    claim && requests && /^ +storage: / {
+      match($0, /^ +/)
+      if (RLENGTH == requests + 2) print $2
+      claim = 0
+    }
+    { requests = 0 }
+  ' "$1" | paste -sd' ' -
+}
 
 # Render from a copy without venv/.git: helm loads every file in the chart
 # directory, and a local venv makes each render take minutes.
@@ -92,6 +110,73 @@ render "$WORK_DIR/upgrade.yaml" --set mode=upgrade \
   --set resources.requests.storage.diskColumnGiB=250
 assert "upgrade without a cluster: falls back to the formula" \
   "grep -q 'storage: 259Gi' '$WORK_DIR/upgrade.yaml'"
+
+# A cluster installed before 26.2.25 has a smaller volume here (26.2.24:
+# 252Gi), which a render without a cluster cannot read, and Kubernetes rejects
+# any other size. diskColumnVolumeGiB states the size of the existing claim.
+render "$WORK_DIR/pinned-upgrade.yaml" --set mode=upgrade \
+  --set resources.requests.storage.diskColumnGiB=250 \
+  --set resources.requests.storage.diskColumnVolumeGiB=252
+assert "upgrade without a cluster: diskColumnVolumeGiB is the dc claim size" \
+  "[ \"\$(dc_claim_sizes '$WORK_DIR/pinned-upgrade.yaml')\" = 252Gi ]"
+assert "upgrade without a cluster: diskColumnVolumeGiB leaves the tablespace file at diskColumnGiB" \
+  "grep -Eq 'ts_1_data_file_0\.dat:250G$' '$WORK_DIR/pinned-upgrade.yaml'"
+
+render "$WORK_DIR/pinned-groups.yaml" --set mode=upgrade \
+  --set resources.requests.storage.diskColumnGiB=250 \
+  --set resources.requests.storage.diskColumnVolumeGiB=252 \
+  --set clusterSize.numNodeGroups=2 \
+  --set clusterSize.minNumRdrs=0 --set clusterSize.maxNumRdrs=0
+assert "upgrade without a cluster: diskColumnVolumeGiB is the dc claim size of every node group" \
+  "[ \"\$(dc_claim_sizes '$WORK_DIR/pinned-groups.yaml')\" = '252Gi 252Gi' ]"
+
+# Setting it must not restart the data nodes: apart from the claim size and
+# the rollout target on the StatefulSet itself (four spaces deep; in a pod
+# template it would restart the pods), the node groups render the same.
+render "$WORK_DIR/ndbd-formula.yaml" --set mode=upgrade \
+  --set resources.requests.storage.diskColumnGiB=250 \
+  --show-only templates/ndbd.yaml
+render "$WORK_DIR/ndbd-pinned.yaml" --set mode=upgrade \
+  --set resources.requests.storage.diskColumnGiB=250 \
+  --set resources.requests.storage.diskColumnVolumeGiB=252 \
+  --show-only templates/ndbd.yaml
+without_size_and_target() {
+  grep -v -e '^    rondb\.hopsworks\.ai/rollout-target: ' -e '^            storage: 25[29]Gi$' "$1"
+}
+assert "upgrade without a cluster: diskColumnVolumeGiB changes the node group StatefulSets" \
+  "! diff -q '$WORK_DIR/ndbd-formula.yaml' '$WORK_DIR/ndbd-pinned.yaml' > /dev/null"
+assert "upgrade without a cluster: only in the claim size and the rollout target (no data node restart)" \
+  "grep -q configIniHash '$WORK_DIR/ndbd-pinned.yaml' && diff <(without_size_and_target '$WORK_DIR/ndbd-formula.yaml') <(without_size_and_target '$WORK_DIR/ndbd-pinned.yaml') > /dev/null"
+
+# An existing claim has whatever size it was installed with, so a render that
+# is not an install takes any size.
+render "$WORK_DIR/pinned-small-upgrade.yaml" --set mode=upgrade \
+  --set resources.requests.storage.diskColumnGiB=250 \
+  --set resources.requests.storage.diskColumnVolumeGiB=249
+assert "upgrade without a cluster: a size below diskColumnGiB is taken as the existing claim" \
+  "[ \"\$(dc_claim_sizes '$WORK_DIR/pinned-small-upgrade.yaml')\" = 249Gi ]"
+
+# An install creates the volume, so there the value can only enlarge it: a
+# size copied from an older cluster (252) would not hold the 250 GiB file.
+# --set-json passes the number as a values file does (a float), --set as an integer.
+render "$WORK_DIR/pinned-install.yaml" --set mode=install \
+  --set resources.requests.storage.diskColumnGiB=250 \
+  --set-json resources.requests.storage.diskColumnVolumeGiB=300
+assert "install: a diskColumnVolumeGiB above the formula is the dc claim size" \
+  "[ \"\$(dc_claim_sizes '$WORK_DIR/pinned-install.yaml')\" = 300Gi ]"
+
+render "$WORK_DIR/pinned-equal.yaml" --set mode=install \
+  --set resources.requests.storage.diskColumnGiB=250 \
+  --set resources.requests.storage.diskColumnVolumeGiB=259
+assert "install: a diskColumnVolumeGiB equal to the formula renders" \
+  "[ \"\$(dc_claim_sizes '$WORK_DIR/pinned-equal.yaml')\" = 259Gi ]"
+
+assert "install: a diskColumnVolumeGiB below the formula fails the render" \
+  "render_fails 'diskColumnVolumeGiB (252) is smaller than the 259 GiB a new disk column volume needs' \
+    --set mode=install \
+    --set resources.requests.storage.classes.diskColumns=csi-rbd \
+    --set resources.requests.storage.diskColumnGiB=250 \
+    --set resources.requests.storage.diskColumnVolumeGiB=252"
 
 echo "Part 2 — InitialTablespaceSizeGiB validation"
 
