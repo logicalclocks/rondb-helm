@@ -196,6 +196,8 @@ deleteCluster $CLUSTER_A_NAME
 # [Test: create backup] #
 #########################
 
+# Disabling replica appliers on B's first upgrade also restarts its MySQL pod.
+kubectl rollout status statefulset/mysqlds -n "$CLUSTER_B_NAME" --timeout=5m
 BACKUP_READER_PASSWORD=$(openssl rand -hex 24)
 rootMysql "$CLUSTER_B_NAME" <<SQL
 CREATE USER 'backup_reader'@'%' IDENTIFIED BY '$BACKUP_READER_PASSWORD';
