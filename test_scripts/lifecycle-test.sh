@@ -72,6 +72,26 @@ getBackupId() {
     echo $BACKUP_ID
 }
 
+rootMysql() {
+    kubectl exec -i -n "$1" statefulset/mysqlds -c mysqld -- sh -c \
+        'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql --user=root --batch --skip-column-names'
+}
+
+verifyReader() {
+    local namespace=$1 username=$2 password=$3 row
+    row=$(kubectl exec -i -n "$namespace" statefulset/mysqlds -c mysqld -- sh -c '
+        IFS= read -r MYSQL_PWD || exit 1
+        export MYSQL_PWD
+        exec mysql --protocol=TCP --host=127.0.0.1 --user="$1" --batch --skip-column-names \
+            -e "SELECT id FROM helmtest.t7 WHERE id = 1"
+    ' sh "$username" <<< "$password")
+    if [[ "$row" != 1 ]]; then
+        echo "Expected $username to read row 1 in $namespace, got '$row'" >&2
+        return 1
+    fi
+    echo "$username read row 1 in $namespace"
+}
+
 # Mostly to check that the replica applier doesn't trip up (the heartbeat will cause further replication)
 testStability() {
     timeout 300 env K8S_NAMESPACE=$1 SLEEP_SECONDS=10 MIN_STABLE_MINUTES=1 bash -c .github/test_deploy_stability.sh || {
@@ -175,6 +195,14 @@ deleteCluster $CLUSTER_A_NAME
 #########################
 # [Test: create backup] #
 #########################
+
+BACKUP_READER_PASSWORD=$(openssl rand -hex 24)
+rootMysql "$CLUSTER_B_NAME" <<SQL
+CREATE USER 'backup_reader'@'%' IDENTIFIED BY '$BACKUP_READER_PASSWORD';
+GRANT NDB_STORED_USER ON *.* TO 'backup_reader'@'%';
+GRANT SELECT ON helmtest.t7 TO 'backup_reader'@'%';
+SQL
+verifyReader "$CLUSTER_B_NAME" backup_reader "$BACKUP_READER_PASSWORD"
 
 kubectl delete job -n $CLUSTER_B_NAME manual-backup || true
 kubectl create job -n $CLUSTER_B_NAME --from=cronjob/create-rondb-backup manual-backup
@@ -306,6 +334,21 @@ echo "Deleting restore jobs to allow in-place restore..."
 kubectl delete job "setup-mysqld-dont-remove-$BACKUP_B_ID" -n $CLUSTER_D_NAME --ignore-not-found=true
 kubectl delete job "restore-native-backup-$BACKUP_B_ID" -n $CLUSTER_D_NAME --ignore-not-found=true
 
+# D already restored B's backup once. Remove the account so only this restore can bring it back.
+backup_reader_count=$(rootMysql "$CLUSTER_D_NAME" <<'SQL'
+DROP USER 'backup_reader'@'%';
+SELECT COUNT(*) FROM mysql.user WHERE User = 'backup_reader' AND Host = '%';
+SQL
+)
+if [[ "$backup_reader_count" != 0 ]]; then
+    echo "backup_reader still exists before the in-place restore" >&2
+    exit 1
+fi
+
+CONFIGURED_READER_PASSWORD=$(openssl rand -hex 24)
+printf '%s' "$CONFIGURED_READER_PASSWORD" | kubectl create secret generic lifecycle-reader \
+    --namespace="$CLUSTER_D_NAME" --from-file=password=/dev/stdin
+
 # Run in-place restore
 helm upgrade -i $CLUSTER_D_NAME \
     --namespace=$CLUSTER_D_NAME . \
@@ -313,10 +356,17 @@ helm upgrade -i $CLUSTER_D_NAME \
     --values $restore_values_file \
     --set-string "restoreFromBackup.backupId=$BACKUP_B_ID" \
     --set "restoreFromBackup.inPlace=true" \
-    --set "restoreFromBackup.forceDataClear=true"
+    --set "restoreFromBackup.forceDataClear=true" \
+    --set-json 'mysql.users=[{
+        "username": "configured_reader", "host": "%",
+        "existingSecret": {"name": "lifecycle-reader", "key": "password"},
+        "privileges": [{"database": "helmtest", "table": "*", "privileges": ["SELECT"]}]
+    }]'
 
 testStability $CLUSTER_D_NAME
 helm test -n $CLUSTER_D_NAME $CLUSTER_D_NAME --logs --filter name=verify-data
+verifyReader "$CLUSTER_D_NAME" backup_reader "$BACKUP_READER_PASSWORD"
+verifyReader "$CLUSTER_D_NAME" configured_reader "$CONFIGURED_READER_PASSWORD"
 
 # Verify post-backup data is GONE
 MYSQLD_POD=$(kubectl get pods -n $CLUSTER_D_NAME -l rondbService=mysqld -o jsonpath='{.items[0].metadata.name}')
