@@ -12,7 +12,7 @@
 #   those say, together with a MaxNoOfSchemaObjects that covers it:
 #   max(20320, MaxNoOfTables (8000 when unset) + 128 ordered indexes + 2300
 #   unique hash indexes + MaxNoOfUserObjects), unless MaxNoOfSchemaObjects is
-#   set.
+#   set; an explicit MaxNoOfSchemaObjects below that sum fails the render.
 # Part 3, mysql.config.ndbUserRateLimits: needs rondbConfig.ActivateRateLimits
 #   and lands in every my.cnf.
 # Part 4, rondbConfig.RateLimitBudgetPercent: rendered only when set, 1 to 100.
@@ -96,6 +96,13 @@ render --set rondbConfig.ActivateRateLimits=1 --set rondbConfig.MaxNoOfUserObjec
   --set rondbConfig.MaxNoOfSchemaObjects=40000
 assert "an explicit MaxNoOfSchemaObjects is rendered as set" \
   '[ "$(ini MaxNoOfSchemaObjects)" = 40000 ] && [ "$(ini MaxNoOfUserObjects)" = 20000 ]'
+
+# The data nodes refuse to start below the sum (Configuration.cpp, "increase
+# MaxNoOfSchemaObjects"), so the render fails first, naming both numbers.
+assert "an explicit MaxNoOfSchemaObjects below the sum fails the render" \
+  'render_fails "rondbConfig.MaxNoOfSchemaObjects (25000) is below the 30428" --set rondbConfig.ActivateRateLimits=1 --set rondbConfig.MaxNoOfUserObjects=20000 --set rondbConfig.MaxNoOfSchemaObjects=25000'
+render --set rondbConfig.MaxNoOfUserObjects=20000 --set rondbConfig.MaxNoOfSchemaObjects=30428
+assert "an explicit MaxNoOfSchemaObjects equal to the sum renders" '[ "$(ini MaxNoOfSchemaObjects)" = 30428 ]'
 
 render --set rondbConfig.MaxNoOfSchemaObjects=25000
 assert "an explicit MaxNoOfSchemaObjects without the allowance is rendered alone" \

@@ -428,14 +428,23 @@ spec:
 # RonDB's default of 20320. The chart sets neither index count, so they are
 # RonDB's automatic-memory defaults (Configuration.cpp): 128 ordered indexes
 # (its 10000 applies to an explicit 0 only) and 2300 unique hash indexes; an
-# unset MaxNoOfTables is 8000.
+# unset MaxNoOfTables is 8000. An explicit value below that sum fails the
+# render, since the data nodes refuse to start with it (Configuration.cpp,
+# "increase MaxNoOfSchemaObjects").
 {{- define "rondb.maxNoOfSchemaObjects" -}}
 {{- $config := .Values.rondbConfig -}}
 {{- $userObjects := include "rondb.maxNoOfUserObjects" . -}}
+{{- $needed := 0 -}}
+{{- if $userObjects -}}
+{{- $needed = add ($config.MaxNoOfTables | default 8000) 128 2300 $userObjects -}}
+{{- end -}}
 {{- if $config.MaxNoOfSchemaObjects -}}
+{{- if and $userObjects (lt ($config.MaxNoOfSchemaObjects | int) $needed) -}}
+{{- fail (printf "rondbConfig.MaxNoOfSchemaObjects (%d) is below the %d schema objects the data nodes need: MaxNoOfTables (%d) + 128 ordered indexes + 2300 unique hash indexes + MaxNoOfUserObjects (%d). They refuse to start with it. Raise it or leave it unset, and the chart renders the sum." ($config.MaxNoOfSchemaObjects | int) $needed ($config.MaxNoOfTables | default 8000 | int) ($userObjects | int)) -}}
+{{- end -}}
 {{- $config.MaxNoOfSchemaObjects -}}
 {{- else if $userObjects -}}
-{{- max 20320 (add ($config.MaxNoOfTables | default 8000) 128 2300 $userObjects) -}}
+{{- max 20320 $needed -}}
 {{- end -}}
 {{- end -}}
 
