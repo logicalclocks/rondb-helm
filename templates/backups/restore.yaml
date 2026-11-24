@@ -84,6 +84,39 @@ spec:
           echo && echo "[K8s Entryoint MySQLd] MySQLd is up and running" && echo
 
           mysql -uroot --protocol=socket --socket="$SOCKET" -e "SHOW DATABASES;"
+{{- if .Values.restoreFromBackup.tablespaces }}
+
+          # The metadata restore below skips disk objects (--no-restore-disk-objects), so every tablespace the
+          # backup's tables use beyond the cluster's own must exist first, or ndb_restore stops with error 723.
+          sql() { mysql -uroot --protocol=socket --socket="$SOCKET" -N -e "$1"; }
+          create_tablespace() {
+            local name=$1 size=$2 extent=$3 lg=$4 got
+            got=$(sql "SELECT COUNT(*) FROM information_schema.FILES WHERE ENGINE = 'ndbcluster' AND FILE_TYPE = 'UNDO LOG' AND LOGFILE_GROUP_NAME = '$lg';")
+            if [ "$got" = 0 ]; then
+              echo "Logfile group $lg for tablespace $name does not exist" >&2
+              exit 1
+            fi
+            got=$(sql "SELECT COUNT(*) FROM information_schema.FILES WHERE ENGINE = 'ndbcluster' AND FILE_TYPE = 'DATAFILE' AND TABLESPACE_NAME = '$name';")
+            if [ "$got" = 0 ]; then
+              echo "Creating tablespace $name: $size bytes, $extent byte extents, logfile group $lg"
+              sql "CREATE TABLESPACE \`$name\` ADD DATAFILE '${name}_data_file_0.dat' USE LOGFILE GROUP \`$lg\` INITIAL_SIZE $size EXTENT_SIZE $extent ENGINE NDB;"
+            fi
+            got=$(sql "SELECT CONCAT_WS(' ', MAX(LOGFILE_GROUP_NAME), MIN(EXTENT_SIZE)) FROM information_schema.FILES WHERE ENGINE = 'ndbcluster' AND FILE_TYPE = 'DATAFILE' AND TABLESPACE_NAME = '$name';")
+            if [ "$got" != "$lg $extent" ]; then
+              echo "Tablespace $name is '$got' (logfile group, extent bytes), want '$lg $extent'" >&2
+              exit 1
+            fi
+            got=$(sql "SELECT SUM(INITIAL_SIZE) >= $size FROM information_schema.FILES WHERE ENGINE = 'ndbcluster' AND FILE_TYPE = 'DATAFILE' AND TABLESPACE_NAME = '$name';")
+            if [ "$got" != 1 ]; then
+              echo "Tablespace $name has less than $size bytes of datafiles" >&2
+              exit 1
+            fi
+            echo "Tablespace $name ready on $lg"
+          }
+{{- range .Values.restoreFromBackup.tablespaces }}
+          create_tablespace {{ .name }} {{ mul (int64 .sizeGiB) 1073741824 }} {{ mul (int64 .extentSizeMiB) 1048576 }} {{ .logfileGroup }}
+{{- end }}
+{{- end }}
 
           echo && echo "[K8s Entryoint MySQLd] Killing the MySQLd now" && echo
 
