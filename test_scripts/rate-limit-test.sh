@@ -128,6 +128,9 @@ assert "rejects a negative MaxNoOfUserObjects" \
   'render_fails "MaxNoOfUserObjects" --set rondbConfig.MaxNoOfUserObjects=-1'
 assert "rejects a string MaxNoOfUserObjects" \
   'render_fails "MaxNoOfUserObjects" --set rondbConfig.MaxNoOfUserObjects=many'
+# RonDB's own maximum (ConfigInfo.cpp); the management server refuses a larger value at start.
+assert "rejects a MaxNoOfUserObjects above 1000000" \
+  'render_fails "MaxNoOfUserObjects" --set rondbConfig.MaxNoOfUserObjects=1000001'
 
 echo "Part 3 - mysql.config.ndbUserRateLimits"
 
