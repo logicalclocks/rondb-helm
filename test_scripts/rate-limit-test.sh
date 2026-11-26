@@ -107,6 +107,16 @@ assert "an explicit MaxNoOfSchemaObjects below the sum fails the render" \
 render --set rondbConfig.MaxNoOfUserObjects=20000 --set rondbConfig.MaxNoOfSchemaObjects=30428
 assert "an explicit MaxNoOfSchemaObjects equal to the sum renders" '[ "$(ini MaxNoOfSchemaObjects)" = 30428 ]'
 
+# The ceiling on an explicit MaxNoOfSchemaObjects, 1200000, is the previous
+# 200000 for tables and indexes plus the 1000000 user objects the chart allows,
+# so a value the chart generated can be pinned explicitly.
+assert "the sum generated for MaxNoOfUserObjects=1000000, 1010428, round-trips as an integer" \
+  'helm template t "$CHART" --set-json rondbConfig.MaxNoOfUserObjects=1000000 --set-json rondbConfig.MaxNoOfSchemaObjects=1010428 > "$OUT" 2>/dev/null && [ "$(ini MaxNoOfSchemaObjects)" = 1010428 ]'
+assert "1200000 is accepted" \
+  'helm template t "$CHART" --set-json rondbConfig.MaxNoOfUserObjects=1000000 --set-json rondbConfig.MaxNoOfTables=189572 --set-json rondbConfig.MaxNoOfSchemaObjects=1200000 > "$OUT" 2>/dev/null && [ "$(ini MaxNoOfSchemaObjects)" = 1200000 ]'
+assert "rejects a MaxNoOfSchemaObjects above 1200000" \
+  'render_fails "MaxNoOfSchemaObjects" --set-json rondbConfig.MaxNoOfSchemaObjects=1200001'
+
 render --set rondbConfig.MaxNoOfSchemaObjects=25000
 assert "an explicit MaxNoOfSchemaObjects without the allowance is rendered alone" \
   '[ "$(ini MaxNoOfSchemaObjects)" = 25000 ] && [ -z "$(ini MaxNoOfUserObjects)" ]'

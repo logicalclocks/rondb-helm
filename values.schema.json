@@ -1543,10 +1543,10 @@
                         "integer",
                         "null"
                     ],
-                    "description": "Maximum total number of schema objects (tables, ordered indexes, unique hash indexes, rate limit USERs and aliases, etc.) that a data node may allocate. Increase this when the application needs more than the default cap of 20,320 table objects. When unset, RonDB's built-in default is used, unless rondbConfig.MaxNoOfUserObjects is set: the chart then renders max(20320, MaxNoOfTables (8000 when unset) + 128 ordered indexes + 2300 unique hash indexes + MaxNoOfUserObjects), the index counts being RonDB's defaults for the parameters the chart does not set. The data nodes refuse to start when it is below MaxNoOfTables + MaxNoOfOrderedIndexes + MaxNoOfUniqueHashIndexes + MaxNoOfUserObjects; with MaxNoOfUserObjects set, the chart fails the render instead. Do not lower it while schema objects exist: a data node whose objects no longer fit may fail to restart. See https://docs.rondb.com/automatic_memory_config/.",
+                    "description": "Maximum total number of schema objects (tables, ordered indexes, unique hash indexes, rate limit USERs and aliases, etc.) that a data node may allocate. Increase this when the application needs more than the default cap of 20,320 table objects. When unset, RonDB's built-in default is used, unless rondbConfig.MaxNoOfUserObjects is set: the chart then renders max(20320, MaxNoOfTables (8000 when unset) + 128 ordered indexes + 2300 unique hash indexes + MaxNoOfUserObjects), the index counts being RonDB's defaults for the parameters the chart does not set. The data nodes refuse to start when it is below MaxNoOfTables + MaxNoOfOrderedIndexes + MaxNoOfUniqueHashIndexes + MaxNoOfUserObjects; with MaxNoOfUserObjects set, the chart fails the render instead. Do not lower it while schema objects exist: a data node whose objects no longer fit may fail to restart. At most 1200000: 200000 for tables and indexes plus the 1000000 user objects MaxNoOfUserObjects allows, so any value the chart generates can also be set explicitly. See https://docs.rondb.com/automatic_memory_config/.",
                     "default": null,
                     "minimum": 20320,
-                    "maximum": 200000
+                    "maximum": 1200000
                 },
                 "MaxNoOfUserObjects": {
                     "type": [

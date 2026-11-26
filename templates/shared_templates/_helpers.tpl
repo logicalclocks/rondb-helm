@@ -442,7 +442,7 @@ spec:
 {{- if and $userObjects (lt ($config.MaxNoOfSchemaObjects | int) $needed) -}}
 {{- fail (printf "rondbConfig.MaxNoOfSchemaObjects (%d) is below the %d schema objects the data nodes need: MaxNoOfTables (%d) + 128 ordered indexes + 2300 unique hash indexes + MaxNoOfUserObjects (%d). They refuse to start with it. Raise it or leave it unset, and the chart renders the sum." ($config.MaxNoOfSchemaObjects | int) $needed ($config.MaxNoOfTables | default 8000 | int) ($userObjects | int)) -}}
 {{- end -}}
-{{- $config.MaxNoOfSchemaObjects -}}
+{{- $config.MaxNoOfSchemaObjects | int -}}
 {{- else if $userObjects -}}
 {{- max 20320 $needed -}}
 {{- end -}}
