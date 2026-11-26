@@ -418,6 +418,7 @@ restoreFromBackup:
       key: null
       name: null
     serverSideEncryption: null
+  tablespaces: []
 rondbConfig:
   ActivateRateLimits: 0
   BackupLogBufferSize: 16M

@@ -2536,6 +2536,38 @@
                     "description": "Confirm that existing data will be destroyed during in-place restore.",
                     "type": ["boolean", "null"],
                     "default": null
+                },
+                "tablespaces": {
+                    "description": "Disk data tablespaces the backup's tables use beyond the cluster's own (InitialTablespace). The metadata restore runs with --no-restore-disk-objects, so a table on any other tablespace fails with error 723 unless it is listed here. Each one missing is created before the metadata restore, on an existing logfile group.",
+                    "type": "array",
+                    "default": [],
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["name", "sizeGiB", "extentSizeMiB", "logfileGroup"],
+                        "properties": {
+                            "name": {
+                                "description": "Tablespace name, as in the source cluster. Its datafile is <name>_data_file_0.dat.",
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_]{1,64}$"
+                            },
+                            "sizeGiB": {
+                                "description": "Datafile size in GiB, allocated on every data node. A tablespace that already exists must have at least this much in datafiles.",
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "extentSizeMiB": {
+                                "description": "Extent size in MiB.",
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "logfileGroup": {
+                                "description": "Existing logfile group whose undo log the tablespace uses.",
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_]{1,64}$"
+                            }
+                        }
+                    }
                 }
             },
             "required": []
