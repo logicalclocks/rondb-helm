@@ -77,6 +77,9 @@ assert "rdrs.rateLimit.enable=false does not require it" '[ -z "$(ini MaxNoOfUse
 render --set rdrs.rateLimit.enable=true --set rondbConfig.MaxNoOfUserObjects=100
 assert "rdrs.rateLimit.enable=true renders with it" '[ "$(ini MaxNoOfUserObjects)" = 100 ]'
 
+# Helm drops a null-valued key before rendering, so the whole section can be absent.
+assert "rdrs.rateLimit=null renders" 'helm template t "$CHART" --set rdrs.rateLimit=null > /dev/null 2>&1'
+
 # max(20320, 8000 + 128 + 2300 + 5000 = 15428) = 20320
 render --set rondbConfig.ActivateRateLimits=1 --set rondbConfig.MaxNoOfUserObjects=5000
 assert "renders MaxNoOfUserObjects=5000" '[ "$(ini MaxNoOfUserObjects)" = 5000 ]'
