@@ -392,6 +392,16 @@ spec:
 {{ mustRegexReplaceAll "NodeActive *=.*" (tpl ($.Files.Get "files/configs/config.ini") $) "" | sha256sum }}
 {{- end -}}
 
+# mysqld reads ndb-user-rate-limits at startup only, and my.cnf is not hashed
+# into the MySQL pod templates, so the flag is stamped on them: switching it
+# either way changes the template and rolls the servers. Empty when off, which
+# keeps the default render unchanged.
+{{- define "rondb.ndbUserRateLimitsAnnotation" -}}
+{{- if .Values.mysql.config.ndbUserRateLimits -}}
+rondb.hopsworks.ai/ndb-user-rate-limits: "true"
+{{- end -}}
+{{- end -}}
+
 # Identifies the release this render asks for. It is stamped on the StatefulSets
 # and on the mysqld-configs ConfigMap, so a client can tell that a StatefulSet
 # has received this render before trusting `kubectl rollout status`, which

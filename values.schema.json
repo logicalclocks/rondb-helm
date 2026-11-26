@@ -1221,7 +1221,7 @@
                         },
                         "ndbUserRateLimits": {
                             "type": "boolean",
-                            "description": "Start every mysqld with ndb-user-rate-limits=ON so SQL traffic is tagged with the MySQL account name and the data nodes enforce USER rate limits (RONDB-1158). Read-only at runtime. Requires rondbConfig.ActivateRateLimits and rondbConfig.MaxNoOfUserObjects; the render fails without them.",
+                            "description": "Start every mysqld with ndb-user-rate-limits=ON so SQL traffic is tagged with the MySQL account name and the data nodes enforce USER rate limits (RONDB-1158). Read-only at runtime, so switching it either way restarts the MySQL servers: the flag is an annotation on their pod templates. Requires rondbConfig.ActivateRateLimits and rondbConfig.MaxNoOfUserObjects; the render fails without them.",
                             "default": false
                         }
                     }

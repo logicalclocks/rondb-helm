@@ -155,6 +155,21 @@ render --set mysql.config.ndbUserRateLimits=true --set rondbConfig.ActivateRateL
 assert "ndb-user-rate-limits = ON in every my.cnf" \
   '[ "$(grep -c "^ *ndb-user-rate-limits *= ON$" "$OUT")" -eq "$(grep -c "^ *max-prepared-stmt-count *=" "$OUT")" ] && [ "$(grep -c "^ *ndb-user-rate-limits" "$OUT")" -eq 4 ]'
 
+# The flag is read at mysqld startup only and my.cnf is not hashed into the
+# pod templates, so the flag itself is stamped on them: switching it either
+# way changes every MySQL pod template and rolls the servers.
+ANNOTATION='rondb.hopsworks.ai/ndb-user-rate-limits: "true"'
+render --set mysql.config.ndbUserRateLimits=true --set rondbConfig.ActivateRateLimits=1 \
+  --set rondbConfig.MaxNoOfUserObjects=100 --set meta.ddlMySQLd.enabled=true \
+  --set globalReplication.primary.enabled=true --set globalReplication.secondary.enabled=true
+assert "the flag is an annotation on all four MySQL pod templates" \
+  '[ "$(grep -cF "$ANNOTATION" "$OUT")" -eq 4 ]'
+render --set rondbConfig.ActivateRateLimits=1 --set rondbConfig.MaxNoOfUserObjects=100 \
+  --set meta.ddlMySQLd.enabled=true \
+  --set globalReplication.primary.enabled=true --set globalReplication.secondary.enabled=true
+assert "with the flag off no pod template carries the annotation" \
+  '! grep -qF "ndb-user-rate-limits" "$OUT"'
+
 assert "rejects a string for ndbUserRateLimits" \
   'render_fails "ndbUserRateLimits" --set mysql.config.ndbUserRateLimits=yes'
 
