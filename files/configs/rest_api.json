@@ -152,6 +152,7 @@
 {{- end }}
 {{- with include "rondb.rdrs.configFields" (dict "values" $.Values.rdrs.rateLimit "indent" 8 "keys" (list
       (list "enable" "Enable")
+      (list "identity" "Identity")
       (list "fullApiKey" "FullAPIKey"))) }}
     "RateLimit": {
         {{ . }}

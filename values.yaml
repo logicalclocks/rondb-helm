@@ -244,6 +244,7 @@ mysql:
     maxConnectErrors: '9223372036854775807'
     maxConnections: 512
     maxPreparedStmtCount: 65530
+    ndbUserRateLimits: false
   credentialsSecretName: mysql-passwords
   exporter:
     enabled: false
@@ -336,6 +337,7 @@ rdrs:
   rateLimit:
     enable: null
     fullApiKey: null
+    identity: null
   rest:
     idleConnectionTimeoutS: null
     numThreads: null
@@ -436,11 +438,13 @@ rondbConfig:
   MaxNoOfSchemaObjects: null
   MaxNoOfTables: null
   MaxNoOfTriggers: null
+  MaxNoOfUserObjects: null
   MaxRRGroupSize: null
   MySQLdSlotsPerNode: 4
   OsCpuOverhead: null
   OsStaticOverhead: null
   PartitionsPerNode: null
+  RateLimitBudgetPercent: null
   RdrsMetadataSlotsPerNode: 1
   RdrsSlotsPerNode: 1
   RedoBuffer: null

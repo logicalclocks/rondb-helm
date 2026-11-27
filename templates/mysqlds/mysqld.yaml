@@ -27,6 +27,7 @@ spec:
         rondbService: {{ include "rondb.labels.rondbService.mysqld" $ }}
       annotations:
         configIniHash: {{ include "rondb.configIniHash" $ }}
+        {{- with include "rondb.ndbUserRateLimitsAnnotation" $ }}{{ . | nindent 8 }}{{ end }}
     spec:
       terminationGracePeriodSeconds: {{ include "rondb.gracePeriod" (dict "v" $.Values "component" "mysqlds") }}
 {{- include "rondb.imagePullSecrets" . | indent 6 }}

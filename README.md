@@ -293,12 +293,13 @@ batch request may carry at most a fixed number of operations. `MaxBuffers`,
 | `rdrs.ttlPurge.enable` | `TTLPurge.Enable` | true | Whether the pods run the TTL purge worker at startup; changeable per pod at runtime through `/ttl-purge/config`. |
 | `rdrs.ttlPurge.activeWindow` | `TTLPurge.ActiveWindow` | empty (around the clock) | Daily UTC window `HH:MM-HH:MM`, may wrap past midnight; start and end must differ. A window in `mysql.ttl_purge_ctrl` takes precedence. |
 
-**RateLimit** (USER rate limiting of the pods' NDB traffic, RONDB-978)
+**RateLimit** (USER rate limiting of the pods' NDB traffic, RONDB-978 and RONDB-1158)
 
 | value | rest_api.json key | RDRS default | meaning |
 |---|---|---|---|
-| `rdrs.rateLimit.enable` | `RateLimit.Enable` | false | Tag NDB transactions with the request's API key so the data nodes (run with `ActivateRateLimits`) enforce USER limits. |
-| `rdrs.rateLimit.fullApiKey` | `RateLimit.FullAPIKey` | false | Use the full API key as identity instead of its prefix. |
+| `rdrs.rateLimit.enable` | `RateLimit.Enable` | false | Tag NDB transactions with the request's rate limit identity so the data nodes (run with `ActivateRateLimits`) enforce USER limits. Requires `rondbConfig.MaxNoOfUserObjects`; the chart fails the render otherwise. |
+| `rdrs.rateLimit.identity` | `RateLimit.Identity` | `apikey` | `apikey`: the request's API key. `username`: the Hopsworks project-user account of the key's owner in the request's target project, the bucket that account's SQL traffic is billed to. |
+| `rdrs.rateLimit.fullApiKey` | `RateLimit.FullAPIKey` | false | Use the full API key as identity instead of its prefix. Only with identity `apikey`; the chart fails the render otherwise. |
 
 **Log**
 
@@ -327,7 +328,6 @@ Not exposed, and why:
 - `Security.InsecureAllowAll`, `Security.APIKey.UseHopsworksAPIKeys`: the chart
   always authenticates with Hopsworks API keys.
 - `Security.TLS.*`: from `meta.rdrs.statefulSet.endToEndTls`.
-- `RateLimit.Identity`: `apikey` is its only legal value.
 - `Log.FilePath`, `MaxSizeMb`, `MaxBackups`, `MaxAge`: the pod logs to stdout.
 - `GRPC`: not supported by `rdrs2`.
 - `Rondis`: not deployed by this chart.

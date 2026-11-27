@@ -392,6 +392,16 @@ spec:
 {{ mustRegexReplaceAll "NodeActive *=.*" (tpl ($.Files.Get "files/configs/config.ini") $) "" | sha256sum }}
 {{- end -}}
 
+# mysqld reads ndb-user-rate-limits at startup only, and my.cnf is not hashed
+# into the MySQL pod templates, so the flag is stamped on them: switching it
+# either way changes the template and rolls the servers. Empty when off, which
+# keeps the default render unchanged.
+{{- define "rondb.ndbUserRateLimitsAnnotation" -}}
+{{- if .Values.mysql.config.ndbUserRateLimits -}}
+rondb.hopsworks.ai/ndb-user-rate-limits: "true"
+{{- end -}}
+{{- end -}}
+
 # Identifies the release this render asks for. It is stamped on the StatefulSets
 # and on the mysqld-configs ConfigMap, so a client can tell that a StatefulSet
 # has received this render before trusting `kubectl rollout status`, which
@@ -411,6 +421,40 @@ spec:
 {{- $conc := (.Values.rondbConfig.MaxNoOfConcurrentOperations | default 65536) | int -}}
 {{- if le $dml $conc }}
 {{- $dml -}}
+{{- end -}}
+{{- end -}}
+
+# MaxNoOfUserObjects as an integer, empty when unset. A values file passes
+# numbers as floats, and a float of a million or more prints as 1e+06.
+{{- define "rondb.maxNoOfUserObjects" -}}
+{{- if and (hasKey .Values.rondbConfig "MaxNoOfUserObjects") (not (eq .Values.rondbConfig.MaxNoOfUserObjects nil)) -}}
+{{- .Values.rondbConfig.MaxNoOfUserObjects | int -}}
+{{- end -}}
+{{- end -}}
+
+# MaxNoOfSchemaObjects as rendered: the explicit value, else, with a
+# MaxNoOfUserObjects allowance, the smallest value the data nodes start with:
+# tables + ordered indexes + unique hash indexes + the allowance, at least
+# RonDB's default of 20320. The chart sets neither index count, so they are
+# RonDB's automatic-memory defaults (Configuration.cpp): 128 ordered indexes
+# (its 10000 applies to an explicit 0 only) and 2300 unique hash indexes; an
+# unset MaxNoOfTables is 8000. An explicit value below that sum fails the
+# render, since the data nodes refuse to start with it (Configuration.cpp,
+# "increase MaxNoOfSchemaObjects").
+{{- define "rondb.maxNoOfSchemaObjects" -}}
+{{- $config := .Values.rondbConfig -}}
+{{- $userObjects := include "rondb.maxNoOfUserObjects" . -}}
+{{- $needed := 0 -}}
+{{- if $userObjects -}}
+{{- $needed = add ($config.MaxNoOfTables | default 8000) 128 2300 $userObjects -}}
+{{- end -}}
+{{- if $config.MaxNoOfSchemaObjects -}}
+{{- if and $userObjects (lt ($config.MaxNoOfSchemaObjects | int) $needed) -}}
+{{- fail (printf "rondbConfig.MaxNoOfSchemaObjects (%d) is below the %d schema objects the data nodes need: MaxNoOfTables (%d) + 128 ordered indexes + 2300 unique hash indexes + MaxNoOfUserObjects (%d). They refuse to start with it. Raise it or leave it unset, and the chart renders the sum." ($config.MaxNoOfSchemaObjects | int) $needed ($config.MaxNoOfTables | default 8000 | int) ($userObjects | int)) -}}
+{{- end -}}
+{{- $config.MaxNoOfSchemaObjects | int -}}
+{{- else if $userObjects -}}
+{{- max 20320 $needed -}}
 {{- end -}}
 {{- end -}}
 

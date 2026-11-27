@@ -1218,6 +1218,11 @@
                             "type": "integer",
                             "description": "Maximum number of prepared statements.",
                             "default": 65530
+                        },
+                        "ndbUserRateLimits": {
+                            "type": "boolean",
+                            "description": "Start every mysqld with ndb-user-rate-limits=ON so SQL traffic is tagged with the MySQL account name and the data nodes enforce USER rate limits (RONDB-1158). Read-only at runtime, so switching it either way restarts the MySQL servers: the flag is an annotation on their pod templates. Requires rondbConfig.ActivateRateLimits and rondbConfig.MaxNoOfUserObjects; the render fails without them.",
+                            "default": false
                         }
                     }
                 }
@@ -1538,10 +1543,20 @@
                         "integer",
                         "null"
                     ],
-                    "description": "Maximum total number of schema objects (tables, ordered indexes, unique hash indexes, etc.) that a data node may allocate. Increase this when the application needs more than the default cap of 20,320 table objects. Only applied if explicitly set; otherwise RonDB's built-in default is used. See https://docs.rondb.com/automatic_memory_config/.",
+                    "description": "Maximum total number of schema objects (tables, ordered indexes, unique hash indexes, rate limit USERs and aliases, etc.) that a data node may allocate. Increase this when the application needs more than the default cap of 20,320 table objects. When unset, RonDB's built-in default is used, unless rondbConfig.MaxNoOfUserObjects is set: the chart then renders max(20320, MaxNoOfTables (8000 when unset) + 128 ordered indexes + 2300 unique hash indexes + MaxNoOfUserObjects), the index counts being RonDB's defaults for the parameters the chart does not set. The data nodes refuse to start when it is below MaxNoOfTables + MaxNoOfOrderedIndexes + MaxNoOfUniqueHashIndexes + MaxNoOfUserObjects; with MaxNoOfUserObjects set, the chart fails the render instead. Do not lower it while schema objects exist: a data node whose objects no longer fit may fail to restart. At most 1200000: 200000 for tables and indexes plus the 1000000 user objects MaxNoOfUserObjects allows, so any value the chart generates can also be set explicitly. See https://docs.rondb.com/automatic_memory_config/.",
                     "default": null,
                     "minimum": 20320,
-                    "maximum": 200000
+                    "maximum": 1200000
+                },
+                "MaxNoOfUserObjects": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "description": "Schema objects added for rate limit USERs and USER ALIASes (RONDB-1158; config.ini MaxNoOfUserObjects). RonDB default 0, which adds none: USERs and aliases then take free schema object entries. Size it as one USER per rate limit group plus one alias per member account, counting the groups that target this RonDB cluster, with headroom, since it cannot be lowered while objects use it. A starting value of 10000 covers 10,000 USERs and aliases in total on the cluster. User objects take the ids above the table and index sum first and then share the free ids; when none is left, a USER or alias create is refused with error 1277. Memory, measured in RonDB: each object costs about 0.5 KB of SchemaMemory on every data node plus 208 bytes per TC thread and 88 bytes per LDM thread, and with automatic memory configuration the data node reserves it up front for the whole allowance. That is about 2 KB per object on a data node with 4 TC and 8 LDM threads, so 10000 takes about 20 MB and 20000 about 40 MB per data node; nothing is reserved at 0. Required when mysql.config.ndbUserRateLimits, rdrs.rateLimit.enable or rondbConfig.ActivateRateLimits is on; the render fails without it. Rendered whenever set, whatever those flags say, with a MaxNoOfSchemaObjects that covers it (see MaxNoOfSchemaObjects). Neither it nor MaxNoOfSchemaObjects may be lowered while USERs or aliases exist: a data node whose objects no longer fit may fail to restart. Setting or changing it is a rolling restart of the data nodes and of every other pod that carries the config.ini hash (management server, MySQL servers, RDRS); the management server starts with --initial and rebuilds its configuration from config.ini each time. Needs a RonDB release with RONDB-1158: an older management server refuses the unknown parameter. At most 1000000, RonDB's own maximum.",
+                    "default": null,
+                    "minimum": 0,
+                    "maximum": 1000000
                 },
                 "TransactionMemory": {
                     "type": [
@@ -1696,10 +1711,20 @@
                 },
                 "ActivateRateLimits": {
                     "type": "integer",
-                    "description": "Activate rate limits handling",
+                    "description": "Activate rate limits handling. When on, rondbConfig.MaxNoOfUserObjects is required.",
                     "minimum": 0,
                     "maximum": 1,
                     "default": 0
+                },
+                "RateLimitBudgetPercent": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "description": "Percent of each data node's rate pool that USER and DATABASE QUOTA rate limits may allocate in total (config.ini RateLimitBudgetPercent, RONDB-1158); the pool is 1,000,000 rate units per block and send thread. Rendered only when set; RonDB default 50. Changing it is a rolling restart of the data nodes and of every other pod that carries the config.ini hash. Upgrade note: a cluster that allocated more than 50% under the earlier create-then-alter path cannot grow its allocation under the default (lowering and dropping still work) until this is raised to cover it or the allocations drain below 50%. Needs a RonDB release with RONDB-1158: an older management server refuses the unknown parameter.",
+                    "default": null,
+                    "minimum": 1,
+                    "maximum": 100
                 },
                 "TransactionInactiveTimeout": {
                     "type": "integer",
@@ -2048,7 +2073,7 @@
                 },
                 "rateLimit": {
                     "type": "object",
-                    "description": "USER rate limiting of the NDB traffic of every RDRS pod (RONDB-978), rendered as the RateLimit section of rest_api.json only when a key is set, so RDRS images that predate it keep starting. The identity is always the Hopsworks API key of the request: RateLimit.Identity has no other legal value and is not exposed. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.rateLimit.",
+                    "description": "USER rate limiting of the NDB traffic of every RDRS pod (RONDB-978/RONDB-1158), rendered as the RateLimit section of rest_api.json only when a key is set, so RDRS images that predate it keep starting. When installed through the Hopsworks chart, the path is rondb.rondb.rdrs.rateLimit.",
                     "additionalProperties": false,
                     "properties": {
                         "enable": {
@@ -2056,7 +2081,20 @@
                                 "boolean",
                                 "null"
                             ],
-                            "description": "Tag the NDB transactions of REST requests with the request's API key so the data nodes enforce USER rate limits. The data nodes must run with ActivateRateLimits, and an identity without a provisioned USER entity runs unmetered. RDRS default false.",
+                            "description": "Tag the NDB transactions of REST requests with the request's rate limit identity so the data nodes enforce USER rate limits. The data nodes must run with ActivateRateLimits, and an identity without a provisioned USER entity runs unmetered. Requires rondbConfig.MaxNoOfUserObjects; the render fails without it. RDRS default false.",
+                            "default": null
+                        },
+                        "identity": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "apikey",
+                                "username",
+                                null
+                            ],
+                            "description": "What the rate limit identity is (RateLimit.Identity): 'apikey' tags with the request's API key prefix, 'username' with the Hopsworks project-user account of the key's owner in the request's target project, the same bucket the account's SQL traffic is billed to (RONDB-1158). RDRS default apikey.",
                             "default": null
                         },
                         "fullApiKey": {
@@ -2064,10 +2102,36 @@
                                 "boolean",
                                 "null"
                             ],
-                            "description": "Use the full API key as the rate limit identity (RateLimit.FullAPIKey) instead of its prefix. RDRS default false.",
+                            "description": "Use the full API key as the rate limit identity (RateLimit.FullAPIKey) instead of its prefix; only legal with identity 'apikey'. RDRS default false.",
                             "default": null
                         }
-                    }
+                    },
+                    "allOf": [
+                        {
+                            "description": "RateLimit.FullAPIKey is only legal with identity 'apikey'; RDRS refuses the combination at startup.",
+                            "if": {
+                                "properties": {
+                                    "identity": {
+                                        "const": "username"
+                                    },
+                                    "fullApiKey": {
+                                        "const": true
+                                    }
+                                },
+                                "required": [
+                                    "identity",
+                                    "fullApiKey"
+                                ]
+                            },
+                            "then": {
+                                "properties": {
+                                    "fullApiKey": {
+                                        "const": false
+                                    }
+                                }
+                            }
+                        }
+                    ]
                 },
                 "log": {
                     "type": "object",
